@@ -1,0 +1,76 @@
+from rest_framework import serializers
+from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
+from apps.organismos.models import Organismo
+from apps.personas.serializers import PersonaSerializer
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+# Serializers para modelos configurables
+class EstadoCarpetaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EstadoCarpeta
+        fields = '__all__'
+
+class TipoCarpetaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoCarpeta
+        fields = '__all__'
+
+class ObjetoCarpetaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ObjetoCarpeta
+        fields = '__all__'
+
+class OrganismoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organismo
+        fields = '__all__'
+
+# Serializer para Carpeta
+class CarpetaSerializer(serializers.ModelSerializer):
+    persona_nombre = serializers.SerializerMethodField()
+    propietario_nombre = serializers.ReadOnlyField(source='propietario.username')
+    persona_detalle = PersonaSerializer(source='persona', read_only=True)
+    compartida_con_count = serializers.SerializerMethodField()
+    estado_nombre = serializers.SerializerMethodField()
+    tipo_nombre = serializers.SerializerMethodField()
+    objeto_nombre = serializers.SerializerMethodField()
+    organismo_nombre = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Carpeta
+        fields = '__all__'
+        read_only_fields = ['fecha_inicio', 'ultima_actualizacion', 'propietario']
+    
+    def get_compartida_con_count(self, obj):
+        return obj.compartidos.count()
+    
+    def get_persona_nombre(self, obj):
+        return str(obj.persona) if obj.persona else None
+    
+    def get_estado_nombre(self, obj):
+        return obj.estado.nombre if obj.estado else None
+    
+    def get_tipo_nombre(self, obj):
+        return obj.tipo.nombre if obj.tipo else None
+    
+    def get_objeto_nombre(self, obj):
+        return obj.objeto.nombre if obj.objeto else None
+    
+    def get_organismo_nombre(self, obj):
+        return obj.organismo.nombre if obj.organismo else None
+
+# Serializer para CompartirCarpeta
+class CompartirCarpetaSerializer(serializers.ModelSerializer):
+    usuario_username = serializers.ReadOnlyField(source='usuario.username')
+    carpeta_nombre = serializers.SerializerMethodField()
+    compartido_por_username = serializers.ReadOnlyField(source='compartido_por.username')
+    
+    class Meta:
+        model = CompartirCarpeta
+        fields = '__all__'
+        read_only_fields = ['fecha_compartido']
+    
+    def get_carpeta_nombre(self, obj):
+        return str(obj.carpeta) if obj.carpeta else None

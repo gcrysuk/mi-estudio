@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block title %}Compartir Carpetas - Mi Estudio{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>Compartir Carpetas</h1>
+    <button class="btn btn-primary" onclick="mostrarModalCompartir()">
+        <span class="icon">🔗</span> Compartir seleccionadas
+    </button>
+</div>
+
+<div class="filters-bar">
+    <input type="text" class="search-input" placeholder="Buscar carpetas..." id="buscar">
+    <select class="filter-select" id="filtro-estado">
+        <option value="">Todos los estados</option>
+        <option value="en_tramite">En trámite</option>
+        <option value="cerrado">Cerrado</option>
+    </select>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th><input type="checkbox" id="seleccionar-todas"></th>
+                <th>N° Expediente</th>
+                <th>Carátula</th>
+                <th>Persona</th>
+                <th>Compartida con</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="carpetas-body">
+            <!-- Se llena con JavaScript -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Compartir -->
+<div class="modal" id="modal-compartir">
+    <div class="modal-content">
+        <h2>Compartir carpetas seleccionadas</h2>
+        <p id="carpetas-seleccionadas-info">0 carpetas seleccionadas</p>
+        
+        <div class="form-group">
+            <label>Seleccionar usuario:</label>
+            <select class="filter-select" id="usuario-select" style="width: 100%;">
+                <option value="">-- Seleccionar --</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="puede-editar">
+                ¿Puede editar?
+            </label>
+        </div>
+        
+        <div class="modal-actions">
+            <button class="btn btn-primary" onclick="compartirSeleccionadas()">Compartir</button>
+            <button class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let carpetasSeleccionadas = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    cargarCarpetas();
+    cargarUsuarios();
+    
+    document.getElementById('seleccionar-todas').addEventListener('change', function(e) {
+        const checkboxes = document.querySelectorAll('.carpeta-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = e.target.checked;
+            if (e.target.checked) {
+                carpetasSeleccionadas.push(cb.value);
+            } else {
+                carpetasSeleccionadas = [];
+            }
+        });
+        actualizarContador();
+    });
+});
+
+function cargarCarpetas() {
+    fetch('/api/v1/carpetas/', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        const tbody = document.getElementById('carpetas-body');
+        tbody.innerHTML = '';
+        
+        data.forEach(carpeta => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><input type="checkbox" class="carpeta-checkbox" value="${carpeta.id}" onchange="toggleSeleccion(${carpeta.id}, this.checked)"></td>
+                <td>${carpeta.numero_expediente}</td>
+                <td>${carpeta.caratula}</td>
+                <td>${carpeta.persona_nombre || '—'}</td>
+                <td>${carpeta.compartida_con_count || 0} usuarios</td>
+                <td>
+                    <button class="btn btn-small" onclick="compartirIndividual(${carpeta.id})">🔗 Compartir</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    });
+}
+
+function cargarUsuarios() {
+    fetch('/api/v1/usuarios/', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        const select = document.getElementById('usuario-select');
+        data.forEach(user => {
+            if (user.id !== {{ user.id }}) {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.username} - ${user.email}`;
+                select.appendChild(option);
+            }
+        });
+    });
+}
+
+function toggleSeleccion(id, checked) {
+    if (checked) {
+        carpetasSeleccionadas.push(id);
+    } else {
+        carpetasSeleccionadas = carpetasSeleccionadas.filter(c => c != id);
+    }
+    actualizarContador();
+}
+
+function actualizarContador() {
+    document.getElementById('carpetas-seleccionadas-info').textContent = 
+        `${carpetasSeleccionadas.length} carpetas seleccionadas`;
+}
+
+function mostrarModalCompartir() {
+    if (carpetasSeleccionadas.length === 0) {
+        alert('Seleccioná al menos una carpeta');
+        return;
+    }
+    document.getElementById('modal-compartir').classList.add('active');
+}
+
+function cerrarModal() {
+    document.getElementById('modal-compartir').classList.remove('active');
+}
+
+function compartirSeleccionadas() {
+    const usuarioId = document.getElementById('usuario-select').value;
+    const puedeEditar = document.getElementById('puede-editar').checked;
+    
+    if (!usuarioId) {
+        alert('Seleccioná un usuario');
+        return;
+    }
+    
+    fetch('/api/v1/carpetas/compartir_multiples/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        },
+        body: JSON.stringify({
+            carpetas: carpetasSeleccionadas,
+            usuario_id: parseInt(usuarioId),
+            puede_editar: puedeEditar
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(`Compartidas ${data.resultados.length} carpetas`);
+        cerrarModal();
+        cargarCarpetas();
+    });
+}
+
+function compartirIndividual(carpetaId) {
+    const usuarioId = prompt('Ingresá el ID del usuario:');
+    if (!usuarioId) return;
+    
+    fetch(`/api/v1/carpetas/${carpetaId}/compartir/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        },
+        body: JSON.stringify({
+            usuario_id: parseInt(usuarioId),
+            puede_editar: false
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.mensaje);
+        cargarCarpetas();
+    });
+}
+</script>
+{% endblock %}

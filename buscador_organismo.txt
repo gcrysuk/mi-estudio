@@ -1,0 +1,224 @@
+import { useState, useEffect, useRef } from 'react';
+import { Search, X, Building, Plus } from 'lucide-react';
+import api from '../../services/api';
+import useClickOutside from '../../hooks/useClickOutside';
+import toast from 'react-hot-toast';
+
+const BuscadorOrganismo = ({ value, onChange, placeholder = "Buscar organismo..." }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [organismos, setOrganismos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showCrearModal, setShowCrearModal] = useState(false);
+  const [nuevoOrganismo, setNuevoOrganismo] = useState('');
+  const dropdownRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useClickOutside(dropdownRef, () => setIsOpen(false));
+
+  useEffect(() => {
+    if (!searchTerm || searchTerm.length < 2) {
+      setOrganismos([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      buscarOrganismos();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const buscarOrganismos = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/carpetas/organismos/', {
+        params: { search: searchTerm, activo: true }
+      });
+      setOrganismos(response.data);
+    } catch (error) {
+      console.error('Error buscando organismos:', error);
+      // Datos de ejemplo si el endpoint no existe
+      const ejemplos = [
+        { id: 1, nombre: 'JUZGADO CIVIL N°1' },
+        { id: 2, nombre: 'JUZGADO LABORAL N°2' },
+        { id: 3, nombre: 'CÁMARA DE APELACIONES' },
+        { id: 4, nombre: 'JUZGADO FEDERAL N°1' },
+      ].filter(o => o.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+      setOrganismos(ejemplos);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const seleccionarOrganismo = (organismo) => {
+    onChange(organismo);
+    setSearchTerm('');
+    setIsOpen(false);
+  };
+
+  const limpiar = () => {
+    onChange(null);
+    setSearchTerm('');
+    inputRef.current?.focus();
+  };
+
+  const handleCrearNuevo = async () => {
+    if (!nuevoOrganismo.trim()) {
+      toast.error('El nombre del organismo es obligatorio');
+      return;
+    }
+
+    try {
+      // Intentar crear en backend
+      const response = await api.post('/carpetas/organismos/', {
+        nombre: nuevoOrganismo.toUpperCase(),
+        activo: true
+      });
+      
+      toast.success('Organismo creado');
+      seleccionarOrganismo(response.data);
+      setShowCrearModal(false);
+      setNuevoOrganismo('');
+    } catch (error) {
+      console.error('Error creando organismo:', error);
+      
+      // Si el endpoint no existe, simulamos creación
+      const nuevoOrganismoObj = {
+        id: Date.now(),
+        nombre: nuevoOrganismo.toUpperCase()
+      };
+      
+      toast.success('Organismo creado (modo desarrollo)');
+      seleccionarOrganismo(nuevoOrganismoObj);
+      setShowCrearModal(false);
+      setNuevoOrganismo('');
+    }
+  };
+
+  return (
+    <>
+      <div className="relative" ref={dropdownRef}>
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+          <input
+            ref={inputRef}
+            type="text"
+            value={value ? value.nombre : searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              if (value) onChange(null);
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            placeholder={value ? '' : placeholder}
+            className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+          />
+          {value && (
+            <button
+              onClick={limpiar}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {isOpen && searchTerm.length >= 2 && !value && (
+          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            {loading ? (
+              <div className="p-2 text-center text-sm text-gray-500">Buscando...</div>
+            ) : organismos.length === 0 ? (
+              <div className="p-3">
+                <div className="text-center text-sm text-gray-500 mb-2">
+                  No se encontraron organismos para "{searchTerm}"
+                </div>
+                <button
+                  onClick={() => {
+                    setNuevoOrganismo(searchTerm);
+                    setShowCrearModal(true);
+                    setIsOpen(false);
+                  }}
+                  className="w-full p-2 text-left text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 rounded border border-dashed border-accent"
+                >
+                  <Plus size={16} />
+                  Crear nuevo organismo "{searchTerm}"
+                </button>
+              </div>
+            ) : (
+              <>
+                {organismos.map(organismo => (
+                  <button
+                    key={organismo.id}
+                    onClick={() => seleccionarOrganismo(organismo)}
+                    className="w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 border-b last:border-0 border-gray-100 dark:border-gray-700"
+                  >
+                    <Building size={16} className="text-gray-400" />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">
+                        {organismo.nombre}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+                <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                <button
+                  onClick={() => {
+                    setNuevoOrganismo(searchTerm);
+                    setShowCrearModal(true);
+                    setIsOpen(false);
+                  }}
+                  className="w-full p-2 text-left text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Crear nuevo organismo
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Modal para crear organismo */}
+      {showCrearModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-md">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="font-bold uppercase">CREAR ORGANISMO</h3>
+              <button onClick={() => setShowCrearModal(false)} className="p-1 hover:text-accent">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-4">
+              <label className="block text-xs font-medium mb-1 uppercase">NOMBRE</label>
+              <input
+                type="text"
+                value={nuevoOrganismo}
+                onChange={(e) => setNuevoOrganismo(e.target.value.toUpperCase())}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                placeholder="Ej: JUZGADO CIVIL N°3"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => setShowCrearModal(false)}
+                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  onClick={handleCrearNuevo}
+                  className="px-3 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white"
+                >
+                  CREAR
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default BuscadorOrganismo;

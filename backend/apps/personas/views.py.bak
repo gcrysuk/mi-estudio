@@ -1,0 +1,39 @@
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Q
+from .models import Persona, TipoPersona
+from .serializers import PersonaSerializer, TipoPersonaSerializer
+
+class PersonaViewSet(viewsets.ModelViewSet):
+    serializer_class = PersonaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    # Estos campos son los que se usarán para búsqueda con ?search=
+    search_fields = ['nombre', 'apellido', 'numero_documento', 'email']
+    filterset_fields = ['activo', 'tipo_persona']
+    
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Persona.objects.filter(propietario=user, activo=True)
+        
+        # Log para debug
+        print(f"🔍 Usuario: {user}")
+        print(f"📊 Total personas: {queryset.count()}")
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        serializer.save(propietario=self.request.user)
+    
+    @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='tipos')
+    def tipos(self, request):
+        if request.method == 'GET':
+            # También agregar búsqueda a tipos si es necesario
+            tipos = TipoPersona.objects.filter(activo=True)
+            search = request.query_params.get('search', '')
+            if search:
+                tipos = tipos.filter(nombre__icontains=search)
+            serializer = TipoPersonaSerializer(tipos, many=True)
+            return Response(serializer.data)
+        # ... resto del código

@@ -1,0 +1,22 @@
+<header class="topbar">
+    <div class="search-container">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" placeholder="Buscar carpetas, personas, movimientos...">
+    </div>
+    
+    <div class="user-menu">
+        <button class="theme-toggle" onclick="toggleTheme()">
+            <span class="theme-icon">🌓</span>
+        </button>
+        
+        <div class="notifications">
+            <span class="notification-icon">🔔</span>
+            <span class="notification-badge">3</span>
+        </div>
+        
+        <div class="user-profile">
+            <img src="https://ui-avatars.com/api/?name={{ user.username }}&background=4FC3F7&color=fff" alt="Avatar">
+            <span class="username">{{ user.username }}</span>
+        </div>
+    </div>
+</header>

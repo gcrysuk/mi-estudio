@@ -1,0 +1,323 @@
+# apps/carpetas/views.py
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Q
+from django.contrib.auth import get_user_model
+from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
+from apps.organismos.models import Organismo
+from .serializers import (
+    CarpetaSerializer, 
+    CompartirCarpetaSerializer,
+    EstadoCarpetaSerializer, 
+    TipoCarpetaSerializer, 
+    ObjetoCarpetaSerializer, 
+    OrganismoSerializer
+)
+
+User = get_user_model()
+
+class CarpetaViewSet(viewsets.ModelViewSet):
+    serializer_class = CarpetaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    search_fields = ['numero_expediente', 'caratula', 'persona__nombre', 'persona__apellido']
+    filterset_fields = ['estado', 'persona', 'activo', 'tipo_carpeta']
+    
+    def get_queryset(self):
+        user = self.request.user
+
+        # Superuser ve todo
+        if user.is_superuser:
+            return Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
+        
+        # Usuarios normales: sus carpetas + compartidas + públicas
+        return Carpeta.objects.filter(
+            Q(propietario=user) |
+            Q(compartida_con__usuario=user) |
+            Q(es_publico=True),
+            activo=True
+        ).select_related('persona', 'propietario').distinct()
+    
+    def perform_create(self, serializer):
+        serializer.save(propietario=self.request.user)
+    
+    # ===== ENDPOINTS DE CONFIGURACIÓN (como en personas) =====
+    
+    @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='estados')
+    def estados(self, request):
+        if request.method == 'GET':
+            queryset = EstadoCarpeta.objects.filter(activo=True)
+            serializer = EstadoCarpetaSerializer(queryset, many=True)
+            return Response(serializer.data)
+        elif request.method == 'POST':
+            serializer = EstadoCarpetaSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        elif request.method == 'PUT':
+            estado_id = request.data.get('id')
+            try:
+                estado = EstadoCarpeta.objects.get(id=estado_id)
+                serializer = EstadoCarpetaSerializer(estado, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except EstadoCarpeta.DoesNotExist:
+                return Response({'error': 'Estado no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        elif request.method == 'DELETE':
+            estado_id = request.query_params.get('id')
+            try:
+                estado = EstadoCarpeta.objects.get(id=estado_id)
+                estado.delete()
+                return Response({'message': 'Estado eliminado'}, status=status.HTTP_200_OK)
+            except EstadoCarpeta.DoesNotExist:
+                return Response({'error': 'Estado no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Método no permitido'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='tipos')
+    def tipos_carpeta(self, request):
+        if request.method == 'GET':
+            queryset = TipoCarpeta.objects.filter(activo=True)
+            serializer = TipoCarpetaSerializer(queryset, many=True)
+            return Response(serializer.data)
+        elif request.method == 'POST':
+            serializer = TipoCarpetaSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        elif request.method == 'PUT':
+            tipo_id = request.data.get('id')
+            try:
+                tipo = TipoCarpeta.objects.get(id=tipo_id)
+                serializer = TipoCarpetaSerializer(tipo, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except TipoCarpeta.DoesNotExist:
+                return Response({'error': 'Tipo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        elif request.method == 'DELETE':
+            tipo_id = request.query_params.get('id')
+            try:
+                tipo = TipoCarpeta.objects.get(id=tipo_id)
+                tipo.delete()
+                return Response({'message': 'Tipo eliminado'}, status=status.HTTP_200_OK)
+            except TipoCarpeta.DoesNotExist:
+                return Response({'error': 'Tipo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Método no permitido'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='objetos')
+    def objetos_carpeta(self, request):
+        if request.method == 'GET':
+            queryset = ObjetoCarpeta.objects.filter(activo=True)
+            serializer = ObjetoCarpetaSerializer(queryset, many=True)
+            return Response(serializer.data)
+        elif request.method == 'POST':
+            serializer = ObjetoCarpetaSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        elif request.method == 'PUT':
+            objeto_id = request.data.get('id')
+            try:
+                objeto = ObjetoCarpeta.objects.get(id=objeto_id)
+                serializer = ObjetoCarpetaSerializer(objeto, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except ObjetoCarpeta.DoesNotExist:
+                return Response({'error': 'Objeto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        elif request.method == 'DELETE':
+            objeto_id = request.query_params.get('id')
+            try:
+                objeto = ObjetoCarpeta.objects.get(id=objeto_id)
+                objeto.delete()
+                return Response({'message': 'Objeto eliminado'}, status=status.HTTP_200_OK)
+            except ObjetoCarpeta.DoesNotExist:
+                return Response({'error': 'Objeto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Método no permitido'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='organismos')
+    def organismos(self, request):
+        if request.method == 'GET':
+            queryset = Organismo.objects.filter(activo=True)
+            serializer = OrganismoSerializer(queryset, many=True)
+            return Response(serializer.data)
+        elif request.method == 'POST':
+            serializer = OrganismoSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        elif request.method == 'PUT':
+            organismo_id = request.data.get('id')
+            try:
+                organismo = Organismo.objects.get(id=organismo_id)
+                serializer = OrganismoSerializer(organismo, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            except Organismo.DoesNotExist:
+                return Response({'error': 'Organismo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        elif request.method == 'DELETE':
+            organismo_id = request.query_params.get('id')
+            try:
+                organismo = Organismo.objects.get(id=organismo_id)
+                organismo.delete()
+                return Response({'message': 'Organismo eliminado'}, status=status.HTTP_200_OK)
+            except Organismo.DoesNotExist:
+                return Response({'error': 'Organismo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Método no permitido'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    
+    # ===== ENDPOINTS DE COMPARTIR (ya los tenías) =====
+    
+    @action(detail=False, methods=['post'])
+    def compartir_multiples(self, request):
+        """Compartir múltiples carpetas con un usuario"""
+        carpeta_ids = request.data.get('carpetas', [])
+        usuario_id = request.data.get('usuario_id')
+        puede_editar = request.data.get('puede_editar', False)
+        
+        if not carpeta_ids or not usuario_id:
+            return Response(
+                {"error": "Debe especificar 'carpetas' y 'usuario_id'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            usuario = User.objects.get(id=usuario_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Usuario no encontrado"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        carpetas = Carpeta.objects.filter(
+            id__in=carpeta_ids,
+            propietario=request.user
+        )
+        
+        if carpetas.count() != len(carpeta_ids):
+            return Response(
+                {"error": "No tienes permiso para compartir algunas carpetas"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        resultados = []
+        for carpeta in carpetas:
+            compartido, created = CompartirCarpeta.objects.get_or_create(
+                carpeta=carpeta,
+                usuario=usuario,
+                defaults={
+                    'compartido_por': request.user,
+                    'puede_editar': puede_editar
+                }
+            )
+            resultados.append({
+                'carpeta_id': carpeta.id,
+                'carpeta': str(carpeta),
+                'compartido': not created,
+                'mensaje': 'Ya estaba compartido' if not created else 'Compartido exitosamente'
+            })
+        
+        return Response({
+            'mensaje': f'Procesadas {len(resultados)} carpetas',
+            'resultados': resultados
+        })
+    
+    @action(detail=True, methods=['post'])
+    def compartir(self, request, pk=None):
+        """Compartir una carpeta específica con un usuario"""
+        carpeta = self.get_object()
+        
+        if carpeta.propietario != request.user and not request.user.is_superuser:
+            return Response(
+                {"error": "Solo el propietario puede compartir esta carpeta"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        usuario_id = request.data.get('usuario_id')
+        puede_editar = request.data.get('puede_editar', False)
+        
+        try:
+            usuario = User.objects.get(id=usuario_id)
+            
+            if usuario == request.user:
+                return Response(
+                    {"error": "No puedes compartir una carpeta contigo mismo"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            compartido, created = CompartirCarpeta.objects.update_or_create(
+                carpeta=carpeta,
+                usuario=usuario,
+                defaults={
+                    'compartido_por': request.user,
+                    'puede_editar': puede_editar
+                }
+            )
+            
+            return Response({
+                'mensaje': f"Carpeta compartida con {usuario.username}",
+                'created': created
+            })
+            
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Usuario no encontrado"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    @action(detail=True, methods=['get'])
+    def usuarios_compartidos(self, request, pk=None):
+        """Listar usuarios con quienes se compartió esta carpeta"""
+        carpeta = self.get_object()
+        
+        if carpeta.propietario != request.user and not request.user.is_superuser:
+            return Response(
+                {"error": "No tienes permiso para ver esta información"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        compartidos = carpeta.compartidos.all()
+        data = [{
+            'usuario_id': c.usuario.id,
+            'username': c.usuario.username,
+            'email': c.usuario.email,
+            'puede_editar': c.puede_editar,
+            'fecha_compartido': c.fecha_compartido
+        } for c in compartidos]
+        
+        return Response(data)
+    
+    @action(detail=True, methods=['post'])
+    def dejar_compartir(self, request, pk=None):
+        """Dejar de compartir una carpeta con un usuario"""
+        carpeta = self.get_object()
+        
+        if carpeta.propietario != request.user and not request.user.is_superuser:
+            return Response(
+                {"error": "Solo el propietario puede modificar los permisos"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        usuario_id = request.data.get('usuario_id')
+        
+        try:
+            compartido = CompartirCarpeta.objects.get(
+                carpeta=carpeta,
+                usuario_id=usuario_id
+            )
+            compartido.delete()
+            return Response({"mensaje": "Compartido eliminado"})
+        except CompartirCarpeta.DoesNotExist:
+            return Response(
+                {"error": "La carpeta no estaba compartida con ese usuario"},
+                status=status.HTTP_404_NOT_FOUND
+            )

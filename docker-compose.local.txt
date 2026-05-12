@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mi_estudio_mysql_local
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword123}
+      MYSQL_DATABASE: ${DB_NAME:-mi_estudio_dev}
+      MYSQL_USER: ${DB_USER:-mi_estudio_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-mi_estudio_password}
+    volumes:
+      - mysql_data_local:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3307:3306"  # Puerto diferente para no conflictos con MySQL local
+    networks:
+      - mi_estudio_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mi_estudio_redis_local
+    restart: unless-stopped
+    volumes:
+      - redis_data_local:/data
+    networks:
+      - mi_estudio_network
+
+  web:
+    build: .
+    container_name: mi_estudio_web_local
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./media:/app/media
+      - ./static:/app/static
+      - ./apps:/app/apps  # Montar código para desarrollo
+      - ./config:/app/config
+    ports:
+      - "8000:8000"  # Para acceder directo a Django (sin nginx)
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - mi_estudio_network
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  celery:
+    build: .
+    container_name: mi_estudio_celery_local
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./media:/app/media
+      - ./apps:/app/apps
+      - ./config:/app/config
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - mi_estudio_network
+    command: celery -A config worker -l info
+
+  nginx:
+    image: nginx:alpine
+    container_name: mi_estudio_nginx_local
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.local.conf:/etc/nginx/nginx.conf
+      - ./static:/app/static
+      - ./media:/app/media
+    depends_on:
+      - web
+    networks:
+      - mi_estudio_network
+
+volumes:
+  mysql_data_local:
+  redis_data_local:
+
+networks:
+  mi_estudio_network:
+    driver: bridge

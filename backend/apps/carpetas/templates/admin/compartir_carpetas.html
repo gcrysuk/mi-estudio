@@ -1,0 +1,42 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Compartir carpetas seleccionadas</h1>
+
+<p>Vas a compartir las siguientes carpetas:</p>
+<ul>
+    {% for carpeta in carpetas %}
+    <li>{{ carpeta.numero_expediente }} - {{ carpeta.caratula }}</li>
+    {% endfor %}
+</ul>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="compartir" value="1">
+    {% for carpeta in carpetas %}
+    <input type="hidden" name="_selected_action" value="{{ carpeta.id }}">
+    {% endfor %}
+    
+    <div style="margin: 20px 0;">
+        <label for="usuario_id"><strong>Seleccionar usuario:</strong></label><br>
+        <select name="usuario_id" id="usuario_id" style="width: 300px; padding: 5px;">
+            <option value="">-- Seleccionar --</option>
+            {% for usuario in usuarios %}
+            <option value="{{ usuario.id }}">{{ usuario.username }} - {{ usuario.email }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div style="margin: 20px 0;">
+        <label>
+            <input type="checkbox" name="puede_editar" value="on">
+            ¿Puede editar?
+        </label>
+    </div>
+    
+    <div style="margin: 20px 0;">
+        <input type="submit" value="Compartir" style="padding: 10px 20px; background: #417690; color: white; border: none; cursor: pointer;">
+        <a href="{% url 'admin:carpetas_carpeta_changelist' %}" style="margin-left: 10px; padding: 10px 20px; background: #ccc; color: black; text-decoration: none;">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

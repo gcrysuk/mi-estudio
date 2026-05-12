@@ -1,0 +1,93 @@
+# apps/carpetas/views.py
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Q
+from django.contrib.auth import get_user_model
+from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
+from apps.organismos.models import Organismo
+from .serializers import (
+    CarpetaSerializer, 
+    CompartirCarpetaSerializer,
+    EstadoCarpetaSerializer, 
+    TipoCarpetaSerializer, 
+    ObjetoCarpetaSerializer, 
+    OrganismoSerializer
+)
+
+User = get_user_model()
+
+class CarpetaViewSet(viewsets.ModelViewSet):
+    serializer_class = CarpetaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    search_fields = [
+        'numero_expediente', 
+        'nombre',
+        'caratula', 
+        'persona__nombre', 
+        'persona__apellido',
+        'contraparte',
+        'organismo__nombre',
+        'descripcion'
+    ]
+    filterset_fields = ['estado', 'persona', 'activo', 'tipo']
+    
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_superuser:
+            return Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
+        
+        return Carpeta.objects.filter(
+            Q(propietario=user) |
+            Q(compartida_con__usuario=user) |
+            Q(es_publico=True),
+            activo=True
+        ).select_related('persona', 'propietario').distinct()
+    
+    def perform_create(self, serializer):
+        serializer.save(propietario=self.request.user)
+    
+    # Endpoints de configuración
+    @action(detail=False, methods=['get'], url_path='estados')
+    def estados(self, request):
+        """Listar estados activos"""
+        queryset = EstadoCarpeta.objects.filter(activo=True)
+        # Agregar búsqueda si viene parámetro search
+        search = request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(nombre__icontains=search)
+        serializer = EstadoCarpetaSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='tipos')
+    def tipos_carpeta(self, request):
+        """Listar tipos activos"""
+        queryset = TipoCarpeta.objects.filter(activo=True)
+        search = request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(nombre__icontains=search)
+        serializer = TipoCarpetaSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='objetos')
+    def objetos_carpeta(self, request):
+        """Listar objetos activos"""
+        queryset = ObjetoCarpeta.objects.filter(activo=True)
+        search = request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(nombre__icontains=search)
+        serializer = ObjetoCarpetaSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='organismos')
+    def organismos(self, request):
+        """Listar organismos activos"""
+        queryset = Organismo.objects.filter(activo=True)
+        search = request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(nombre__icontains=search)
+        serializer = OrganismoSerializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    # ... resto de métodos (compartir, etc) ...

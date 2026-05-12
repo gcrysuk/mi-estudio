@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Mi Estudio{% endblock %}
+
+{% block content %}
+<!-- Cards de KPIs -->
+<div class="cards-grid">
+    <div class="card">
+        <div class="card-title">Vencen hoy</div>
+        <div class="card-number" id="vencen-hoy">3</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Vencen esta semana</div>
+        <div class="card-number" id="vencen-semana">7</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Carpetas activas</div>
+        <div class="card-number" id="carpetas-activas">12</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Movimientos pendientes</div>
+        <div class="card-number" id="movimientos-pendientes">5</div>
+    </div>
+</div>
+
+<!-- Tabla de Vencimientos -->
+<div class="table-section">
+    <h2>Vencimientos próximos</h2>
+    <div class="filters-bar">
+        <select class="filter-select" id="filtro-responsable">
+            <option value="">Todos los responsables</option>
+        </select>
+        <select class="filter-select" id="filtro-estado">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en_curso">En curso</option>
+            <option value="ok">Completado</option>
+        </select>
+        <input type="date" class="filter-select" id="filtro-fecha">
+        <button class="btn btn-primary" onclick="aplicarFiltros()">Aplicar filtros</button>
+    </div>
+    
+    <div class="table-container">
+        <table id="tabla-vencimientos">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Vencimiento</th>
+                    <th>Carpeta</th>
+                    <th>Cliente</th>
+                    <th>Movimiento</th>
+                    <th>Responsable</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="vencimientos-body">
+                <!-- Se llena con JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Kanban -->
+<div class="kanban">
+    <h2>Tablero Kanban</h2>
+    <div class="filters-bar">
+        <select class="filter-select" id="kanban-responsable">
+            <option value="">Todos los responsables</option>
+        </select>
+    </div>
+    
+    <div class="kanban-container" id="kanban-container">
+        <!-- Se llena con JavaScript -->
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="charts-grid">
+    <div class="card">
+        <h3>Estado de tareas</h3>
+        <canvas id="pieChart"></canvas>
+    </div>
+    <div class="card">
+        <h3>Movimientos por responsable</h3>
+        <canvas id="barChart"></canvas>
+    </div>
+</div>
+
+<script>
+let vencimientosData = [];
+let kanbanData = [];
+
+// Cargar datos al iniciar
+document.addEventListener('DOMContentLoaded', function() {
+    cargarVencimientos();
+    cargarKanban();
+    cargarGraficos();
+    cargarResponsables();
+});
+
+function cargarResponsables() {
+    fetch('/api/v1/usuarios/', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        const selects = document.querySelectorAll('.filter-select');
+        selects.forEach(select => {
+            data.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = user.username;
+                select.appendChild(option);
+            });
+        });
+    });
+}
+
+function cargarVencimientos() {
+    fetch('/api/v1/movimientos/?vencimiento__gte=' + new Date().toISOString().split('T')[0], {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        vencimientosData = data;
+        renderizarVencimientos(data);
+    });
+}
+
+function renderizarVencimientos(data) {
+    const tbody = document.getElementById('vencimientos-body');
+    tbody.innerHTML = '';
+    
+    data.forEach(mov => {
+        const fecha = new Date(mov.vencimiento);
+        const hoy = new Date();
+        const diffDays = Math.ceil((fecha - hoy) / (1000 * 60 * 60 * 24));
+        
+        let priorityClass = 'badge-green';
+        if (diffDays <= 0) priorityClass = 'badge-red';
+        else if (diffDays <= 7) priorityClass = 'badge-orange';
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><span class="badge-priority ${priorityClass}"></span></td>
+            <td>${new Date(mov.vencimiento).toLocaleDateString()}</td>
+            <td>${mov.carpeta_caratula || mov.carpeta}</td>
+            <td>${mov.cliente_nombre || '—'}</td>
+            <td>${mov.titulo}</td>
+            <td>${mov.responsable_username || mov.responsable}</td>
+            <td><span class="status-${mov.estado}">${mov.estado}</span></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function cargarKanban() {
+    fetch('/api/v1/movimientos/', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        kanbanData = data;
+        renderizarKanban(data);
+    });
+}
+
+function renderizarKanban(data) {
+    const container = document.getElementById('kanban-container');
+    
+    const columnas = {
+        'pendiente': [],
+        'en_curso': [],
+        'ok': []
+    };
+    
+    data.forEach(mov => {
+        if (columnas[mov.estado]) {
+            columnas[mov.estado].push(mov);
+        }
+    });
+    
+    container.innerHTML = `
+        <div class="kanban-column">
+            <h3>Pendiente (${columnas.pendiente.length})</h3>
+            ${columnas.pendiente.map(mov => `
+                <div class="task" draggable="true" data-id="${mov.id}">
+                    ${mov.titulo}
+                    <span>${mov.carpeta_caratula} - ${new Date(mov.vencimiento).toLocaleDateString()}</span>
+                </div>
+            `).join('')}
+        </div>
+        <div class="kanban-column">
+            <h3>En curso (${columnas.en_curso.length})</h3>
+            ${columnas.en_curso.map(mov => `
+                <div class="task" draggable="true" data-id="${mov.id}">
+                    ${mov.titulo}
+                    <span>${mov.carpeta_caratula} - ${new Date(mov.vencimiento).toLocaleDateString()}</span>
+                </div>
+            `).join('')}
+        </div>
+        <div class="kanban-column">
+            <h3>Completado (${columnas.ok.length})</h3>
+            ${columnas.ok.map(mov => `
+                <div class="task" draggable="true" data-id="${mov.id}">
+                    ${mov.titulo}
+                    <span>${mov.carpeta_caratula} - ${new Date(mov.vencimiento).toLocaleDateString()}</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    // Agregar drag & drop
+    document.querySelectorAll('.task').forEach(task => {
+        task.addEventListener('dragstart', handleDragStart);
+    });
+}
+
+function cargarGraficos() {
+    // Gráfico de torta - Estados
+    fetch('/api/v1/movimientos/', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        const estados = {};
+        data.forEach(mov => {
+            estados[mov.estado] = (estados[mov.estado] || 0) + 1;
+        });
+        
+        new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(estados),
+                datasets: [{
+                    data: Object.values(estados),
+                    backgroundColor: ['#ff4d4d', '#ffa500', '#2ecc71', '#3498db', '#9b59b6']
+                }]
+            }
+        });
+    });
+}
+
+function aplicarFiltros() {
+    const responsable = document.getElementById('filtro-responsable').value;
+    const estado = document.getElementById('filtro-estado').value;
+    const fecha = document.getElementById('filtro-fecha').value;
+    
+    let url = '/api/v1/movimientos/';
+    const params = [];
+    if (responsable) params.push(`responsable=${responsable}`);
+    if (estado) params.push(`estado=${estado}`);
+    if (fecha) params.push(`vencimiento__gte=${fecha}`);
+    
+    if (params.length) url += '?' + params.join('&');
+    
+    fetch(url, {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        renderizarVencimientos(data);
+    });
+}
+
+function handleDragStart(e) {
+    e.dataTransfer.setData('text/plain', e.target.dataset.id);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/components/buscadores/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/components/common/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/components/personas/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/components/carpetas/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/pages/carpetas/**)",
+      "Bash(ls -la \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\focus\\\\mi_estudio/frontend/\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\focus\\\\mi_estudio/frontend/src\" -type f \\\\\\( -name \"*.jsx\" -o -name \"*.js\" -o -name \"*.tsx\" -o -name \"*.ts\" \\\\\\))",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\focus\\\\mi_estudio/backend\" -type f -name \"*.py\")",
+      "Bash(ls *)",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\focus\\\\mi_estudio/backend\" -type f -name \"urls.py\")",
+      "Bash(grep -r \"movimientos\" \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\focus\\\\mi_estudio/frontend/src\" --include=\"*.jsx\" --include=\"*.js\")",
+      "Bash(grep -n \"carpetaId\" \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\focus\\\\mi_estudio/frontend/src/pages/movimientos/MovimientosList.jsx\")",
+      "Bash(find *)",
+      "Skill(update-config)",
+      "Bash(dir \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\focus\\\\\\\\mi_estudio\\\\\\\\frontend\\\\\\\\\")",
+      "Bash(dir *)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/**)",
+      "Bash(wsl ls *)",
+      "Bash(wsl cat *)",
+      "Bash(docker exec mi_estudio_web_local *)",
+      "Bash(grep *)",
+      "Bash(wsl find *)",
+      "Bash(wsl *)"
+    ]
+  }
+}

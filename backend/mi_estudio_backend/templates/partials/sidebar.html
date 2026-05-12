@@ -1,0 +1,56 @@
+<aside class="sidebar">
+    <div class="logo">
+        <span class="logo-icon">⚖️</span>
+        <span class="logo-text">Mi Estudio</span>
+    </div>
+    
+    <nav class="nav-menu">
+        <a href="{% url 'dashboard' %}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+            <span class="icon">📊</span>
+            <span class="text">Dashboard</span>
+        </a>
+        
+        <a href="{% url 'personas' %}" class="nav-item {% if active == 'personas' %}active{% endif %}">
+            <span class="icon">👥</span>
+            <span class="text">Personas</span>
+        </a>
+        
+        <a href="{% url 'carpetas' %}" class="nav-item {% if active == 'carpetas' %}active{% endif %}">
+            <span class="icon">📁</span>
+            <span class="text">Carpetas</span>
+            <span class="badge share-badge" title="Compartir carpetas">🔗</span>
+        </a>
+        
+        <a href="{% url 'movimientos' %}" class="nav-item {% if active == 'movimientos' %}active{% endif %}">
+            <span class="icon">📋</span>
+            <span class="text">Movimientos</span>
+        </a>
+        
+        <a href="{% url 'organismos' %}" class="nav-item {% if active == 'organismos' %}active{% endif %}">
+            <span class="icon">🏛️</span>
+            <span class="text">Organismos</span>
+        </a>
+        
+        <a href="{% url 'tipos_movimiento' %}" class="nav-item {% if active == 'tipos' %}active{% endif %}">
+            <span class="icon">🏷️</span>
+            <span class="text">Tipos</span>
+        </a>
+        
+        <a href="{% url 'calendario' %}" class="nav-item {% if active == 'calendario' %}active{% endif %}">
+            <span class="icon">📅</span>
+            <span class="text">Calendario</span>
+        </a>
+        
+        <a href="{% url 'compartir' %}" class="nav-item {% if active == 'compartir' %}active{% endif %}">
+            <span class="icon">🔗</span>
+            <span class="text">Compartir</span>
+        </a>
+    </nav>
+    
+    <div class="sidebar-footer">
+        <a href="{% url 'configuracion' %}" class="nav-item">
+            <span class="icon">⚙️</span>
+            <span class="text">Configuración</span>
+        </a>
+    </div>
+</aside>
