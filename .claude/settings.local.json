@@ -25,7 +25,8 @@
       "Bash(docker exec mi_estudio_web_local *)",
       "Bash(grep *)",
       "Bash(wsl find *)",
-      "Bash(wsl *)"
+      "Bash(wsl *)",
+      "Bash(python manage.py shell -c \"from django.contrib.auth.models import User; u = User.objects.filter\\(username='admin2'\\).first\\(\\); print\\('Existe:', u is not None\\); print\\('Activo:', u.is_active if u else 'N/A'\\); print\\('Has usable password:', u.has_usable_password\\(\\) if u else 'N/A'\\)\")"
     ]
   }
 }
