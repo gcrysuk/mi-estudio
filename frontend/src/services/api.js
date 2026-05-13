@@ -42,39 +42,43 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
     console.error('❌ Error en respuesta:', error.response?.status, error.config?.url)
-    
-    // Si es 401 y no es un intento de refresh y existe refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+
+    const status = error.response?.status
+    // Manejar tanto 401 como 403: ambos pueden indicar token expirado o ausente
+    if ((status === 401 || status === 403) && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refresh_token')
-      
+
       if (refreshToken) {
         originalRequest._retry = true
         console.log('🔄 Intentando refrescar token...')
-        
+
         try {
-          const response = await axios.post('/auth/refresh/', {
+          const response = await api.post('/auth/refresh/', {
             refresh: refreshToken,
           })
-          
+
           const { access } = response.data
           localStorage.setItem('access_token', access)
           console.log('✅ Token refrescado exitosamente')
-          
+
           originalRequest.headers.Authorization = `Bearer ${access}`
           return api(originalRequest)
         } catch (refreshError) {
           console.error('❌ Error al refrescar token:', refreshError)
           localStorage.removeItem('access_token')
           localStorage.removeItem('refresh_token')
+          localStorage.removeItem('auth-storage')
           window.location.href = '/login'
           return Promise.reject(refreshError)
         }
       } else {
         console.warn('⚠️ No hay refresh token, redirigiendo a login')
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('auth-storage')
         window.location.href = '/login'
       }
     }
-    
+
     return Promise.reject(error)
   }
 )
