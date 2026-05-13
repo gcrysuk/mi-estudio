@@ -181,7 +181,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
     setLoadingLocalidades(true);
     setLocalidades([]);
     try {
-      const url = `https://apis.datos.gob.ar/georef/api/localidades?provincia=${encodeURIComponent(provincia)}&max=100&campos=nombre`;
+      const url = `https://apis.datos.gob.ar/georef/api/localidades?provincia=${encodeURIComponent(provincia)}&max=5000&campos=nombre`;
       const res = await fetch(url);
       const data = await res.json();
       const nombres = (data.localidades || [])
