@@ -21,7 +21,14 @@ const Login = () => {
 
   return (
     <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
-      <h2 className="text-3xl font-bold text-center mb-8">Mi Estudio</h2>
+      {/* Logo */}
+      <div className="flex flex-col items-center mb-8">
+        <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center shadow-lg mb-4">
+          <span className="text-3xl">⚖️</span>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Mi Estudio</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sistema de gestión jurídica</p>
+      </div>
       
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

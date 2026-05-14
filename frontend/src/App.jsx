@@ -4,6 +4,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ModalProvider } from "./contexts/ModalContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Layout from "./components/layout/Layout";
+import AuthLayout from "./components/layout/AuthLayout";
 import Login from "./pages/auth/Login";
 import Dashboard from "./pages/dashboard/Dashboard";
 import PersonasList from "./pages/personas/PersonasList";
@@ -25,7 +26,9 @@ function App() {
       <ModalProvider>
         <Toaster position="top-right" />
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+          </Route>
           
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
