@@ -71,6 +71,7 @@ const BuscadorCarpeta = ({ value, onChange, onCrearNueva, placeholder = "Buscar 
         />
         {value && (
           <button
+            type="button"
             onClick={limpiar}
             className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500"
           >
@@ -90,7 +91,13 @@ const BuscadorCarpeta = ({ value, onChange, onCrearNueva, placeholder = "Buscar 
               </div>
               {onCrearNueva && (
                 <button
-                  onClick={onCrearNueva}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsOpen(false);
+                    onCrearNueva();
+                  }}
                   className="w-full p-2 text-left text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 rounded border border-dashed border-accent"
                 >
                   <Plus size={16} />
@@ -103,6 +110,7 @@ const BuscadorCarpeta = ({ value, onChange, onCrearNueva, placeholder = "Buscar 
               {carpetas.map(carpeta => (
                 <button
                   key={carpeta.id}
+                  type="button"
                   onClick={() => seleccionarCarpeta(carpeta)}
                   className="w-full text-left p-2 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 border-b last:border-0 border-gray-100 dark:border-gray-700"
                 >
@@ -119,7 +127,13 @@ const BuscadorCarpeta = ({ value, onChange, onCrearNueva, placeholder = "Buscar 
                 <>
                   <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                   <button
-                    onClick={onCrearNueva}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsOpen(false);
+                      onCrearNueva();
+                    }}
                     className="w-full p-2 text-left text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
                   >
                     <Plus size={16} />

@@ -9,14 +9,18 @@ import {
   X,
   Users,
   RefreshCw,
-  Settings,
   Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../stores/authStore';
 import api from '../../services/api';
-import TiposPersonaManager from '../../components/personas/TiposPersonaManager';
 import DetallePersonaModal from '../../components/personas/DetallePersonaModal';
+
+const TIPO_PERSONA_OPTIONS = [
+  { value: 'fisica',   label: 'Física' },
+  { value: 'juridica', label: 'Jurídica' },
+  { value: 'otro',     label: 'Otro' },
+];
 
 const PROVINCIAS = [
   'Buenos Aires',
@@ -49,7 +53,6 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   const [detalleModalOpen, setDetalleModalOpen] = useState(false);
   const [personaParaDetalle, setPersonaParaDetalle] = useState(null);  
   const [personas, setPersonas] = useState([]);
-  const [tiposPersona, setTiposPersona] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -60,9 +63,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
     direction: 'asc'
   });
   const [modalOpen, setModalOpen] = useState(false);
-  const [tiposModalOpen, setTiposModalOpen] = useState(false);
   const [editingPersona, setEditingPersona] = useState(null);
-  const [editingTipo, setEditingTipo] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
@@ -98,7 +99,6 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
 
   useEffect(() => {
     fetchData();
-    fetchTiposPersona();
   }, []);
 
   useEffect(() => {
@@ -108,20 +108,6 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
       setLocalidades([]);
     }
   }, [formData.provincia]);
-
-  // Efecto para recargar tipos cuando se cierra el modal de tipos
-  useEffect(() => {
-    if (!tiposModalOpen) {
-      fetchTiposPersona();
-    }
-  }, [tiposModalOpen]);
-
-  // Efecto para recargar tipos cuando se abre el modal de persona
-  useEffect(() => {
-    if (modalOpen) {
-      fetchTiposPersona();
-    }
-  }, [modalOpen]);
 
   // Escuchar evento para abrir modal desde otras partes (carpetas)
   useEffect(() => {
@@ -149,18 +135,17 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
         if (modalOpen) setModalOpen(false);
-        if (tiposModalOpen) setTiposModalOpen(false);
         if (deleteConfirm) setDeleteConfirm(null);
         if (bulkDeleteConfirm) setBulkDeleteConfirm(false);
         if (isModal && onCancelar) onCancelar();
       }
     };
-    
+
     window.addEventListener('keydown', handleEsc);
     return () => {
       window.removeEventListener('keydown', handleEsc);
     };
-  }, [modalOpen, tiposModalOpen, deleteConfirm, bulkDeleteConfirm, isModal, onCancelar]);
+  }, [modalOpen, deleteConfirm, bulkDeleteConfirm, isModal, onCancelar]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -192,15 +177,6 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
       setLocalidades([]);
     } finally {
       setLoadingLocalidades(false);
-    }
-  };
-
-  const fetchTiposPersona = async () => {
-    try {
-      const response = await api.get('/personas/tipos/?activo=todos');
-      setTiposPersona(response.data);
-    } catch (error) {
-      console.error('Error fetching tipos:', error);
     }
   };
 
@@ -263,9 +239,9 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
     });
   };
 
-  const getTipoPersonaNombre = (tipoId) => {
-    const tipo = tiposPersona.find(t => t.id === tipoId);
-    return tipo ? tipo.nombre : '';
+  const getTipoPersonaNombre = (value) => {
+    const opt = TIPO_PERSONA_OPTIONS.find(o => o.value === value);
+    return opt ? opt.label : '';
   };
 
   // Manejar selección de items
@@ -391,7 +367,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
         persona.apellido?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         persona.numero_documento?.includes(searchTerm) ||
         persona.email?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesTipo = !filters.tipo_persona || persona.tipo_persona === parseInt(filters.tipo_persona);
+      const matchesTipo = !filters.tipo_persona || persona.tipo_persona === filters.tipo_persona;
       return matchesSearch && matchesTipo;
     })
     .sort((a, b) => {
@@ -585,29 +561,16 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-medium mb-1 uppercase">TIPO PERSONA</label>
-              <div className="flex gap-1">
-                <select 
-                  value={formData.tipo_persona} 
-                  onChange={(e) => setFormData({...formData, tipo_persona: e.target.value})} 
-                  className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                >
-                  <option value="">SELECCIONAR</option>
-                  {tiposPersona.filter(t => t.activo).map(tipo => (
-                    <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
-                  ))}
-                </select>
-                <button 
-                  type="button" 
-                  onClick={() => { 
-                    setEditingTipo(null); 
-                    setTiposModalOpen(true); 
-                  }} 
-                  className="px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" 
-                  title="Configurar tipos"
-                >
-                  <Settings size={16} />
-                </button>
-              </div>
+              <select
+                value={formData.tipo_persona}
+                onChange={(e) => setFormData({...formData, tipo_persona: e.target.value})}
+                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+              >
+                <option value="">SELECCIONAR</option>
+                {TIPO_PERSONA_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium mb-1 uppercase">EMAIL</label>
@@ -752,8 +715,8 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
             className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
           >
             <option value="">TODOS LOS TIPOS</option>
-            {tiposPersona.filter(t => t.activo).map(tipo => (
-              <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
+            {TIPO_PERSONA_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
 
@@ -931,29 +894,16 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-medium mb-1 uppercase">TIPO PERSONA</label>
-                  <div className="flex gap-1">
-                    <select 
-                      value={formData.tipo_persona} 
-                      onChange={(e) => setFormData({...formData, tipo_persona: e.target.value})} 
-                      className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                    >
-                      <option value="">SELECCIONAR</option>
-                      {tiposPersona.filter(t => t.activo).map(tipo => (
-                        <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
-                      ))}
-                    </select>
-                    <button 
-                      type="button" 
-                      onClick={() => { 
-                        setEditingTipo(null); 
-                        setTiposModalOpen(true); 
-                      }} 
-                      className="px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors" 
-                      title="Configurar tipos"
-                    >
-                      <Settings size={16} />
-                    </button>
-                  </div>
+                  <select
+                    value={formData.tipo_persona}
+                    onChange={(e) => setFormData({...formData, tipo_persona: e.target.value})}
+                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                  >
+                    <option value="">SELECCIONAR</option>
+                    {TIPO_PERSONA_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium mb-1 uppercase">EMAIL</label>
@@ -1045,16 +995,6 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
           </div>
         </div>
       )}
-
-      {/* Modal de gestión de tipos */}
-      <TiposPersonaManager
-        isOpen={tiposModalOpen}
-        onClose={() => setTiposModalOpen(false)}
-        onSave={() => {
-          fetchTiposPersona();
-          fetchData();
-        }}
-      />
 
       {/* Modal de confirmación de eliminación individual */}
       {deleteConfirm && (

@@ -1,38 +1,73 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from django.db.models import Q
 from django.utils import timezone
 from .models import Movimiento, TipoMovimiento, EstadoMovimiento
 from .serializers import MovimientoSerializer, TipoMovimientoSerializer, EstadoMovimientoSerializer
-from apps.carpetas.models import Carpeta
+from apps.carpetas.models import Carpeta, CompartirCarpeta
+
+
+def _user_puede_editar_carpeta(user, carpeta):
+    """True si el usuario es propietario o tiene puede_editar=True en la carpeta."""
+    if carpeta is None:
+        return True  # movimientos sin carpeta: cualquier autenticado puede operar
+    if carpeta.propietario_id == user.pk:
+        return True
+    return CompartirCarpeta.objects.filter(
+        carpeta=carpeta, usuario=user, puede_editar=True
+    ).exists()
+
 
 class MovimientoViewSet(viewsets.ModelViewSet):
     serializer_class = MovimientoSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ['carpeta', 'tipo', 'estado', 'vencido']
     search_fields = ['titulo', 'descripcion']
-    
+
     def get_queryset(self):
         user = self.request.user
-        
+
+        if user.is_superuser:
+            return Movimiento.objects.filter(activo=True).select_related(
+                'carpeta', 'tipo', 'estado', 'creado_por'
+            )
+
         carpetas_accesibles = Carpeta.objects.filter(
-            Q(propietario=user) | Q(compartida_con=user)
+            Q(propietario=user) | Q(compartida_con=user) | Q(es_publico=True)
         ).values_list('id', flat=True)
-        
+
         queryset = Movimiento.objects.filter(
-            Q(carpeta_id__in=carpetas_accesibles) | Q(carpeta__isnull=True),
-            activo=True
+            # carpeta accesible  OR  sin carpeta y creado por este usuario
+            Q(carpeta_id__in=carpetas_accesibles) |
+            Q(carpeta__isnull=True, creado_por=user),
+            activo=True,
         ).select_related('carpeta', 'tipo', 'estado', 'creado_por')
-        
+
         carpeta_id = self.request.query_params.get('carpeta')
         if carpeta_id:
             queryset = queryset.filter(carpeta_id=carpeta_id)
-            
+
         return queryset
-    
+
     def perform_create(self, serializer):
+        carpeta = serializer.validated_data.get('carpeta')
+        if not _user_puede_editar_carpeta(self.request.user, carpeta):
+            raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
         serializer.save(creado_por=self.request.user)
+
+    def perform_update(self, serializer):
+        carpeta = serializer.instance.carpeta
+        if not _user_puede_editar_carpeta(self.request.user, carpeta):
+            raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not _user_puede_editar_carpeta(self.request.user, instance.carpeta):
+            raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
+        instance.activo = False
+        instance.save(update_fields=['activo'])
     
     @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='tipos')
     def tipos_movimiento(self, request):

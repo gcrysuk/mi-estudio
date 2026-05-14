@@ -54,8 +54,8 @@ class ObjetoCarpeta(models.Model):
 
 class Carpeta(models.Model):
     PARTE_CHOICES = [
-        ('cliente', 'Cliente'),
-        ('contraparte', 'Contraparte'),
+        ('actor', 'Actor'),
+        ('demandado', 'Demandado'),
         ('otro', 'Otro'),
     ]
 
@@ -79,7 +79,7 @@ class Carpeta(models.Model):
     )
     
     # Parte (cliente/contraparte/otro)
-    parte = models.CharField(max_length=20, choices=PARTE_CHOICES, default='cliente')
+    parte = models.CharField(max_length=20, choices=PARTE_CHOICES, default='actor')
     
     # Contraparte (texto libre por ahora, luego podría ser otra persona)
     contraparte = models.CharField(max_length=200, blank=True)
@@ -130,6 +130,7 @@ class Carpeta(models.Model):
         blank=True
     )
     
+    es_publico = models.BooleanField(default=False, help_text="Visible para todos los usuarios autenticados")
     activo = models.BooleanField(default=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
 

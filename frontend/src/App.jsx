@@ -9,6 +9,7 @@ import Login from "./pages/auth/Login";
 import Dashboard from "./pages/dashboard/Dashboard";
 import PersonasList from "./pages/personas/PersonasList";
 import CarpetasList from "./pages/carpetas/CarpetasList";
+import CarpetaDetail from "./pages/carpetas/CarpetaDetail";
 import MovimientosList from "./pages/movimientos/MovimientosList";
 import MovimientosGlobal from "./pages/movimientos/MovimientosGlobal";
 import OrganismosList from "./pages/organismos/OrganismosList";
@@ -36,6 +37,7 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/personas" element={<PersonasList />} />
               <Route path="/carpetas" element={<CarpetasList />} />
+              <Route path="/carpetas/:id" element={<CarpetaDetail />} />
               <Route path="/carpetas/:carpetaId/movimientos" element={<MovimientosList />} />
               <Route path="/movimientos" element={<MovimientosGlobal />} />
               <Route path="/organismos" element={<OrganismosList />} />

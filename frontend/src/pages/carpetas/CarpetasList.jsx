@@ -22,6 +22,7 @@ import TipoCarpetaManager from '../../components/carpetas/TipoCarpetaManager';
 import ObjetoCarpetaManager from '../../components/carpetas/ObjetoCarpetaManager';
 import BuscadorPersona from '../../components/buscadores/BuscadorPersona';
 import BuscadorOrganismo from '../../components/buscadores/BuscadorOrganismo';
+import OrganismoForm from '../../components/organismos/OrganismoForm';
 import { useModal } from '../../contexts/ModalContext';
 import { Link } from 'react-router-dom';
 import DetalleCarpetaModal from '../../components/carpetas/DetalleCarpetaModal';
@@ -35,7 +36,8 @@ const CarpetasList = () => {
   const [tipos, setTipos] = useState([]);
   const [objetos, setObjetos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchNombre, setSearchNombre] = useState('');
+  const [searchExpediente, setSearchExpediente] = useState('');
   const [filters, setFilters] = useState({
     estado: '',
     tipo: '',
@@ -58,17 +60,18 @@ const CarpetasList = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [detalleModalOpen, setDetalleModalOpen] = useState(false);
   const [carpetaParaDetalle, setCarpetaParaDetalle] = useState(null);
+  const [showOrganismoForm, setShowOrganismoForm] = useState(false);
 
   const [formData, setFormData] = useState({
     nombre: '',
     numero_expediente: '',
     persona: '',
     persona_obj: null,
-    parte: 'cliente',
+    parte: 'actor',
     estado: '',
     tipo: '',
     objeto: '',
-    organismo: '',
+    organismo: null,
     descripcion: ''
   });
 
@@ -122,11 +125,11 @@ const CarpetasList = () => {
       numero_expediente: '',
       persona: '',
       persona_obj: null,
-      parte: 'cliente',
+      parte: 'actor',
       estado: '',
       tipo: '',
       objeto: '',
-      organismo: '',
+      organismo: null,
       descripcion: ''
     });
     setEditingCarpeta(null);
@@ -136,9 +139,9 @@ const CarpetasList = () => {
 
   // Opciones para parte
   const parteOptions = [
-    { value: 'cliente', label: 'CLIENTE' },
-    { value: 'contraparte', label: 'DEMANDADO' },
-    { value: 'otro', label: 'OTRO' }
+    { value: 'actor',     label: 'ACTOR' },
+    { value: 'demandado', label: 'DEMANDADO' },
+    { value: 'otro',      label: 'OTRO' }
   ];
 
   useEffect(() => {
@@ -196,15 +199,10 @@ const CarpetasList = () => {
 
   const fetchOrganismos = async () => {
     try {
-      const response = await api.get('/carpetas/organismos/');
+      const response = await api.get('/organismos/');
       setOrganismos(response.data.results || response.data);
     } catch (error) {
       console.error('Error fetching organismos:', error);
-      setOrganismos([
-        { id: 1, nombre: 'JUZGADO CIVIL N°1' },
-        { id: 2, nombre: 'JUZGADO LABORAL N°2' },
-        { id: 3, nombre: 'CÁMARA DE APELACIONES' },
-      ]);
     }
   };
 
@@ -310,19 +308,23 @@ const CarpetasList = () => {
     }
   };
 
+  const norm = (s) =>
+    (s ?? '').normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
+
   // Filtrar y ordenar carpetas
   const filteredCarpetas = carpetas
     .filter(carpeta => {
-      const matchesSearch = 
-        carpeta.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        carpeta.numero_expediente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getPersonaNombre(carpeta.persona).toLowerCase().includes(searchTerm.toLowerCase());
-      
+      if (searchNombre) {
+        const haystack = norm(carpeta.nombre) + ' ' + norm(getPersonaNombre(carpeta.persona));
+        if (!haystack.includes(norm(searchNombre))) return false;
+      }
+      if (searchExpediente && !norm(carpeta.numero_expediente).includes(norm(searchExpediente))) return false;
+
       const matchesEstado = !filters.estado || carpeta.estado === parseInt(filters.estado);
       const matchesTipo = !filters.tipo || carpeta.tipo === parseInt(filters.tipo);
       const matchesPersona = !filters.persona || carpeta.persona === parseInt(filters.persona);
-      
-      return matchesSearch && matchesEstado && matchesTipo && matchesPersona;
+
+      return matchesEstado && matchesTipo && matchesPersona;
     })
     .sort((a, b) => {
       let aVal = a[sortConfig.key];
@@ -378,7 +380,7 @@ const CarpetasList = () => {
         estado: formData.estado ? parseInt(formData.estado) : null,
         tipo: formData.tipo ? parseInt(formData.tipo) : null,
         objeto: formData.objeto ? parseInt(formData.objeto) : null,
-        organismo: formData.organismo ? parseInt(formData.organismo) : null,
+        organismo: formData.organismo?.id || null,
         descripcion: formData.descripcion || ''
       };
 
@@ -503,20 +505,22 @@ const CarpetasList = () => {
 
   const openEditModal = (carpeta) => {
     setEditingCarpeta(carpeta);
-    
-    // Buscar el objeto persona completo para cliente
+
     const personaObj = personas.find(p => p.id === carpeta.persona);
-    
+    const organismoObj = carpeta.organismo
+      ? (organismos.find(o => o.id === carpeta.organismo) || { id: carpeta.organismo, nombre: carpeta.organismo_nombre || '' })
+      : null;
+
     setFormData({
       nombre: carpeta.nombre,
       numero_expediente: carpeta.numero_expediente || '',
       persona: carpeta.persona || '',
       persona_obj: personaObj || null,
-      parte: carpeta.parte || 'cliente',
+      parte: carpeta.parte || 'actor',
       estado: carpeta.estado || '',
       tipo: carpeta.tipo || '',
       objeto: carpeta.objeto || '',
-      organismo: carpeta.organismo || '',
+      organismo: organismoObj,
       descripcion: carpeta.descripcion || ''
     });
     setModalOpen(true);
@@ -594,16 +598,46 @@ const CarpetasList = () => {
 
       {/* Filtros y búsqueda */}
       <div className="bg-white dark:bg-dark-surface p-3 rounded-lg shadow space-y-3">
-        {/* Buscador */}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+        {/* Buscador nombre/carátula */}
+        <div className="relative flex-1 min-w-[160px]">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
           <input
             type="text"
-            placeholder="BUSCAR POR NOMBRE, N° EXPEDIENTE O PERSONA..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
+            placeholder="NOMBRE / CARÁTULA..."
+            value={searchNombre}
+            onChange={(e) => setSearchNombre(e.target.value)}
+            className="w-full pl-7 pr-7 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
           />
+          {searchNombre && (
+            <button
+              type="button"
+              onClick={() => setSearchNombre('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Buscador expediente */}
+        <div className="relative min-w-[140px]">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+          <input
+            type="text"
+            placeholder="N° EXPEDIENTE..."
+            value={searchExpediente}
+            onChange={(e) => setSearchExpediente(e.target.value)}
+            className="w-full pl-7 pr-7 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
+          />
+          {searchExpediente && (
+            <button
+              type="button"
+              onClick={() => setSearchExpediente('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
 
         {/* Filtros */}
@@ -740,8 +774,8 @@ const CarpetasList = () => {
                     </td>
 
                     <td className="px-2 py-2 whitespace-nowrap text-sm font-medium">
-                      <Link 
-                        to={`/carpetas/${carpeta.id}/movimientos`}
+                      <Link
+                        to={`/carpetas/${carpeta.id}`}
                         className="text-accent hover:text-accent-hover hover:underline"
                       >
                         {carpeta.nombre}
@@ -906,10 +940,8 @@ const CarpetasList = () => {
                   <label className="block text-xs font-medium mb-1 uppercase">ORGANISMO</label>
                   <BuscadorOrganismo
                     value={formData.organismo}
-                    onChange={(organismoId) => setFormData({...formData, organismo: organismoId})}
-                    onCrearNuevo={(nombre) => {
-                      toast.success('Funcionalidad en desarrollo');
-                    }}
+                    onChange={(org) => setFormData({...formData, organismo: org})}
+                    onCrearNuevo={() => setShowOrganismoForm(true)}
                   />
                 </div>
               </div>
@@ -1092,6 +1124,17 @@ const CarpetasList = () => {
         <DetalleCarpetaModal
           carpeta={carpetaParaDetalle}
           onClose={() => setDetalleModalOpen(false)}
+        />
+      )}
+
+      {showOrganismoForm && (
+        <OrganismoForm
+          onClose={() => setShowOrganismoForm(false)}
+          onSave={(nuevoOrganismo) => {
+            setOrganismos(prev => [...prev, nuevoOrganismo]);
+            setFormData(prev => ({ ...prev, organismo: nuevoOrganismo }));
+            setShowOrganismoForm(false);
+          }}
         />
       )}
     </div>

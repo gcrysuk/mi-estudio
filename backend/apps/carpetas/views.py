@@ -1,39 +1,62 @@
 # apps/carpetas/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
 from apps.organismos.models import Organismo
 from .serializers import (
-    CarpetaSerializer, 
+    CarpetaSerializer,
     CompartirCarpetaSerializer,
-    EstadoCarpetaSerializer, 
-    TipoCarpetaSerializer, 
-    ObjetoCarpetaSerializer, 
-    OrganismoSerializer
+    EstadoCarpetaSerializer,
+    TipoCarpetaSerializer,
+    ObjetoCarpetaSerializer,
+    OrganismoSerializer,
 )
 
 User = get_user_model()
 
+
+def _user_puede_editar_carpeta(user, carpeta):
+    """True si el usuario es propietario o tiene puede_editar=True."""
+    if carpeta.propietario_id == user.pk:
+        return True
+    return CompartirCarpeta.objects.filter(
+        carpeta=carpeta, usuario=user, puede_editar=True
+    ).exists()
+
+
 class CarpetaViewSet(viewsets.ModelViewSet):
     serializer_class = CarpetaSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
             return Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
-        
+
         return Carpeta.objects.filter(
             Q(propietario=user) |
-            Q(compartida_con=user),
-            activo=True
+            Q(compartida_con=user) |
+            Q(es_publico=True),
+            activo=True,
         ).select_related('persona', 'propietario').distinct()
-    
+
     def perform_create(self, serializer):
         serializer.save(propietario=self.request.user)
+
+    def perform_update(self, serializer):
+        if not _user_puede_editar_carpeta(self.request.user, serializer.instance):
+            raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not _user_puede_editar_carpeta(self.request.user, instance):
+            raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
+        instance.activo = False
+        instance.save(update_fields=['activo'])
     
     # ============================================
     # ENDPOINTS PARA ESTADOS - VERSIÓN CORREGIDA

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ClipboardList, Search, X, Edit, Trash2,
   Calendar, Clock, FolderOpen, AlertCircle, ChevronDown
@@ -7,28 +7,28 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import MovimientoForm from './MovimientoForm';
 
-const EMPTY_FILTERS = {
-  search: '',
-  tipo: '',
-  estado: '',
-  vencido: '',
-};
+const EMPTY_FILTERS = { tipo: '', estado: '', vencido: '' };
+
+const norm = (s) =>
+  (s ?? '').normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
 
 const MovimientosGlobal = () => {
-  const [movimientos, setMovimientos] = useState([]);
+  const [movimientosRaw, setMovimientosRaw] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [searchTitulo, setSearchTitulo] = useState('');
+  const [searchCarpeta, setSearchCarpeta] = useState('');
   const [tipos, setTipos] = useState([]);
   const [estados, setEstados] = useState([]);
   const [editingMovimiento, setEditingMovimiento] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Debounce del campo search
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(filters.search), 350);
-    return () => clearTimeout(t);
-  }, [filters.search]);
+  // Filtrado client-side con normalización de tildes
+  const movimientos = movimientosRaw.filter(mov => {
+    if (searchTitulo && !norm(mov.titulo).includes(norm(searchTitulo))) return false;
+    if (searchCarpeta && !norm(mov.carpeta_nombre).includes(norm(searchCarpeta))) return false;
+    return true;
+  });
 
   useEffect(() => {
     fetchOpciones();
@@ -36,7 +36,7 @@ const MovimientosGlobal = () => {
 
   useEffect(() => {
     fetchMovimientos();
-  }, [debouncedSearch, filters.tipo, filters.estado, filters.vencido]);
+  }, [filters.tipo, filters.estado, filters.vencido]);
 
   const fetchOpciones = async () => {
     try {
@@ -55,13 +55,12 @@ const MovimientosGlobal = () => {
     setLoading(true);
     try {
       const params = {};
-      if (debouncedSearch) params.search = debouncedSearch;
-      if (filters.tipo) params.tipo = filters.tipo;
-      if (filters.estado) params.estado = filters.estado;
+      if (filters.tipo)           params.tipo    = filters.tipo;
+      if (filters.estado)         params.estado  = filters.estado;
       if (filters.vencido !== '') params.vencido = filters.vencido;
 
       const response = await api.get('/movimientos/', { params });
-      setMovimientos(response.data.results ?? response.data);
+      setMovimientosRaw(response.data.results ?? response.data);
     } catch {
       toast.error('Error al cargar los movimientos');
     } finally {
@@ -83,10 +82,14 @@ const MovimientosGlobal = () => {
   const setFilter = (key, value) =>
     setFilters(prev => ({ ...prev, [key]: value }));
 
-  const clearFilters = () => setFilters(EMPTY_FILTERS);
+  const clearFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setSearchTitulo('');
+    setSearchCarpeta('');
+  };
 
   const hasActiveFilters =
-    filters.search || filters.tipo || filters.estado || filters.vencido !== '';
+    searchTitulo || searchCarpeta || filters.tipo || filters.estado || filters.vencido !== '';
 
   const formatFecha = (fecha) =>
     fecha
@@ -119,19 +122,39 @@ const MovimientosGlobal = () => {
 
       {/* Barra de filtros */}
       <div className="bg-white dark:bg-dark-surface rounded-lg shadow p-3 flex flex-wrap gap-2 items-center">
-        {/* Búsqueda texto */}
-        <div className="relative flex-1 min-w-[200px]">
+        {/* Búsqueda por título */}
+        <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
           <input
             type="text"
-            value={filters.search}
-            onChange={(e) => setFilter('search', e.target.value)}
-            placeholder="Buscar por título o descripción..."
+            value={searchTitulo}
+            onChange={(e) => setSearchTitulo(e.target.value)}
+            placeholder="Buscar por título..."
             className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
           />
-          {filters.search && (
+          {searchTitulo && (
             <button
-              onClick={() => setFilter('search', '')}
+              onClick={() => setSearchTitulo('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Búsqueda por carpeta */}
+        <div className="relative flex-1 min-w-[180px]">
+          <FolderOpen className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+          <input
+            type="text"
+            value={searchCarpeta}
+            onChange={(e) => setSearchCarpeta(e.target.value)}
+            placeholder="Buscar por carpeta..."
+            className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+          />
+          {searchCarpeta && (
+            <button
+              onClick={() => setSearchCarpeta('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
               <X size={14} />

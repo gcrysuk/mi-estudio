@@ -1,26 +1,14 @@
 from rest_framework import serializers
-from .models import Persona, TipoPersona
-
-class TipoPersonaSerializer(serializers.ModelSerializer):
-    personas_count = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = TipoPersona
-        fields = ['id', 'nombre', 'descripcion', 'activo', 'orden', 'personas_count']
-        read_only_fields = ['id']
-    
-    def get_personas_count(self, obj):
-        return obj.personas.count()
+from .models import Persona
 
 
 class PersonaSerializer(serializers.ModelSerializer):
     propietario_nombre = serializers.ReadOnlyField(source='propietario.username')
-    tipo_persona_nombre = serializers.ReadOnlyField(source='tipo_persona.nombre')
-    
+
     class Meta:
         model = Persona
         fields = [
-            'id', 'nombre', 'apellido', 'tipo_persona', 'tipo_persona_nombre',
+            'id', 'nombre', 'apellido', 'tipo_persona',
             'tipo_documento', 'numero_documento', 'email', 'telefono',
             'direccion', 'ciudad', 'provincia', 'fecha_registro', 'activo',
             'propietario', 'propietario_nombre'

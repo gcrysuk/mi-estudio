@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Save, FolderOpen, Settings, Clock, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -331,11 +332,12 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
         }} />
       )}
 
-      {showCarpetaForm && (
+      {showCarpetaForm && createPortal(
         <CarpetaForm
           onClose={() => setShowCarpetaForm(false)}
           onSave={handleCarpetaCreada}
-        />
+        />,
+        document.body
       )}
     </>
   );

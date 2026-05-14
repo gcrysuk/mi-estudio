@@ -34,7 +34,9 @@
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/components/**)",
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/pages/**)",
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/**)",
-      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/requirements/**)"
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/requirements/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/carpetas/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/movimientos/**)"
     ]
   }
 }

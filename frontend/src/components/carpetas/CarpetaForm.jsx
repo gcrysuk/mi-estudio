@@ -1,13 +1,14 @@
-// frontend/src/components/carpetas/CarpetaForm.jsx
 import { useState, useEffect } from 'react';
 import { X, Save, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import BuscadorPersona from '../buscadores/BuscadorPersona';
 import BuscadorOrganismo from '../buscadores/BuscadorOrganismo';
+import OrganismoForm from '../organismos/OrganismoForm';
 
 const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
+  const [showOrganismoForm, setShowOrganismoForm] = useState(false);
   const [tiposCarpeta, setTiposCarpeta] = useState([]);
   const [estadosCarpeta, setEstadosCarpeta] = useState([]);
   const [objetosCarpeta, setObjetosCarpeta] = useState([]);
@@ -36,7 +37,7 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
     objeto: '',
     
     // Otros campos
-    parte: 'cliente',
+    parte: 'actor',
     numero_expediente: '',
     descripcion: '',
     es_publico: false
@@ -60,9 +61,9 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
         api.get('/carpetas/objetos/')
       ]);
       
-      setTiposCarpeta(tiposRes.data);
-      setEstadosCarpeta(estadosRes.data);
-      setObjetosCarpeta(objetosRes.data);
+      setTiposCarpeta(tiposRes.data.results ?? tiposRes.data);
+      setEstadosCarpeta(estadosRes.data.results ?? estadosRes.data);
+      setObjetosCarpeta(objetosRes.data.results ?? objetosRes.data);
     } catch (error) {
       console.error('Error cargando configuraciones:', error);
     }
@@ -91,7 +92,7 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
         estado: carpeta.estado || '',
         tipo: carpeta.tipo || '',
         objeto: carpeta.objeto || '',
-        parte: carpeta.parte || 'cliente',
+        parte: carpeta.parte || 'actor',
         numero_expediente: carpeta.numero_expediente || '',
         descripcion: carpeta.descripcion || '',
         es_publico: carpeta.es_publico || false
@@ -154,23 +155,23 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
     }
   };
 
-  // Opciones para el select de "parte"
   const parteOptions = [
-    { value: 'cliente', label: 'Cliente' },
-    { value: 'contraparte', label: 'Contraparte' },
-    { value: 'otro', label: 'Otro' }
+    { value: 'actor',     label: 'Actor' },
+    { value: 'demandado', label: 'Demandado' },
+    { value: 'otro',      label: 'Otro' },
   ];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200] p-4">
       <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-dark-surface">
           <h2 className="text-lg font-bold uppercase">
             {carpeta ? 'EDITAR CARPETA' : 'NUEVA CARPETA'}
           </h2>
-          <button 
-            onClick={onClose} 
+          <button
+            type="button"
+            onClick={onClose}
             className="p-1 hover:text-accent transition-colors"
             disabled={loading}
           >
@@ -281,6 +282,7 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
                 organismo: organismo,
                 organismo_id: organismo?.id || null
               })}
+              onCrearNuevo={() => setShowOrganismoForm(true)}
               placeholder="Buscar organismo..."
             />
           </div>
@@ -412,6 +414,20 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
           </div>
         </form>
       </div>
+
+      {showOrganismoForm && (
+        <OrganismoForm
+          onClose={() => setShowOrganismoForm(false)}
+          onSave={(nuevoOrganismo) => {
+            setFormData(prev => ({
+              ...prev,
+              organismo: nuevoOrganismo,
+              organismo_id: nuevoOrganismo.id,
+            }));
+            setShowOrganismoForm(false);
+          }}
+        />
+      )}
     </div>
   );
 };

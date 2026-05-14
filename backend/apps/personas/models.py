@@ -3,20 +3,6 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-class TipoPersona(models.Model):
-    nombre = models.CharField(max_length=50, unique=True)
-    descripcion = models.TextField(blank=True)
-    activo = models.BooleanField(default=True)
-    orden = models.IntegerField(default=0)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['orden', 'nombre']
-        verbose_name = "Tipo de Persona"
-
-    def __str__(self):
-        return self.nombre
-
 
 class Persona(models.Model):
     TIPO_DOCUMENTO_CHOICES = [
@@ -26,14 +12,19 @@ class Persona(models.Model):
         ('PAS', 'Pasaporte'),
     ]
 
+    TIPO_PERSONA_CHOICES = [
+        ('fisica',   'Persona Física'),
+        ('juridica', 'Persona Jurídica'),
+        ('otro',     'Otro'),
+    ]
+
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
-    tipo_persona = models.ForeignKey(
-        TipoPersona,
-        on_delete=models.PROTECT,
-        related_name='personas',
-        null=True,
-        blank=True
+    tipo_persona = models.CharField(
+        max_length=20,
+        choices=TIPO_PERSONA_CHOICES,
+        blank=True,
+        default='',
     )
     tipo_documento = models.CharField(
         max_length=4, 
