@@ -94,7 +94,7 @@ const BuscadorCarpeta = ({ value, onChange, onCrearNueva, placeholder = "Buscar 
                   className="w-full p-2 text-left text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 rounded border border-dashed border-accent"
                 >
                   <Plus size={16} />
-                  Crear nueva carpeta
+                  + Agregar carpeta
                 </button>
               )}
             </div>
@@ -123,7 +123,7 @@ const BuscadorCarpeta = ({ value, onChange, onCrearNueva, placeholder = "Buscar 
                     className="w-full p-2 text-left text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
                   >
                     <Plus size={16} />
-                    Crear nueva carpeta
+                    + Agregar carpeta
                   </button>
                 </>
               )}

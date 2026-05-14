@@ -9,7 +9,7 @@ import Dashboard from "./pages/dashboard/Dashboard";
 import PersonasList from "./pages/personas/PersonasList";
 import CarpetasList from "./pages/carpetas/CarpetasList";
 import MovimientosList from "./pages/movimientos/MovimientosList";
-import ResumenMovimientos from "./pages/movimientos/ResumenMovimientos";
+import MovimientosGlobal from "./pages/movimientos/MovimientosGlobal";
 import OrganismosList from "./pages/organismos/OrganismosList";
 import TiposList from "./pages/tipos/TiposList";
 import CalendarioPage from "./pages/calendario/CalendarioPage";
@@ -34,7 +34,7 @@ function App() {
               <Route path="/personas" element={<PersonasList />} />
               <Route path="/carpetas" element={<CarpetasList />} />
               <Route path="/carpetas/:carpetaId/movimientos" element={<MovimientosList />} />
-              <Route path="/movimientos" element={<ResumenMovimientos />} />
+              <Route path="/movimientos" element={<MovimientosGlobal />} />
               <Route path="/organismos" element={<OrganismosList />} />
               <Route path="/tipos" element={<TiposList />} />
               <Route path="/calendario" element={<CalendarioPage />} />

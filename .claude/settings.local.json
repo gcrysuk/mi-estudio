@@ -26,7 +26,15 @@
       "Bash(grep *)",
       "Bash(wsl find *)",
       "Bash(wsl *)",
-      "Bash(python manage.py shell -c \"from django.contrib.auth.models import User; u = User.objects.filter\\(username='admin2'\\).first\\(\\); print\\('Existe:', u is not None\\); print\\('Activo:', u.is_active if u else 'N/A'\\); print\\('Has usable password:', u.has_usable_password\\(\\) if u else 'N/A'\\)\")"
+      "Bash(python manage.py shell -c \"from django.contrib.auth.models import User; u = User.objects.filter\\(username='admin2'\\).first\\(\\); print\\('Existe:', u is not None\\); print\\('Activo:', u.is_active if u else 'N/A'\\); print\\('Has usable password:', u.has_usable_password\\(\\) if u else 'N/A'\\)\")",
+      "Bash(python manage.py makemigrations movimientos --name=\"add_fecha_cambio_estado_to_movimiento\")",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/venv/**)",
+      "Bash(venv/bin/python manage.py makemigrations movimientos --name=\"add_fecha_cambio_estado_to_movimiento\")",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/components/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/frontend/src/pages/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/**)",
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/requirements/**)"
     ]
   }
 }

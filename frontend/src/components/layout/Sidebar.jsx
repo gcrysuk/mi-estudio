@@ -1,20 +1,30 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
   FolderOpen,
-  ListTodo,
+  ClipboardList,
   Building2,
   Tags,
   Calendar,
+  LogOut,
 } from 'lucide-react'
+import useAuthStore from '../../stores/authStore'
 
 const Sidebar = () => {
+  const { logout, user } = useAuthStore()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login')
+  }
+
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/personas', icon: Users, label: 'Personas' },
+    { to: '/movimientos', icon: ClipboardList, label: 'Movimientos' },
     { to: '/carpetas', icon: FolderOpen, label: 'Carpetas' },
-    { to: '/movimientos', icon: ListTodo, label: 'Resumen' },
     { to: '/organismos', icon: Building2, label: 'Organismos' },
     { to: '/tipos', icon: Tags, label: 'Tipos' },
     { to: '/calendario', icon: Calendar, label: 'Calendario' },
@@ -45,15 +55,24 @@ const Sidebar = () => {
         ))}
       </nav>
       
-      <div className="p-3 border-t border-gray-800"> {/* p-4 → p-3 */}
-        <div className="flex items-center gap-2"> {/* gap-3 → gap-2 */}
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center"> {/* w-10 h-10 → w-8 h-8 */}
-            <span className="text-white font-bold text-sm">A</span> {/* text-sm */}
+      <div className="p-3 border-t border-gray-800">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+            <span className="text-white font-bold text-sm">
+              {user?.username?.[0]?.toUpperCase() ?? 'A'}
+            </span>
           </div>
-          <div className="text-xs"> {/* text-xs */}
-            <p className="font-medium">Admin</p>
-            <p className="text-gray-400 truncate max-w-[100px]">admin@estudio.com</p>
+          <div className="text-xs flex-1 min-w-0">
+            <p className="font-medium truncate">{user?.username ?? 'Admin'}</p>
+            <p className="text-gray-400 truncate">{user?.email ?? ''}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors flex-shrink-0"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </div>

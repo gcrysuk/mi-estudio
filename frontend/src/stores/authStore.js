@@ -48,7 +48,15 @@ const useAuthStore = create(
         }
       },
 
-      logout: () => {
+      logout: async () => {
+        const refresh = localStorage.getItem('refresh_token')
+        if (refresh) {
+          try {
+            await api.post('/auth/logout/', { refresh })
+          } catch {
+            // si el token ya expiró o falló, igual limpiamos local
+          }
+        }
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         set({

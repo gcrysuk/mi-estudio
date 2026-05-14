@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
-import { X, Save, FolderOpen, Plus, Settings, Clock, Calendar } from 'lucide-react';
+import { X, Save, FolderOpen, Settings, Clock, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import MovimientoConfig from './MovimientoConfig';
+import BuscadorCarpeta from '../../components/carpetas/BuscadorCarpeta';
+import CarpetaForm from '../../components/carpetas/CarpetaForm';
 
 const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
   const [tiposMovimiento, setTiposMovimiento] = useState([]);
   const [estadosMovimiento, setEstadosMovimiento] = useState([]);
-  const [carpetas, setCarpetas] = useState([]);
   const [showConfig, setShowConfig] = useState(false);
+  const [showCarpetaForm, setShowCarpetaForm] = useState(false);
+  const [carpetaSeleccionada, setCarpetaSeleccionada] = useState(null);
 
   const getCurrentDateTime = () => {
     const now = new Date();
@@ -36,27 +39,31 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
   useEffect(() => {
     fetchTiposMovimiento();
     fetchEstadosMovimiento();
-    fetchCarpetas();
-    
+
     if (movimiento) {
       setFormData({
         titulo: movimiento.titulo || '',
         descripcion: movimiento.descripcion || '',
         tipo: movimiento.tipo || '',
         estado: movimiento.estado || '',
-        fecha_movimiento: movimiento.fecha_movimiento ? 
+        fecha_movimiento: movimiento.fecha_movimiento ?
           new Date(movimiento.fecha_movimiento).toISOString().slice(0, 16) : getCurrentDateTime(),
-        fecha_notificacion: movimiento.fecha_notificacion ? 
+        fecha_notificacion: movimiento.fecha_notificacion ?
           new Date(movimiento.fecha_notificacion).toISOString().slice(0, 16) : '',
-        fecha_vencimiento: movimiento.fecha_vencimiento ? 
+        fecha_vencimiento: movimiento.fecha_vencimiento ?
           new Date(movimiento.fecha_vencimiento).toISOString().slice(0, 16) : '',
         tiempo_trabajo: movimiento.tiempo_trabajo || '',
         carpeta: movimiento.carpeta || ''
       });
+      if (movimiento.carpeta) {
+        setCarpetaSeleccionada({
+          id: movimiento.carpeta,
+          nombre: movimiento.carpeta_nombre || ''
+        });
+      }
     }
   }, [movimiento, initialCarpetaId]);
 
-  // Manejador de tecla ESC
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') onClose();
@@ -83,38 +90,24 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
     }
   };
 
-  const fetchCarpetas = async () => {
-    try {
-      const response = await api.get('/carpetas/');
-      setCarpetas(response.data.results || response.data);
-    } catch (error) {
-      console.error('Error fetching carpetas:', error);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.titulo) {
       toast.error('El título es obligatorio');
       return;
     }
 
-    if (!formData.carpeta) {
-      toast.error('Debes seleccionar una carpeta');
-      return;
-    }
-
     setLoading(true);
-    
+
     try {
       const dataToSend = {
         ...formData,
-        carpeta: formData.carpeta,
+        carpeta: formData.carpeta || null,
         fecha_movimiento: new Date(formData.fecha_movimiento).toISOString(),
-        fecha_notificacion: formData.fecha_notificacion ? 
+        fecha_notificacion: formData.fecha_notificacion ?
           new Date(formData.fecha_notificacion).toISOString() : null,
-        fecha_vencimiento: formData.fecha_vencimiento ? 
+        fecha_vencimiento: formData.fecha_vencimiento ?
           new Date(formData.fecha_vencimiento).toISOString() : null,
         tiempo_trabajo: formData.tiempo_trabajo ? parseInt(formData.tiempo_trabajo) : null,
         tipo: formData.tipo || null,
@@ -128,7 +121,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
         await api.post('/movimientos/', dataToSend);
         toast.success('Movimiento creado');
       }
-      
+
       onSave();
     } catch (error) {
       console.error('Error saving movimiento:', error);
@@ -138,18 +131,17 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
     }
   };
 
-  const formatTiempoTrabajo = (minutos) => {
-    if (!minutos) return '';
-    const horas = Math.floor(minutos / 60);
-    const mins = minutos % 60;
-    return `${horas > 0 ? horas + 'h ' : ''}${mins}min`;
+  const handleCarpetaCreada = (nuevaCarpeta) => {
+    setCarpetaSeleccionada(nuevaCarpeta);
+    setFormData(prev => ({ ...prev, carpeta: nuevaCarpeta.id }));
+    setShowCarpetaForm(false);
   };
 
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
         <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          {/* Header - más compacto */}
+          {/* Header */}
           <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-dark-surface z-10">
             <h2 className="text-sm font-bold uppercase">
               {movimiento ? 'EDITAR MOVIMIENTO' : 'NUEVO MOVIMIENTO'}
@@ -163,8 +155,8 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
               >
                 <Settings size={16} />
               </button>
-              <button 
-                onClick={onClose} 
+              <button
+                onClick={onClose}
                 className="p-1 hover:text-accent rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 disabled={loading}
               >
@@ -173,27 +165,22 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
             </div>
           </div>
 
-          {/* Formulario - más compacto */}
           <form onSubmit={handleSubmit} className="p-3 space-y-2">
-            {/* Carpeta */}
+            {/* Carpeta - autocomplete */}
             <div>
               <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
                 <FolderOpen size={12} />
-                CARPETA *
+                CARPETA
               </label>
-              <select
-                value={formData.carpeta}
-                onChange={(e) => setFormData({...formData, carpeta: e.target.value})}
-                className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                required
-              >
-                <option value="">SELECCIONAR CARPETA</option>
-                {carpetas.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.nombre} {cat.numero_expediente ? `- ${cat.numero_expediente}` : ''}
-                  </option>
-                ))}
-              </select>
+              <BuscadorCarpeta
+                value={carpetaSeleccionada}
+                onChange={(c) => {
+                  setCarpetaSeleccionada(c);
+                  setFormData(prev => ({ ...prev, carpeta: c?.id || '' }));
+                }}
+                onCrearNueva={() => setShowCarpetaForm(true)}
+                placeholder="Buscar carpeta..."
+              />
             </div>
 
             {/* Título */}
@@ -202,20 +189,20 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
               <input
                 type="text"
                 value={formData.titulo}
-                onChange={(e) => setFormData({...formData, titulo: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
                 className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 required
                 placeholder="Ej: Presentación de demanda"
               />
             </div>
 
-            {/* Tipo y Estado en una línea */}
+            {/* Tipo y Estado */}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium mb-0.5 uppercase">TIPO</label>
                 <select
                   value={formData.tipo}
-                  onChange={(e) => setFormData({...formData, tipo: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, tipo: e.target.value })}
                   className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 >
                   <option value="">SELECCIONAR</option>
@@ -229,7 +216,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
                 <label className="block text-xs font-medium mb-0.5 uppercase">ESTADO</label>
                 <select
                   value={formData.estado}
-                  onChange={(e) => setFormData({...formData, estado: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
                   className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 >
                   <option value="">SELECCIONAR</option>
@@ -240,19 +227,18 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
               </div>
             </div>
 
-            {/* Fechas en grid */}
+            {/* Fechas */}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
                   <Calendar size={12} />
-                  FECHA MOV *
+                  FECHA MOV
                 </label>
                 <input
                   type="datetime-local"
                   value={formData.fecha_movimiento}
-                  onChange={(e) => setFormData({...formData, fecha_movimiento: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, fecha_movimiento: e.target.value })}
                   className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  required
                 />
               </div>
 
@@ -264,7 +250,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
                 <input
                   type="datetime-local"
                   value={formData.fecha_notificacion}
-                  onChange={(e) => setFormData({...formData, fecha_notificacion: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, fecha_notificacion: e.target.value })}
                   className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 />
               </div>
@@ -280,7 +266,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
                 <input
                   type="datetime-local"
                   value={formData.fecha_vencimiento}
-                  onChange={(e) => setFormData({...formData, fecha_vencimiento: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
                   className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 />
               </div>
@@ -295,7 +281,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
                   min="0"
                   step="5"
                   value={formData.tiempo_trabajo}
-                  onChange={(e) => setFormData({...formData, tiempo_trabajo: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, tiempo_trabajo: e.target.value })}
                   className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                   placeholder="120"
                 />
@@ -307,7 +293,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
               <label className="block text-xs font-medium mb-0.5 uppercase">DESCRIPCIÓN</label>
               <textarea
                 value={formData.descripcion}
-                onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
                 rows="2"
                 className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 placeholder="Detalles del movimiento..."
@@ -337,13 +323,19 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
         </div>
       </div>
 
-      {/* Modal de configuración */}
       {showConfig && (
         <MovimientoConfig onClose={() => {
           setShowConfig(false);
           fetchTiposMovimiento();
           fetchEstadosMovimiento();
         }} />
+      )}
+
+      {showCarpetaForm && (
+        <CarpetaForm
+          onClose={() => setShowCarpetaForm(false)}
+          onSave={handleCarpetaCreada}
+        />
       )}
     </>
   );

@@ -21,7 +21,7 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         ).values_list('id', flat=True)
         
         queryset = Movimiento.objects.filter(
-            carpeta_id__in=carpetas_accesibles,
+            Q(carpeta_id__in=carpetas_accesibles) | Q(carpeta__isnull=True),
             activo=True
         ).select_related('carpeta', 'tipo', 'estado', 'creado_por')
         

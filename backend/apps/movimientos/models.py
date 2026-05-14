@@ -35,9 +35,11 @@ class EstadoMovimiento(models.Model):
 
 class Movimiento(models.Model):
     carpeta = models.ForeignKey(
-        'carpetas.Carpeta', 
+        'carpetas.Carpeta',
         on_delete=models.CASCADE,
-        related_name='movimientos'
+        related_name='movimientos',
+        null=True,
+        blank=True
     )
     tipo = models.ForeignKey(
         TipoMovimiento,
@@ -62,6 +64,7 @@ class Movimiento(models.Model):
     fecha_movimiento = models.DateTimeField()
     fecha_notificacion = models.DateTimeField(null=True, blank=True)
     fecha_vencimiento = models.DateTimeField(null=True, blank=True)
+    fecha_cambio_estado = models.DateTimeField(auto_now=False, null=True, blank=True)
     
     # Tiempo de trabajo (en minutos)
     tiempo_trabajo = models.IntegerField(
@@ -88,7 +91,8 @@ class Movimiento(models.Model):
         verbose_name_plural = "Movimientos"
     
     def __str__(self):
-        return f"{self.carpeta} - {self.titulo[:50]}"
+        carpeta_str = str(self.carpeta) if self.carpeta_id else 'Sin carpeta'
+        return f"{carpeta_str} - {self.titulo[:50]}"
     
     def save(self, *args, **kwargs):
         from django.utils import timezone
