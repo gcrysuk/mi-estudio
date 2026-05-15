@@ -6,7 +6,7 @@ import BuscadorPersona from '../buscadores/BuscadorPersona';
 import BuscadorOrganismo from '../buscadores/BuscadorOrganismo';
 import OrganismoForm from '../organismos/OrganismoForm';
 
-const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
+const CarpetaForm = ({ carpeta = null, onClose, onSave, nombreInicial = '' }) => {
   const [loading, setLoading] = useState(false);
   const [showOrganismoForm, setShowOrganismoForm] = useState(false);
   const [tiposCarpeta, setTiposCarpeta] = useState([]);
@@ -16,7 +16,7 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave }) => {
   // Estado del formulario
   const [formData, setFormData] = useState({
     // Datos básicos
-    nombre: '',
+    nombre: nombreInicial,
     caratula_generada: false,
     
     // Relaciones (objetos completos para los buscadores)

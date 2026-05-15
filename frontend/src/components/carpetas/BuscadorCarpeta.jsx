@@ -96,7 +96,7 @@ const BuscadorCarpeta = ({ value, onChange, onCrearNueva, placeholder = "Buscar 
                     e.preventDefault();
                     e.stopPropagation();
                     setIsOpen(false);
-                    onCrearNueva();
+                    onCrearNueva(searchTerm);
                   }}
                   className="w-full p-2 text-left text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 rounded border border-dashed border-accent"
                 >
@@ -132,7 +132,7 @@ const BuscadorCarpeta = ({ value, onChange, onCrearNueva, placeholder = "Buscar 
                       e.preventDefault();
                       e.stopPropagation();
                       setIsOpen(false);
-                      onCrearNueva();
+                      onCrearNueva(searchTerm);
                     }}
                     className="w-full p-2 text-left text-sm text-accent hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
                   >

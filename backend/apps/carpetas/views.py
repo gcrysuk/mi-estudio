@@ -20,7 +20,6 @@ User = get_user_model()
 
 
 def _user_puede_editar_carpeta(user, carpeta):
-    """True si el usuario es propietario o tiene puede_editar=True."""
     if carpeta.propietario_id == user.pk:
         return True
     return CompartirCarpeta.objects.filter(
@@ -57,189 +56,211 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
         instance.activo = False
         instance.save(update_fields=['activo'])
-    
-    # ============================================
-    # ENDPOINTS PARA ESTADOS - VERSIÓN CORREGIDA
-    # ============================================
+
+    # ── Compartir ─────────────────────────────────────────────────────────────
+
+    @action(detail=True, methods=['get'], url_path='usuarios_compartidos')
+    def usuarios_compartidos(self, request, pk=None):
+        carpeta = self.get_object()
+        compartidos = CompartirCarpeta.objects.filter(
+            carpeta=carpeta
+        ).select_related('usuario')
+        data = [
+            {
+                'usuario_id': c.usuario.id,
+                'username': c.usuario.username,
+                'email': c.usuario.email,
+                'puede_editar': c.puede_editar,
+            }
+            for c in compartidos
+        ]
+        return Response(data)
+
+    @action(detail=True, methods=['post'], url_path='compartir')
+    def compartir(self, request, pk=None):
+        carpeta = self.get_object()
+        usuario_id = request.data.get('usuario_id')
+        puede_editar = request.data.get('puede_editar', False)
+
+        if not usuario_id:
+            return Response({'error': 'usuario_id requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            usuario = User.objects.get(pk=usuario_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        if carpeta.propietario == usuario:
+            return Response({'error': 'No podés compartir con el propietario'}, status=status.HTTP_400_BAD_REQUEST)
+
+        obj, created = CompartirCarpeta.objects.update_or_create(
+            carpeta=carpeta,
+            usuario=usuario,
+            defaults={'puede_editar': puede_editar},
+        )
+        return Response({'ok': True, 'created': created})
+
+    @action(detail=True, methods=['post'], url_path='dejar_compartir')
+    def dejar_compartir(self, request, pk=None):
+        carpeta = self.get_object()
+        usuario_id = request.data.get('usuario_id')
+        CompartirCarpeta.objects.filter(
+            carpeta=carpeta, usuario_id=usuario_id
+        ).delete()
+        return Response({'ok': True})
+
+    # ── Estados ───────────────────────────────────────────────────────────────
+
     @action(detail=False, methods=['get', 'post'], url_path='estados')
     def estados(self, request):
-        """Listar y crear estados"""
         if request.method == 'GET':
             queryset = EstadoCarpeta.objects.filter(activo=True)
             search = request.query_params.get('search', '')
             if search:
                 queryset = queryset.filter(nombre__icontains=search)
-            serializer = EstadoCarpetaSerializer(queryset, many=True)
-            return Response(serializer.data)
-        
-        elif request.method == 'POST':
-            serializer = EstadoCarpetaSerializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+            return Response(EstadoCarpetaSerializer(queryset, many=True).data)
+
+        serializer = EstadoCarpetaSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=['put', 'delete'], url_path='estados')
     def estado_detail(self, request, pk=None):
-        """Actualizar y eliminar un estado específico"""
         try:
             estado = EstadoCarpeta.objects.get(pk=pk)
         except EstadoCarpeta.DoesNotExist:
             return Response({'error': 'Estado no encontrado'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         if request.method == 'PUT':
             serializer = EstadoCarpetaSerializer(estado, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        elif request.method == 'DELETE':
-            if estado.carpetas.exists():
-                return Response(
-                    {'error': 'No se puede eliminar porque hay carpetas con este estado'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            estado.delete()
-            return Response({'message': 'Estado eliminado'}, status=status.HTTP_200_OK)
-    
-@action(detail=False, methods=['get'], url_path='estados/(?P<estado_id>\d+)/count')
-def contar_carpetas_por_estado(self, request, estado_id=None):
-    """Cuenta cuántas carpetas usan un estado específico"""
-    count = Carpeta.objects.filter(estado_id=estado_id, activo=True).count()
-    return Response({'count': count})
 
-    # ============================================
-    # ENDPOINTS PARA TIPOS - VERSIÓN CORREGIDA
-    # ============================================
+        if estado.carpetas.exists():
+            return Response(
+                {'error': 'No se puede eliminar porque hay carpetas con este estado'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        estado.delete()
+        return Response({'message': 'Estado eliminado'}, status=status.HTTP_200_OK)
+
+    # ── Tipos ─────────────────────────────────────────────────────────────────
+
     @action(detail=False, methods=['get', 'post'], url_path='tipos')
     def tipos(self, request):
-        """Listar y crear tipos"""
         if request.method == 'GET':
             queryset = TipoCarpeta.objects.filter(activo=True)
             search = request.query_params.get('search', '')
             if search:
                 queryset = queryset.filter(nombre__icontains=search)
-            serializer = TipoCarpetaSerializer(queryset, many=True)
-            return Response(serializer.data)
-        
-        elif request.method == 'POST':
-            serializer = TipoCarpetaSerializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+            return Response(TipoCarpetaSerializer(queryset, many=True).data)
+
+        serializer = TipoCarpetaSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=['put', 'delete'], url_path='tipos')
     def tipo_detail(self, request, pk=None):
-        """Actualizar y eliminar un tipo específico"""
         try:
             tipo = TipoCarpeta.objects.get(pk=pk)
         except TipoCarpeta.DoesNotExist:
             return Response({'error': 'Tipo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         if request.method == 'PUT':
             serializer = TipoCarpetaSerializer(tipo, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        elif request.method == 'DELETE':
-            if tipo.carpetas.exists():
-                return Response(
-                    {'error': 'No se puede eliminar porque hay carpetas con este tipo'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            tipo.delete()
-            return Response({'message': 'Tipo eliminado'}, status=status.HTTP_200_OK)
-    
-    # ============================================
-    # ENDPOINTS PARA OBJETOS - VERSIÓN CORREGIDA
-    # ============================================
+
+        if tipo.carpetas.exists():
+            return Response(
+                {'error': 'No se puede eliminar porque hay carpetas con este tipo'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        tipo.delete()
+        return Response({'message': 'Tipo eliminado'}, status=status.HTTP_200_OK)
+
+    # ── Objetos ───────────────────────────────────────────────────────────────
+
     @action(detail=False, methods=['get', 'post'], url_path='objetos')
     def objetos(self, request):
-        """Listar y crear objetos"""
         if request.method == 'GET':
             queryset = ObjetoCarpeta.objects.filter(activo=True)
             search = request.query_params.get('search', '')
             if search:
                 queryset = queryset.filter(nombre__icontains=search)
-            serializer = ObjetoCarpetaSerializer(queryset, many=True)
-            return Response(serializer.data)
-        
-        elif request.method == 'POST':
-            serializer = ObjetoCarpetaSerializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+            return Response(ObjetoCarpetaSerializer(queryset, many=True).data)
+
+        serializer = ObjetoCarpetaSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=['put', 'delete'], url_path='objetos')
     def objeto_detail(self, request, pk=None):
-        """Actualizar y eliminar un objeto específico"""
         try:
             objeto = ObjetoCarpeta.objects.get(pk=pk)
         except ObjetoCarpeta.DoesNotExist:
             return Response({'error': 'Objeto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         if request.method == 'PUT':
             serializer = ObjetoCarpetaSerializer(objeto, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        elif request.method == 'DELETE':
-            if objeto.carpetas.exists():
-                return Response(
-                    {'error': 'No se puede eliminar porque hay carpetas con este objeto'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            objeto.delete()
-            return Response({'message': 'Objeto eliminado'}, status=status.HTTP_200_OK)
-    
-    # ============================================
-    # ENDPOINTS PARA ORGANISMOS
-    # ============================================
+
+        if objeto.carpetas.exists():
+            return Response(
+                {'error': 'No se puede eliminar porque hay carpetas con este objeto'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        objeto.delete()
+        return Response({'message': 'Objeto eliminado'}, status=status.HTTP_200_OK)
+
+    # ── Organismos ────────────────────────────────────────────────────────────
+
     @action(detail=False, methods=['get', 'post'], url_path='organismos')
     def organismos(self, request):
-        """Listar y crear organismos"""
         if request.method == 'GET':
             queryset = Organismo.objects.filter(activo=True)
             search = request.query_params.get('search', '')
             if search:
                 queryset = queryset.filter(nombre__icontains=search)
-            serializer = OrganismoSerializer(queryset, many=True)
-            return Response(serializer.data)
-        
-        elif request.method == 'POST':
-            serializer = OrganismoSerializer(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+            return Response(OrganismoSerializer(queryset, many=True).data)
+
+        serializer = OrganismoSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=['put', 'delete'], url_path='organismos')
     def organismo_detail(self, request, pk=None):
-        """Actualizar y eliminar un organismo específico"""
         try:
             organismo = Organismo.objects.get(pk=pk)
         except Organismo.DoesNotExist:
             return Response({'error': 'Organismo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         if request.method == 'PUT':
             serializer = OrganismoSerializer(organismo, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        elif request.method == 'DELETE':
-            if organismo.carpetas.exists():
-                return Response(
-                    {'error': 'No se puede eliminar porque hay carpetas con este organismo'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            organismo.delete()
-            return Response({'message': 'Organismo eliminado'}, status=status.HTTP_200_OK)
+
+        if organismo.carpetas.exists():
+            return Response(
+                {'error': 'No se puede eliminar porque hay carpetas con este organismo'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        organismo.delete()
+        return Response({'message': 'Organismo eliminado'}, status=status.HTTP_200_OK)

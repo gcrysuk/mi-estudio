@@ -57,18 +57,6 @@ const CarpetaDetail = () => {
   useEffect(() => { fetchCarpeta() }, [id])
   useEffect(() => { fetchMovimientos() }, [id, filtro])
 
-  const fetchCarpeta = async () => {
-    setLoadingCarpeta(true)
-    try {
-      const res = await api.get(`/carpetas/${id}/`)
-      setCarpeta(res.data)
-    } catch {
-      toast.error('Error al cargar la carpeta')
-    } finally {
-      setLoadingCarpeta(false)
-    }
-  }
-
   const fetchMovimientos = async () => {
     setLoadingMovs(true)
     try {
@@ -81,6 +69,18 @@ const CarpetaDetail = () => {
       toast.error('Error al cargar los movimientos')
     } finally {
       setLoadingMovs(false)
+    }
+  }
+
+  const fetchCarpeta = async () => {
+    setLoadingCarpeta(true)
+    try {
+      const res = await api.get(`/carpetas/${id}/`)
+      setCarpeta(res.data)
+    } catch {
+      toast.error('Error al cargar la carpeta')
+    } finally {
+      setLoadingCarpeta(false)
     }
   }
 

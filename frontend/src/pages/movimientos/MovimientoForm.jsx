@@ -14,6 +14,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
   const [showConfig, setShowConfig] = useState(false);
   const [showCarpetaForm, setShowCarpetaForm] = useState(false);
   const [carpetaSeleccionada, setCarpetaSeleccionada] = useState(null);
+  const [nombreInicial, setNombreInicial] = useState('');
 
   const getCurrentDateTime = () => {
     const now = new Date();
@@ -179,7 +180,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
                   setCarpetaSeleccionada(c);
                   setFormData(prev => ({ ...prev, carpeta: c?.id || '' }));
                 }}
-                onCrearNueva={() => setShowCarpetaForm(true)}
+                onCrearNueva={(texto) => { setNombreInicial(texto); setShowCarpetaForm(true); }}
                 placeholder="Buscar carpeta..."
               />
             </div>
@@ -334,6 +335,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
 
       {showCarpetaForm && createPortal(
         <CarpetaForm
+          nombreInicial={nombreInicial}
           onClose={() => setShowCarpetaForm(false)}
           onSave={handleCarpetaCreada}
         />,

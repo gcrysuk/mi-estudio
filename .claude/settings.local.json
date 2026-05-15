@@ -36,7 +36,8 @@
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/**)",
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/requirements/**)",
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/carpetas/**)",
-      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/movimientos/**)"
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/movimientos/**)",
+      "Bash(wslpath -u \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\focus\\\\\\\\mi_estudio\")"
     ]
   }
 }

@@ -35,7 +35,10 @@ const Layout = () => {
       {showMovimientoForm && (
         <MovimientoForm
           onClose={() => setShowMovimientoForm(false)}
-          onSave={() => setShowMovimientoForm(false)}
+          onSave={() => {
+            setShowMovimientoForm(false);
+            window.location.reload();
+          }}
         />
       )}
     </div>

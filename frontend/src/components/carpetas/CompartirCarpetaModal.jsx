@@ -11,7 +11,10 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
   const [selectedUsuario, setSelectedUsuario] = useState('');
   const [puedeEditar, setPuedeEditar] = useState(false);
 
-  // Obtener usuarios (excluyendo al propietario actual)
+  const [searchNewUsername, setSearchNewUsername] = useState('');
+  const [foundUser, setFoundUser] = useState(null);
+  const [searchingNew, setSearchingNew] = useState(false);
+
   useEffect(() => {
     if (isOpen && carpeta) {
       fetchUsuarios();
@@ -23,18 +26,12 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
 
   const fetchUsuarios = async () => {
     try {
-      // Obtener todos los usuarios excepto el actual
       const response = await api.get('/usuarios/');
-      // Filtrar para no mostrar al propietario de la carpeta
+      const data = Array.isArray(response.data) ? response.data : (response.data.results ?? []);
       const propietarioId = carpeta.multiple ? null : carpeta.propietario;
-      setUsuarios(response.data.filter(u => u.id !== propietarioId));
+      setUsuarios(data.filter(u => u.id !== propietarioId));
     } catch (error) {
       console.error('Error fetching usuarios:', error);
-      // Si no existe el endpoint, crear datos de ejemplo
-      setUsuarios([
-        { id: 2, username: 'usuario1', email: 'usuario1@example.com' },
-        { id: 3, username: 'usuario2', email: 'usuario2@example.com' },
-      ]);
     }
   };
 
@@ -56,15 +53,13 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
     setLoading(true);
     try {
       if (carpeta.multiple) {
-        // Compartir múltiples carpetas
         await api.post('/carpetas/compartir_multiples/', {
-          carpetas: carpeta.id, // Esto es un array de IDs
+          carpetas: carpeta.id,
           usuario_id: parseInt(selectedUsuario),
           puede_editar: puedeEditar
         });
         toast.success('Carpetas compartidas');
       } else {
-        // Compartir una carpeta
         await api.post(`/carpetas/${carpeta.id}/compartir/`, {
           usuario_id: parseInt(selectedUsuario),
           puede_editar: puedeEditar
@@ -73,6 +68,8 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
         fetchCompartidos();
       }
       setSelectedUsuario('');
+      setFoundUser(null);
+      setSearchNewUsername('');
       setPuedeEditar(false);
       if (onSave) onSave();
     } catch (error) {
@@ -95,15 +92,36 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
     }
   };
 
+  const handleBuscarNuevo = async () => {
+    if (!searchNewUsername.trim()) return;
+    setSearchingNew(true);
+    try {
+      const response = await api.get(`/usuarios/?search=${encodeURIComponent(searchNewUsername.trim())}`);
+      if (response.data.length > 0) {
+        const user = response.data[0];
+        setFoundUser(user);
+        setSelectedUsuario(String(user.id));
+        setSearchNewUsername('');
+      } else {
+        setFoundUser(null);
+        toast.error('Usuario no registrado en el sistema');
+      }
+    } catch (error) {
+      toast.error('Error al buscar usuario');
+    } finally {
+      setSearchingNew(false);
+    }
+  };
+
   if (!isOpen) return null;
 
-  const filteredUsuarios = usuarios.filter(u => 
+  const filteredUsuarios = usuarios.filter(u =>
     u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -132,31 +150,79 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
             </div>
           )}
 
-          {/* Buscar usuario */}
-          <div className="relative mb-3">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-            <input
-              type="text"
-              placeholder="BUSCAR USUARIO..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-            />
+          {/* Sección 1: Conocidos */}
+          <div className="mb-4">
+            <p className="text-xs font-bold uppercase mb-2">CONOCIDOS</p>
+            {usuarios.length === 0 ? (
+              <p className="text-xs text-gray-400 dark:text-gray-500 italic">Aún no tenés colaboradores</p>
+            ) : (
+              <>
+                <div className="relative mb-2">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                  <input
+                    type="text"
+                    placeholder="BUSCAR USUARIO..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+                <select
+                  value={selectedUsuario}
+                  onChange={(e) => {
+                    setSelectedUsuario(e.target.value);
+                    if (foundUser) setFoundUser(null);
+                  }}
+                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">SELECCIONAR USUARIO</option>
+                  {filteredUsuarios.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.username} - {u.email}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
 
-          {/* Selector de usuario */}
-          <select
-            value={selectedUsuario}
-            onChange={(e) => setSelectedUsuario(e.target.value)}
-            className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent mb-3"
-          >
-            <option value="">SELECCIONAR USUARIO</option>
-            {filteredUsuarios.map(u => (
-              <option key={u.id} value={u.id}>
-                {u.username} - {u.email}
-              </option>
-            ))}
-          </select>
+          {/* Sección 2: Buscar nuevo usuario */}
+          <div className="mb-3">
+            <p className="text-xs font-bold uppercase mb-2">AGREGAR SOLO POR USERNAME</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="USERNAME..."
+                value={searchNewUsername}
+                onChange={(e) => {
+                  setSearchNewUsername(e.target.value);
+                  setFoundUser(null);
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && handleBuscarNuevo()}
+                className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+              />
+              <button
+                onClick={handleBuscarNuevo}
+                disabled={searchingNew || !searchNewUsername.trim()}
+                className="px-3 py-1.5 text-xs uppercase rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              >
+                {searchingNew ? '...' : 'BUSCAR'}
+              </button>
+            </div>
+            {foundUser && (
+              <div
+                onClick={() => setSelectedUsuario(String(foundUser.id))}
+                className={`mt-2 p-2 rounded-lg cursor-pointer border transition-colors ${
+                  selectedUsuario === String(foundUser.id)
+                    ? 'border-accent bg-accent/10 dark:bg-accent/20'
+                    : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
+                }`}
+              >
+                <p className="text-sm font-medium">{foundUser.username}</p>
+                <p className="text-xs text-gray-500">{foundUser.email}</p>
+              </div>
+            )}
+          </div>
 
           {/* Checkbox puede editar */}
           <label className="flex items-center gap-2 mb-3 cursor-pointer">
