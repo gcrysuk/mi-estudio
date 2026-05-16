@@ -7,7 +7,7 @@ import MovimientoConfig from './MovimientoConfig';
 import BuscadorCarpeta from '../../components/carpetas/BuscadorCarpeta';
 import CarpetaForm from '../../components/carpetas/CarpetaForm';
 
-const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSave }) => {
+const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
   const [tiposMovimiento, setTiposMovimiento] = useState([]);
   const [estadosMovimiento, setEstadosMovimiento] = useState([]);
@@ -63,6 +63,8 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, movimiento, onClose, onSa
           nombre: movimiento.carpeta_nombre || ''
         });
       }
+    } else if (initialCarpetaId) {
+      setCarpetaSeleccionada({ id: initialCarpetaId, nombre: carpetaNombre || '' });
     }
   }, [movimiento, initialCarpetaId]);
 

@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import { useUndo } from '../../hooks/useUndo';
 
 const PROVINCIAS = [
   'Buenos Aires',
@@ -61,6 +63,7 @@ const OrganismosList = () => {
 
   const [localidades, setLocalidades] = useState([]);
   const [loadingLocalidades, setLoadingLocalidades] = useState(false);
+  const { pushUndo, undoLast } = useUndo();
 
   const emptyForm = {
     nombre: '',
@@ -152,37 +155,25 @@ const OrganismosList = () => {
   };
 
   const handleDelete = async (id, nombre) => {
+    const eliminado = organismos.find((o) => o.id === id);
     try {
-      const eliminado = organismos.find((o) => o.id === id);
       await api.delete(`/organismos/${id}/`);
       setDeleteConfirm(null);
       fetchData();
-      toast.success(
-        (t) => (
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">Organismo eliminado</span>
-            <button
-              onClick={async () => {
-                try {
-                  await api.post('/organismos/', eliminado);
-                  fetchData();
-                  toast.dismiss(t.id);
-                  toast.success('Organismo restaurado');
-                } catch {
-                  toast.error('Error al restaurar');
-                }
-              }}
-              className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-lg transition-all duration-200 hover:scale-105"
-            >
+      if (eliminado) {
+        pushUndo({ entidad: 'organismo', datos: eliminado, restoreFn: async () => { await api.post('/organismos/', eliminado); fetchData(); } });
+      }
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">Organismo eliminado</span>
+          {eliminado && (
+            <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
+              className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
               DESHACER
             </button>
-          </div>
-        ),
-        {
-          duration: 8000,
-          style: { background: '#1E1E1E', color: '#fff', border: '1px solid #4FC3F7' },
-        }
-      );
+          )}
+        </div>
+      ), { duration: 8000 });
     } catch {
       toast.error('Error al eliminar');
     }
@@ -199,32 +190,16 @@ const OrganismosList = () => {
       setSelectAll(false);
       setBulkDeleteConfirm(false);
       fetchData();
-      toast.success(
-        (t) => (
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">{eliminados.length} organismos eliminados</span>
-            <button
-              onClick={async () => {
-                try {
-                  await Promise.all(eliminados.map((o) => api.post('/organismos/', o)));
-                  fetchData();
-                  toast.dismiss(t.id);
-                  toast.success(`${eliminados.length} organismos restaurados`);
-                } catch {
-                  toast.error('Error al restaurar');
-                }
-              }}
-              className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-lg transition-all duration-200 hover:scale-105"
-            >
-              DESHACER
-            </button>
-          </div>
-        ),
-        {
-          duration: 10000,
-          style: { background: '#1E1E1E', color: '#fff', border: '1px solid #4FC3F7' },
-        }
-      );
+      pushUndo({ entidad: 'organismos', datos: eliminados, restoreFn: async () => { await Promise.all(eliminados.map((o) => api.post('/organismos/', o))); fetchData(); } });
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">{eliminados.length} organismos eliminados</span>
+          <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
+            className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
+            DESHACER
+          </button>
+        </div>
+      ), { duration: 10000 });
     } catch {
       toast.error('Error al eliminar algunos organismos');
     } finally {
@@ -567,57 +542,21 @@ const OrganismosList = () => {
         </div>
       )}
 
-      {/* Confirmación eliminar */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl p-4 max-w-md w-full">
-            <h3 className="text-base font-bold mb-3">CONFIRMAR ELIMINACIÓN</h3>
-            <p className="text-sm mb-4">
-              ¿Estás seguro que deseas eliminar <strong>{deleteConfirm.nombre}</strong>?
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
-              >
-                CANCELAR
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirm.id, deleteConfirm.nombre)}
-                className="px-3 py-1.5 text-xs rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors uppercase"
-              >
-                ELIMINAR
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        title="Confirmar eliminación"
+        message={`¿Eliminar ${deleteConfirm?.nombre}?`}
+        onConfirm={() => handleDelete(deleteConfirm.id, deleteConfirm.nombre)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
 
-      {/* Confirmación eliminación múltiple */}
-      {bulkDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl p-4 max-w-md w-full">
-            <h3 className="text-base font-bold mb-3">CONFIRMAR ELIMINACIÓN MÚLTIPLE</h3>
-            <p className="text-sm mb-4">
-              ¿Estás seguro que deseas eliminar {selectedItems.length} organismos?
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setBulkDeleteConfirm(false)}
-                className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
-              >
-                CANCELAR
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                className="px-3 py-1.5 text-xs rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors uppercase"
-              >
-                ELIMINAR
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={bulkDeleteConfirm}
+        title="Confirmar eliminación múltiple"
+        message={`¿Eliminar ${selectedItems.length} organismos?`}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setBulkDeleteConfirm(false)}
+      />
     </div>
   );
 };

@@ -4,9 +4,11 @@ import { Plus } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import MovimientoForm from '../../pages/movimientos/MovimientoForm';
+import { useInactivityLogout } from '../../hooks/useInactivityLogout';
 
 const Layout = () => {
   const [showMovimientoForm, setShowMovimientoForm] = useState(false);
+  useInactivityLogout();
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900">

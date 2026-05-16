@@ -13,6 +13,8 @@ import {
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import MovimientoForm from './MovimientoForm';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import { useUndo } from '../../hooks/useUndo';
 
 const MovimientosList = () => {
   const { carpetaId } = useParams();
@@ -22,6 +24,8 @@ const MovimientosList = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMovimiento, setEditingMovimiento] = useState(null);
   const [filtro, setFiltro] = useState('todos');
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const { pushUndo, undoLast } = useUndo();
 
   // DEBUG: Ver qué ID llega
   console.log('📁 carpetaId desde URL:', carpetaId);
@@ -73,15 +77,30 @@ const MovimientosList = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este movimiento?')) return;
-    
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    const saved = movimientos.find(m => m.id === confirmDelete.id);
     try {
-      await api.delete(`/movimientos/${id}/`);
-      toast.success('Movimiento eliminado');
+      await api.delete(`/movimientos/${confirmDelete.id}/`);
+      setConfirmDelete(null);
       fetchMovimientos();
+      if (saved) {
+        pushUndo({ entidad: 'movimiento', datos: saved, restoreFn: async () => { await api.post('/movimientos/', saved); fetchMovimientos(); } });
+      }
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">Movimiento eliminado</span>
+          {saved && (
+            <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
+              className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
+              DESHACER
+            </button>
+          )}
+        </div>
+      ), { duration: 8000 });
     } catch (error) {
       toast.error('Error al eliminar');
+      setConfirmDelete(null);
     }
   };
 
@@ -119,6 +138,14 @@ const MovimientosList = () => {
   }
 
   return (
+    <>
+    <ConfirmDialog
+      isOpen={!!confirmDelete}
+      title="Confirmar eliminación"
+      message="¿Eliminar este movimiento?"
+      onConfirm={handleDelete}
+      onCancel={() => setConfirmDelete(null)}
+    />
     <div className="space-y-4 p-4">
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -251,7 +278,7 @@ const MovimientosList = () => {
                     <Edit size={16} />
                   </button>
                   <button
-                    onClick={() => handleDelete(mov.id)}
+                    onClick={() => setConfirmDelete({ id: mov.id })}
                     className="p-2 hover:text-red-500"
                   >
                     <Trash2 size={16} />
@@ -276,6 +303,7 @@ const MovimientosList = () => {
         />
       )}
     </div>
+    </>
   );
 };
 

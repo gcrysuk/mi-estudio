@@ -27,6 +27,8 @@ import { useModal } from '../../contexts/ModalContext';
 import { Link } from 'react-router-dom';
 import DetalleCarpetaModal from '../../components/carpetas/DetalleCarpetaModal';
 import ColumnSelector from '../../components/common/ColumnSelector';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import { useUndo } from '../../hooks/useUndo';
 
 const CarpetasList = () => {
   const [carpetas, setCarpetas] = useState([]);
@@ -61,6 +63,7 @@ const CarpetasList = () => {
   const [detalleModalOpen, setDetalleModalOpen] = useState(false);
   const [carpetaParaDetalle, setCarpetaParaDetalle] = useState(null);
   const [showOrganismoForm, setShowOrganismoForm] = useState(false);
+  const { pushUndo, undoLast } = useUndo();
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -408,43 +411,40 @@ const CarpetasList = () => {
   };  
 
   const handleDelete = async (id, nombre) => {
+    const carpetaEliminada = carpetas.find(c => c.id === id);
     try {
-      const carpetaEliminada = carpetas.find(c => c.id === id);
-      
+      const movsRes = await api.get('/movimientos/', { params: { carpeta: id } });
+      const movimientos = movsRes.data.results ?? movsRes.data;
       await api.delete(`/carpetas/${id}/`);
       setDeleteConfirm(null);
       fetchData();
-      
-      toast.success(
-        (t) => (
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">Carpeta eliminada</span>
-            <button
-              onClick={async () => {
-                try {
-                  await api.post('/carpetas/', carpetaEliminada);
-                  fetchData();
-                  toast.dismiss(t.id);
-                  toast.success('Carpeta restaurada');
-                } catch {
-                  toast.error('Error al restaurar');
-                }
-              }}
-              className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-lg transition-all duration-200 hover:scale-105"
-            >
+      if (carpetaEliminada) {
+        pushUndo({
+          entidad: 'carpeta',
+          datos: carpetaEliminada,
+          movimientos,
+          restoreFn: async () => {
+            const res = await api.post('/carpetas/', carpetaEliminada);
+            const nuevaCarpetaId = res.data.id;
+            for (const mov of movimientos) {
+              const { id: _id, carpeta_nombre, tipo_nombre, estado_nombre, vencido, ...movData } = mov;
+              await api.post('/movimientos/', { ...movData, carpeta: nuevaCarpetaId });
+            }
+            fetchData();
+          },
+        });
+      }
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">Carpeta eliminada</span>
+          {carpetaEliminada && (
+            <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
+              className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
               DESHACER
             </button>
-          </div>
-        ),
-        { 
-          duration: 8000,
-          style: {
-            background: '#1E1E1E',
-            color: '#fff',
-            border: '1px solid #4FC3F7',
-          },
-        }
-      );
+          )}
+        </div>
+      ), { duration: 8000 });
     } catch (error) {
       console.error('Error deleting carpeta:', error);
       toast.error('Error al eliminar');
@@ -455,46 +455,47 @@ const CarpetasList = () => {
     setLoading(true);
     try {
       const eliminadas = carpetas.filter(c => selectedItems.includes(c.id));
-      
+
+      const movsPerCarpeta = await Promise.all(
+        eliminadas.map(c =>
+          api.get('/movimientos/', { params: { carpeta: c.id } })
+            .then(r => ({ carpetaId: c.id, movs: r.data.results ?? r.data }))
+        )
+      );
+
       for (const id of selectedItems) {
         await api.delete(`/carpetas/${id}/`);
       }
-      
+
       setSelectedItems([]);
       setSelectAll(false);
       setBulkDeleteConfirm(false);
       fetchData();
-      
-      toast.success(
-        (t) => (
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">{eliminadas.length} carpetas eliminadas</span>
-            <button
-              onClick={async () => {
-                try {
-                  await Promise.all(eliminadas.map(c => api.post('/carpetas/', c)));
-                  fetchData();
-                  toast.dismiss(t.id);
-                  toast.success('Carpetas restauradas');
-                } catch {
-                  toast.error('Error al restaurar');
-                }
-              }}
-              className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-lg transition-all duration-200 hover:scale-105"
-            >
-              DESHACER
-            </button>
-          </div>
-        ),
-        { 
-          duration: 10000,
-          style: {
-            background: '#1E1E1E',
-            color: '#fff',
-            border: '1px solid #4FC3F7',
-          },
-        }
-      );
+      pushUndo({
+        entidad: 'carpetas',
+        datos: eliminadas,
+        restoreFn: async () => {
+          for (const carpeta of eliminadas) {
+            const res = await api.post('/carpetas/', carpeta);
+            const nuevaCarpetaId = res.data.id;
+            const entry = movsPerCarpeta.find(e => e.carpetaId === carpeta.id);
+            for (const mov of entry?.movs ?? []) {
+              const { id: _id, carpeta_nombre, tipo_nombre, estado_nombre, vencido, ...movData } = mov;
+              await api.post('/movimientos/', { ...movData, carpeta: nuevaCarpetaId });
+            }
+          }
+          fetchData();
+        },
+      });
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">{eliminadas.length} carpetas eliminadas</span>
+          <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
+            className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
+            DESHACER
+          </button>
+        </div>
+      ), { duration: 10000 });
     } catch (error) {
       console.error('Error deleting carpetas:', error);
       toast.error('Error al eliminar algunas carpetas');
@@ -1091,33 +1092,21 @@ const CarpetasList = () => {
         />
       )}
 
-      {/* Modal de confirmación de eliminación individual */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl p-4 max-w-md w-full">
-            <h3 className="text-base font-bold mb-3">CONFIRMAR ELIMINACIÓN</h3>
-            <p className="text-sm mb-4">¿Eliminar la carpeta "{deleteConfirm.nombre}"?</p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase">CANCELAR</button>
-              <button onClick={() => handleDelete(deleteConfirm.id, deleteConfirm.nombre)} className="px-3 py-1.5 text-xs rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors uppercase">ELIMINAR</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        title="Confirmar eliminación"
+        message={`¿Eliminar la carpeta "${deleteConfirm?.nombre}"?`}
+        onConfirm={() => handleDelete(deleteConfirm.id, deleteConfirm.nombre)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
 
-      {/* Modal de confirmación de eliminación múltiple */}
-      {bulkDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl p-4 max-w-md w-full">
-            <h3 className="text-base font-bold mb-3">CONFIRMAR ELIMINACIÓN MÚLTIPLE</h3>
-            <p className="text-sm mb-4">¿Eliminar {selectedItems.length} carpetas?</p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setBulkDeleteConfirm(false)} className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase">CANCELAR</button>
-              <button onClick={handleBulkDelete} className="px-3 py-1.5 text-xs rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors uppercase">ELIMINAR</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={bulkDeleteConfirm}
+        title="Confirmar eliminación múltiple"
+        message={`¿Eliminar ${selectedItems.length} carpetas?`}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setBulkDeleteConfirm(false)}
+      />
 
       {/* Modal de detalles */}
       {detalleModalOpen && (

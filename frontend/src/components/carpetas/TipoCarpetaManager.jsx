@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { X, Save, Edit, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 const TipoCarpetaManager = ({ isOpen, onClose, onSave }) => {
   const [tipos, setTipos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
     orden: 0,
@@ -58,9 +60,7 @@ const TipoCarpetaManager = ({ isOpen, onClose, onSave }) => {
     }
   };
 
-  const handleDelete = async (id, nombre) => {
-    if (!confirm(`¿Eliminar el tipo "${nombre}"?`)) return;
-    
+  const handleDelete = async (id) => {
     try {
       await api.delete(`/carpetas/tipos/${id}/`);
       toast.success('Tipo eliminado');
@@ -69,6 +69,8 @@ const TipoCarpetaManager = ({ isOpen, onClose, onSave }) => {
     } catch (error) {
       console.error('Error deleting tipo:', error);
       toast.error('No se puede eliminar porque está en uso');
+    } finally {
+      setConfirmDelete(null);
     }
   };
 
@@ -93,6 +95,14 @@ const TipoCarpetaManager = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
+    <>
+    <ConfirmDialog
+      isOpen={!!confirmDelete}
+      title="Confirmar eliminación"
+      message={`¿Eliminar el tipo "${confirmDelete?.nombre}"?`}
+      onConfirm={() => handleDelete(confirmDelete.id)}
+      onCancel={() => setConfirmDelete(null)}
+    />
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-dark-surface">
@@ -190,7 +200,7 @@ const TipoCarpetaManager = ({ isOpen, onClose, onSave }) => {
                         <Edit size={14} />
                       </button>
                       <button
-                        onClick={() => handleDelete(tipo.id, tipo.nombre)}
+                        onClick={() => setConfirmDelete({ id: tipo.id, nombre: tipo.nombre })}
                         className="p-1 hover:text-red-500"
                         title="Eliminar"
                       >
@@ -205,6 +215,7 @@ const TipoCarpetaManager = ({ isOpen, onClose, onSave }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

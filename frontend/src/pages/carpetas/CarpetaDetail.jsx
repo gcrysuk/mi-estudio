@@ -9,6 +9,8 @@ import toast from 'react-hot-toast'
 import api from '../../services/api'
 import MovimientoForm from '../movimientos/MovimientoForm'
 import CarpetaForm from '../../components/carpetas/CarpetaForm'
+import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import { useUndo } from '../../hooks/useUndo'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (fecha, opts) =>
@@ -53,6 +55,8 @@ const CarpetaDetail = () => {
   const [editingMov, setEditingMov]         = useState(null)
   const [showMovForm, setShowMovForm]       = useState(false)
   const [showCarpetaForm, setShowCarpetaForm] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(null)
+  const { pushUndo, undoLast } = useUndo()
 
   useEffect(() => { fetchCarpeta() }, [id])
   useEffect(() => { fetchMovimientos() }, [id, filtro])
@@ -84,14 +88,30 @@ const CarpetaDetail = () => {
     }
   }
 
-  const handleDeleteMov = async (movId) => {
-    if (!confirm('¿Eliminar este movimiento?')) return
+  const handleDeleteMov = async () => {
+    if (!confirmDelete) return
+    const saved = movimientos.find(m => m.id === confirmDelete.id)
     try {
-      await api.delete(`/movimientos/${movId}/`)
-      toast.success('Movimiento eliminado')
+      await api.delete(`/movimientos/${confirmDelete.id}/`)
+      setConfirmDelete(null)
       fetchMovimientos()
+      if (saved) {
+        pushUndo({ entidad: 'movimiento', datos: saved, restoreFn: async () => { await api.post('/movimientos/', saved); fetchMovimientos(); } })
+      }
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">Movimiento eliminado</span>
+          {saved && (
+            <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
+              className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
+              DESHACER
+            </button>
+          )}
+        </div>
+      ), { duration: 8000 })
     } catch {
       toast.error('Error al eliminar')
+      setConfirmDelete(null)
     }
   }
 
@@ -124,6 +144,14 @@ const CarpetaDetail = () => {
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
+    <>
+    <ConfirmDialog
+      isOpen={!!confirmDelete}
+      title="Confirmar eliminación"
+      message="¿Eliminar este movimiento?"
+      onConfirm={handleDeleteMov}
+      onCancel={() => setConfirmDelete(null)}
+    />
     <div className="space-y-4">
 
       {/* ── Header ── */}
@@ -334,7 +362,7 @@ const CarpetaDetail = () => {
                           <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDeleteMov(mov.id)}
+                          onClick={() => setConfirmDelete({ id: mov.id })}
                           className="p-1.5 rounded hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                           title="Eliminar"
                         >
@@ -354,6 +382,7 @@ const CarpetaDetail = () => {
       {showMovForm && (
         <MovimientoForm
           carpetaId={id}
+          carpetaNombre={carpeta?.nombre}
           movimiento={editingMov}
           onClose={() => { setShowMovForm(false); setEditingMov(null) }}
           onSave={() => { setShowMovForm(false); setEditingMov(null); fetchMovimientos() }}
@@ -368,6 +397,7 @@ const CarpetaDetail = () => {
         />
       )}
     </div>
+    </>
   )
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Save, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 const EstadoCarpetaManager = ({ isOpen, onClose, onSave }) => {
   const [estados, setEstados] = useState([]);
@@ -11,6 +12,7 @@ const EstadoCarpetaManager = ({ isOpen, onClose, onSave }) => {
   const [pendingAction, setPendingAction] = useState(null);
   const [estadoEnUso, setEstadoEnUso] = useState(null);
   const [carpetasCount, setCarpetasCount] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
     color: '#4FC3F7',
@@ -78,18 +80,22 @@ const verificarUso = async (id) => {
       setPendingAction({ type: 'delete', id, nombre });
       setShowWarning(true);
     } else {
-      // Si no está en uso, eliminar directamente
-      if (confirm(`¿Eliminar el estado "${nombre}"?`)) {
-        try {
-          await api.delete(`/carpetas/estados/${id}/`);
-          toast.success('Estado eliminado');
-          fetchEstados();
-          if (onSave) onSave();
-        } catch (error) {
-          console.error('Error deleting estado:', error);
-          toast.error('Error al eliminar');
-        }
-      }
+      setConfirmDelete({ id, nombre });
+    }
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDelete) return;
+    try {
+      await api.delete(`/carpetas/estados/${confirmDelete.id}/`);
+      toast.success('Estado eliminado');
+      fetchEstados();
+      if (onSave) onSave();
+    } catch (error) {
+      console.error('Error deleting estado:', error);
+      toast.error('Error al eliminar');
+    } finally {
+      setConfirmDelete(null);
     }
   };
 
@@ -180,6 +186,14 @@ const verificarUso = async (id) => {
   if (!isOpen) return null;
 
   return (
+    <>
+    <ConfirmDialog
+      isOpen={!!confirmDelete}
+      title="Confirmar eliminación"
+      message={`¿Eliminar el estado "${confirmDelete?.nombre}"?`}
+      onConfirm={handleDeleteConfirmed}
+      onCancel={() => setConfirmDelete(null)}
+    />
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-dark-surface">
@@ -362,6 +376,7 @@ const verificarUso = async (id) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

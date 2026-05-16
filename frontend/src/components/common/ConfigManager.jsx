@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Plus, Edit, Trash2, Save, ChevronUp, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 const ConfigManager = ({ 
   title, 
@@ -17,6 +18,7 @@ const ConfigManager = ({
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     fetchItems();
@@ -81,9 +83,7 @@ const ConfigManager = ({
     }
   };
 
-  const handleDelete = async (id, nombre) => {
-    if (!confirm(`¿Eliminar "${nombre}"?`)) return;
-    
+  const handleDelete = async (id) => {
     try {
       await api.delete(`${endpoint}${id}/`);
       toast.success('Eliminado correctamente');
@@ -92,6 +92,8 @@ const ConfigManager = ({
     } catch (error) {
       console.error('Error deleting:', error);
       toast.error('Error al eliminar');
+    } finally {
+      setConfirmDelete(null);
     }
   };
 
@@ -260,7 +262,7 @@ const ConfigManager = ({
                         <Edit size={16} />
                       </button>
                       <button
-                        onClick={() => handleDelete(item.id, item.nombre)}
+                        onClick={() => setConfirmDelete({ id: item.id, nombre: item.nombre })}
                         className="text-red-500 hover:text-red-700"
                         title="Eliminar"
                       >
@@ -274,6 +276,13 @@ const ConfigManager = ({
           </table>
         </div>
       </div>
+    <ConfirmDialog
+      isOpen={!!confirmDelete}
+      title="Confirmar eliminación"
+      message={`¿Eliminar "${confirmDelete?.nombre}"?`}
+      onConfirm={() => handleDelete(confirmDelete.id)}
+      onCancel={() => setConfirmDelete(null)}
+    />
     </div>
   );
 };

@@ -15,6 +15,8 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../../stores/authStore';
 import api from '../../services/api';
 import DetallePersonaModal from '../../components/personas/DetallePersonaModal';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import { useUndo } from '../../hooks/useUndo';
 
 const TIPO_PERSONA_OPTIONS = [
   { value: 'fisica',   label: 'Física' },
@@ -71,6 +73,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   const [pendingCallback, setPendingCallback] = useState(null);
   const [localidades, setLocalidades] = useState([]);
   const [loadingLocalidades, setLoadingLocalidades] = useState(false);
+  const { pushUndo, undoLast } = useUndo();
   const [formData, setFormData] = useState({
     nombre: '',
     apellido: '',
@@ -264,43 +267,25 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
 
   // Eliminación individual con UNDO
   const handleDelete = async (id, nombreCompleto) => {
+    const personaEliminada = personas.find(p => p.id === id);
     try {
-      const personaEliminada = personas.find(p => p.id === id);
-      
       await api.delete(`/personas/${id}/`);
       setDeleteConfirm(null);
       fetchData();
-      
-      toast.success(
-        (t) => (
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">Persona eliminada</span>
-            <button
-              onClick={async () => {
-                try {
-                  await api.post('/personas/', personaEliminada);
-                  fetchData();
-                  toast.dismiss(t.id);
-                  toast.success('✓ Persona restaurada');
-                } catch {
-                  toast.error('Error al restaurar');
-                }
-              }}
-              className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-lg transition-all duration-200 hover:scale-105"
-            >
+      if (personaEliminada) {
+        pushUndo({ entidad: 'persona', datos: personaEliminada, restoreFn: async () => { await api.post('/personas/', personaEliminada); fetchData(); } });
+      }
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">Persona eliminada</span>
+          {personaEliminada && (
+            <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
+              className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
               DESHACER
             </button>
-          </div>
-        ),
-        { 
-          duration: 8000,
-          style: {
-            background: '#1E1E1E',
-            color: '#fff',
-            border: '1px solid #4FC3F7',
-          },
-        }
-      );
+          )}
+        </div>
+      ), { duration: 8000 });
     } catch (error) {
       console.error('Error deleting persona:', error);
       toast.error('Error al eliminar');
@@ -321,37 +306,16 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
       setSelectAll(false);
       setBulkDeleteConfirm(false);
       fetchData();
-      
-      toast.success(
-        (t) => (
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">{eliminadas.length} personas eliminadas</span>
-            <button
-              onClick={async () => {
-                try {
-                  await Promise.all(eliminadas.map(p => api.post('/personas/', p)));
-                  fetchData();
-                  toast.dismiss(t.id);
-                  toast.success(`✓ ${eliminadas.length} personas restauradas`);
-                } catch {
-                  toast.error('Error al restaurar');
-                }
-              }}
-              className="bg-accent hover:bg-accent-hover text-white font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider shadow-lg transition-all duration-200 hover:scale-105"
-            >
-              DESHACER
-            </button>
-          </div>
-        ),
-        { 
-          duration: 10000,
-          style: {
-            background: '#1E1E1E',
-            color: '#fff',
-            border: '1px solid #4FC3F7',
-          },
-        }
-      );
+      pushUndo({ entidad: 'personas', datos: eliminadas, restoreFn: async () => { await Promise.all(eliminadas.map(p => api.post('/personas/', p))); fetchData(); } });
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm">{eliminadas.length} personas eliminadas</span>
+          <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
+            className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
+            DESHACER
+          </button>
+        </div>
+      ), { duration: 10000 });
     } catch (error) {
       console.error('Error deleting personas:', error);
       toast.error('Error al eliminar algunas personas');
@@ -996,33 +960,21 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
         </div>
       )}
 
-      {/* Modal de confirmación de eliminación individual */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl p-4 max-w-md w-full">
-            <h3 className="text-base font-bold mb-3">CONFIRMAR ELIMINACIÓN</h3>
-            <p className="text-sm mb-4">¿Estás seguro que deseas eliminar a {deleteConfirm.nombre}?</p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setDeleteConfirm(null)} className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase">CANCELAR</button>
-              <button onClick={() => handleDelete(deleteConfirm.id, deleteConfirm.nombre)} className="px-3 py-1.5 text-xs rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors uppercase">ELIMINAR</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        title="Confirmar eliminación"
+        message={`¿Eliminar a ${deleteConfirm?.nombre}?`}
+        onConfirm={() => handleDelete(deleteConfirm.id, deleteConfirm.nombre)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
 
-      {/* Modal de confirmación de eliminación múltiple */}
-      {bulkDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl p-4 max-w-md w-full">
-            <h3 className="text-base font-bold mb-3">CONFIRMAR ELIMINACIÓN MÚLTIPLE</h3>
-            <p className="text-sm mb-4">¿Estás seguro que deseas eliminar {selectedItems.length} personas?</p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setBulkDeleteConfirm(false)} className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase">CANCELAR</button>
-              <button onClick={handleBulkDelete} className="px-3 py-1.5 text-xs rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors uppercase">ELIMINAR</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={bulkDeleteConfirm}
+        title="Confirmar eliminación múltiple"
+        message={`¿Eliminar ${selectedItems.length} personas?`}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setBulkDeleteConfirm(false)}
+      />
 
       {/* Modal de detalles */}
       {detalleModalOpen && (
