@@ -46,7 +46,7 @@ function clearSession() {
   window.location.href = '/login'
 }
 
-// Interceptor para manejar 401/403 con refresh
+// Interceptor para manejar 401 con refresh de token
 api.interceptors.response.use(
   (response) => {
     console.log('✅ Respuesta exitosa de:', response.config.url)
@@ -57,7 +57,7 @@ api.interceptors.response.use(
     const status = error.response?.status
     console.error('❌ Error en respuesta:', status, error.config?.url)
 
-    if ((status === 401 || status === 403) && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refresh_token')
 
       if (!refreshToken) {

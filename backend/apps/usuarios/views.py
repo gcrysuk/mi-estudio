@@ -12,15 +12,22 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         from apps.carpetas.models import CompartirCarpeta
-
         user = self.request.user
         search = self.request.query_params.get('search', '').strip()
 
         if search:
-            return User.objects.filter(username=search).exclude(id=user.id)
+            return User.objects.filter(username__iexact=search).exclude(id=user.id)
 
-        conocidos_ids = CompartirCarpeta.objects.filter(
+        # Usuarios a quienes compartí mis carpetas
+        compartidos_por_mi = CompartirCarpeta.objects.filter(
             carpeta__propietario=user
-        ).values_list('usuario_id', flat=True).distinct()
+        ).values_list('usuario_id', flat=True)
 
-        return User.objects.filter(id__in=conocidos_ids)
+        # Propietarios de carpetas que me compartieron a mí
+        propietarios_que_comparten = CompartirCarpeta.objects.filter(
+            usuario=user
+        ).values_list('carpeta__propietario_id', flat=True)
+
+        conocidos_ids = set(list(compartidos_por_mi) + list(propietarios_que_comparten))
+
+        return User.objects.filter(id__in=conocidos_ids).exclude(id=user.id)

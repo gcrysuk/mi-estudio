@@ -10,7 +10,6 @@ const ConfigManager = ({
   fields = [
     { key: 'nombre', label: 'Nombre', type: 'text', required: true },
     { key: 'color', label: 'Color', type: 'color', default: '#4FC3F7' },
-    { key: 'orden', label: 'Orden', type: 'number', default: 0 }
   ],
   onSave 
 }) => {
@@ -131,7 +130,7 @@ const ConfigManager = ({
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {fields.map(field => (
+          {fields.filter(f => f.key !== 'orden').map(field => (
             <div key={field.key}>
               <label className="block text-xs font-medium mb-1 uppercase">
                 {field.label} {field.required && '*'}
@@ -152,13 +151,6 @@ const ConfigManager = ({
                     placeholder="#4FC3F7"
                   />
                 </div>
-              ) : field.type === 'number' ? (
-                <input
-                  type="number"
-                  value={formData[field.key] || ''}
-                  onChange={(e) => setFormData({...formData, [field.key]: parseInt(e.target.value) || 0})}
-                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated"
-                />
               ) : (
                 <input
                   type="text"

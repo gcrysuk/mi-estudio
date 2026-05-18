@@ -3,7 +3,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.contrib.auth import get_user_model
 from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
 from apps.organismos.models import Organismo
@@ -15,6 +15,7 @@ from .serializers import (
     ObjetoCarpetaSerializer,
     OrganismoSerializer,
 )
+from config.pagination import StandardPagination
 
 User = get_user_model()
 
@@ -30,18 +31,34 @@ def _user_puede_editar_carpeta(user, carpeta):
 class CarpetaViewSet(viewsets.ModelViewSet):
     serializer_class = CarpetaSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
+    filterset_fields = ['estado', 'tipo', 'persona']
 
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            return Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
+            qs = Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
+        else:
+            qs = Carpeta.objects.filter(
+                Q(propietario=user) |
+                Q(compartida_con=user) |
+                Q(es_publico=True),
+                activo=True,
+            ).select_related('persona', 'propietario').distinct()
 
-        return Carpeta.objects.filter(
-            Q(propietario=user) |
-            Q(compartida_con=user) |
-            Q(es_publico=True),
-            activo=True,
-        ).select_related('persona', 'propietario').distinct()
+        nombre = self.request.query_params.get('nombre')
+        if nombre:
+            qs = qs.filter(
+                Q(nombre__icontains=nombre) |
+                Q(persona__apellido__icontains=nombre) |
+                Q(persona__nombre__icontains=nombre)
+            )
+
+        expediente = self.request.query_params.get('expediente')
+        if expediente:
+            qs = qs.filter(numero_expediente__icontains=expediente)
+
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(propietario=self.request.user)
@@ -79,6 +96,13 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='compartir')
     def compartir(self, request, pk=None):
         carpeta = self.get_object()
+
+        if carpeta.propietario != request.user:
+            return Response(
+                {'error': 'Solo el propietario puede modificar los permisos de esta carpeta'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         usuario_id = request.data.get('usuario_id')
         puede_editar = request.data.get('puede_editar', False)
 
@@ -102,11 +126,89 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='dejar_compartir')
     def dejar_compartir(self, request, pk=None):
-        carpeta = self.get_object()
+        # Buscar la carpeta sin filtrar por activo para que funcione aunque esté eliminada
+        try:
+            carpeta = Carpeta.objects.get(pk=pk)
+        except Carpeta.DoesNotExist:
+            return Response({'error': 'Carpeta no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+
+        if carpeta.propietario != request.user and not request.user.is_superuser:
+            return Response(
+                {'error': 'Solo el propietario puede modificar los permisos de esta carpeta'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         usuario_id = request.data.get('usuario_id')
         CompartirCarpeta.objects.filter(
             carpeta=carpeta, usuario_id=usuario_id
         ).delete()
+        return Response({'ok': True})
+
+    @action(detail=True, methods=['post'], url_path='transferir_propiedad')
+    def transferir_propiedad(self, request, pk=None):
+        carpeta = self.get_object()
+
+        if carpeta.propietario != request.user:
+            return Response(
+                {'error': 'Solo el propietario puede transferir la carpeta'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        usuario_id = request.data.get('usuario_id')
+        if not usuario_id:
+            return Response({'error': 'usuario_id requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            nuevo_propietario = User.objects.get(pk=usuario_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        if nuevo_propietario == request.user:
+            return Response({'error': 'Ya sos el propietario'}, status=status.HTTP_400_BAD_REQUEST)
+
+        propietario_anterior = request.user
+
+        # Cambiar propietario
+        carpeta.propietario = nuevo_propietario
+        carpeta.save(update_fields=['propietario'])
+
+        # El propietario anterior pasa a ser colaborador con edición
+        CompartirCarpeta.objects.update_or_create(
+            carpeta=carpeta,
+            usuario=propietario_anterior,
+            defaults={'puede_editar': True},
+        )
+
+        # El nuevo propietario ya no es colaborador
+        CompartirCarpeta.objects.filter(carpeta=carpeta, usuario=nuevo_propietario).delete()
+
+        return Response({'ok': True})
+
+    @action(detail=False, methods=['post'], url_path='compartir_multiples')
+    def compartir_multiples(self, request):
+        carpetas_ids = request.data.get('carpetas', [])
+        usuario_id = request.data.get('usuario_id')
+        puede_editar = request.data.get('puede_editar', False)
+
+        if not usuario_id or not carpetas_ids:
+            return Response({'error': 'Faltan datos'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            usuario = User.objects.get(pk=usuario_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        for carpeta_id in carpetas_ids:
+            try:
+                carpeta = Carpeta.objects.get(pk=carpeta_id, propietario=request.user)
+                CompartirCarpeta.objects.update_or_create(
+                    carpeta=carpeta,
+                    usuario=usuario,
+                    defaults={'puede_editar': puede_editar},
+                )
+            except Carpeta.DoesNotExist:
+                pass
+
         return Response({'ok': True})
 
     # ── Estados ───────────────────────────────────────────────────────────────
@@ -122,7 +224,8 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
         serializer = EstadoCarpetaSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            ultimo = EstadoCarpeta.objects.aggregate(max_orden=Max('orden'))['max_orden'] or 0
+            serializer.save(orden=ultimo + 1)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -161,7 +264,8 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
         serializer = TipoCarpetaSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            ultimo = TipoCarpeta.objects.aggregate(max_orden=Max('orden'))['max_orden'] or 0
+            serializer.save(orden=ultimo + 1)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -200,7 +304,8 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
         serializer = ObjetoCarpetaSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            ultimo = ObjetoCarpeta.objects.aggregate(max_orden=Max('orden'))['max_orden'] or 0
+            serializer.save(orden=ultimo + 1)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

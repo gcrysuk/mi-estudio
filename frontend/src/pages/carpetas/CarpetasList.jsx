@@ -1,34 +1,28 @@
-import { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import { useState, useEffect, useCallback } from 'react';
+import Pagination from '../../components/ui/Pagination';
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
   Share2,
   ChevronUp,
   ChevronDown,
   X,
   FolderOpen,
   RefreshCw,
-  Pencil,
   Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../stores/authStore';
 import api from '../../services/api';
 import CompartirCarpetaModal from '../../components/carpetas/CompartirCarpetaModal';
-import EstadoCarpetaManager from '../../components/carpetas/EstadoCarpetaManager';
-import TipoCarpetaManager from '../../components/carpetas/TipoCarpetaManager';
-import ObjetoCarpetaManager from '../../components/carpetas/ObjetoCarpetaManager';
-import BuscadorPersona from '../../components/buscadores/BuscadorPersona';
-import BuscadorOrganismo from '../../components/buscadores/BuscadorOrganismo';
-import OrganismoForm from '../../components/organismos/OrganismoForm';
+import CarpetaForm from '../../components/carpetas/CarpetaForm';
 import { useModal } from '../../contexts/ModalContext';
 import { Link } from 'react-router-dom';
 import DetalleCarpetaModal from '../../components/carpetas/DetalleCarpetaModal';
 import ColumnSelector from '../../components/common/ColumnSelector';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { useUndo } from '../../hooks/useUndo';
 
 const CarpetasList = () => {
   const [carpetas, setCarpetas] = useState([]);
@@ -38,6 +32,10 @@ const CarpetasList = () => {
   const [tipos, setTipos] = useState([]);
   const [objetos, setObjetos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage]           = useState(1);
+  const [pageSize, setPageSize]   = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [count, setCount]         = useState(0);
   const [searchNombre, setSearchNombre] = useState('');
   const [searchExpediente, setSearchExpediente] = useState('');
   const [filters, setFilters] = useState({
@@ -51,9 +49,6 @@ const CarpetasList = () => {
   });
   const [modalOpen, setModalOpen] = useState(false);
   const [compartirModalOpen, setCompartirModalOpen] = useState(false);
-  const [estadoModalOpen, setEstadoModalOpen] = useState(false);
-  const [tipoModalOpen, setTipoModalOpen] = useState(false);
-  const [objetoModalOpen, setObjetoModalOpen] = useState(false);
   const [selectedCarpeta, setSelectedCarpeta] = useState(null);
   const [editingCarpeta, setEditingCarpeta] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -62,21 +57,6 @@ const CarpetasList = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [detalleModalOpen, setDetalleModalOpen] = useState(false);
   const [carpetaParaDetalle, setCarpetaParaDetalle] = useState(null);
-  const [showOrganismoForm, setShowOrganismoForm] = useState(false);
-  const { pushUndo, undoLast } = useUndo();
-
-  const [formData, setFormData] = useState({
-    nombre: '',
-    numero_expediente: '',
-    persona: '',
-    persona_obj: null,
-    parte: 'actor',
-    estado: '',
-    tipo: '',
-    objeto: '',
-    organismo: null,
-    descripcion: ''
-  });
 
   // Estado para columnas visibles
   const [visibleColumns, setVisibleColumns] = useState({
@@ -122,65 +102,23 @@ const CarpetasList = () => {
     }));
   };
 
-  const resetForm = () => {
-    setFormData({
-      nombre: '',
-      numero_expediente: '',
-      persona: '',
-      persona_obj: null,
-      parte: 'actor',
-      estado: '',
-      tipo: '',
-      objeto: '',
-      organismo: null,
-      descripcion: ''
-    });
-    setEditingCarpeta(null);
-  };
-
   const { abrirModalPersona } = useModal();
 
-  // Opciones para parte
-  const parteOptions = [
-    { value: 'actor',     label: 'ACTOR' },
-    { value: 'demandado', label: 'DEMANDADO' },
-    { value: 'otro',      label: 'OTRO' }
-  ];
-
-  useEffect(() => {
-    fetchData();
-    fetchPersonas();
-    fetchOrganismos();
-    fetchEstados();
-    fetchTipos();
-    fetchObjetos();
-  }, []);
-
-  // Manejar tecla ESC para cerrar modales
-  useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') {
-        if (modalOpen) setModalOpen(false);
-        if (compartirModalOpen) setCompartirModalOpen(false);
-        if (estadoModalOpen) setEstadoModalOpen(false);
-        if (tipoModalOpen) setTipoModalOpen(false);
-        if (objetoModalOpen) setObjetoModalOpen(false);
-        if (deleteConfirm) setDeleteConfirm(null);
-        if (bulkDeleteConfirm) setBulkDeleteConfirm(false);
-      }
-    };
-    
-    window.addEventListener('keydown', handleEsc);
-    return () => {
-      window.removeEventListener('keydown', handleEsc);
-    };
-  }, [modalOpen, compartirModalOpen, estadoModalOpen, tipoModalOpen, objetoModalOpen, deleteConfirm, bulkDeleteConfirm]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async (p, ps) => {
     setLoading(true);
     try {
-      const response = await api.get('/carpetas/');
-      setCarpetas(response.data.results || response.data);
+      const params = { page: p, page_size: ps };
+      if (searchNombre)     params.nombre     = searchNombre;
+      if (searchExpediente) params.expediente = searchExpediente;
+      if (filters.estado)   params.estado     = filters.estado;
+      if (filters.tipo)     params.tipo       = filters.tipo;
+      if (filters.persona)  params.persona    = filters.persona;
+
+      const response = await api.get('/carpetas/', { params });
+      const data = response.data;
+      setCarpetas(data.results ?? []);
+      setCount(data.count ?? 0);
+      setTotalPages(data.total_pages ?? 1);
       setSelectedItems([]);
       setSelectAll(false);
     } catch (error) {
@@ -189,7 +127,43 @@ const CarpetasList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchNombre, searchExpediente, filters.estado, filters.tipo, filters.persona]); // eslint-disable-line
+
+  useEffect(() => {
+    fetchPersonas();
+    fetchOrganismos();
+    fetchEstados();
+    fetchTipos();
+    fetchObjetos();
+  }, []);
+
+  // Reset to page 1 and fetch when filters/search change
+  useEffect(() => {
+    setPage(1);
+    fetchData(1, pageSize);
+  }, [fetchData, pageSize]); // eslint-disable-line
+
+  // Fetch when page changes (user navigates)
+  useEffect(() => {
+    fetchData(page, pageSize);
+  }, [page]); // eslint-disable-line
+
+  // Manejar tecla ESC para cerrar modales
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        if (modalOpen) setModalOpen(false);
+        if (compartirModalOpen) setCompartirModalOpen(false);
+        if (deleteConfirm) setDeleteConfirm(null);
+        if (bulkDeleteConfirm) setBulkDeleteConfirm(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [modalOpen, compartirModalOpen, deleteConfirm, bulkDeleteConfirm]);
 
   const fetchPersonas = async () => {
     try {
@@ -311,140 +285,48 @@ const CarpetasList = () => {
     }
   };
 
-  const norm = (s) =>
-    (s ?? '').normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
+  // Sort within current page (client-side)
+  const filteredCarpetas = [...carpetas].sort((a, b) => {
+    let aVal = a[sortConfig.key];
+    let bVal = b[sortConfig.key];
 
-  // Filtrar y ordenar carpetas
-  const filteredCarpetas = carpetas
-    .filter(carpeta => {
-      if (searchNombre) {
-        const haystack = norm(carpeta.nombre) + ' ' + norm(getPersonaNombre(carpeta.persona));
-        if (!haystack.includes(norm(searchNombre))) return false;
-      }
-      if (searchExpediente && !norm(carpeta.numero_expediente).includes(norm(searchExpediente))) return false;
-
-      const matchesEstado = !filters.estado || carpeta.estado === parseInt(filters.estado);
-      const matchesTipo = !filters.tipo || carpeta.tipo === parseInt(filters.tipo);
-      const matchesPersona = !filters.persona || carpeta.persona === parseInt(filters.persona);
-
-      return matchesEstado && matchesTipo && matchesPersona;
-    })
-    .sort((a, b) => {
-      let aVal = a[sortConfig.key];
-      let bVal = b[sortConfig.key];
-      
-      if (sortConfig.key === 'persona') {
-        aVal = getPersonaNombre(a.persona);
-        bVal = getPersonaNombre(b.persona);
-      }
-      if (sortConfig.key === 'estado') {
-        aVal = getEstadoNombre(a.estado);
-        bVal = getEstadoNombre(b.estado);
-      }
-      if (sortConfig.key === 'tipo') {
-        aVal = getTipoNombre(a.tipo);
-        bVal = getTipoNombre(b.tipo);
-      }
-      if (sortConfig.key === 'objeto') {
-        aVal = getObjetoNombre(a.objeto);
-        bVal = getObjetoNombre(b.objeto);
-      }
-      if (sortConfig.key === 'organismo') {
-        aVal = getOrganismoNombre(a.organismo);
-        bVal = getOrganismoNombre(b.organismo);
-      }
-      
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      
-      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    console.log('📦 formData COMPLETO:', JSON.stringify(formData, null, 2));
-
-    if (!formData.nombre) {
-      toast.error('El nombre de la carpeta es obligatorio');
-      return;
+    if (sortConfig.key === 'persona') {
+      aVal = getPersonaNombre(a.persona);
+      bVal = getPersonaNombre(b.persona);
     }
-    
-    try {
-      const dataToSend = {
-        nombre: formData.nombre,
-        numero_expediente: formData.numero_expediente || '',
-        persona: formData.persona ? parseInt(formData.persona) : null,
-        parte: formData.parte,
-        estado: formData.estado ? parseInt(formData.estado) : null,
-        tipo: formData.tipo ? parseInt(formData.tipo) : null,
-        objeto: formData.objeto ? parseInt(formData.objeto) : null,
-        organismo: formData.organismo?.id || null,
-        descripcion: formData.descripcion || ''
-      };
-
-      if (editingCarpeta) {
-        await api.put(`/carpetas/${editingCarpeta.id}/`, dataToSend);
-        toast.success('Carpeta actualizada');
-      } else {
-        await api.post('/carpetas/', dataToSend);
-        toast.success('Carpeta creada');
-      }
-      
-      setModalOpen(false);
-      resetForm();
-      
-      // 🔥 ACTUALIZAR TODO
-      await Promise.all([
-        fetchData(),
-        fetchPersonas()
-      ]);
-      
-    } catch (error) {
-      console.error('Error saving carpeta:', error);
-      toast.error('Error al guardar: ' + (error.response?.data?.error || 'Verifica los datos'));
+    if (sortConfig.key === 'estado') {
+      aVal = getEstadoNombre(a.estado);
+      bVal = getEstadoNombre(b.estado);
     }
-  };  
+    if (sortConfig.key === 'tipo') {
+      aVal = getTipoNombre(a.tipo);
+      bVal = getTipoNombre(b.tipo);
+    }
+    if (sortConfig.key === 'objeto') {
+      aVal = getObjetoNombre(a.objeto);
+      bVal = getObjetoNombre(b.objeto);
+    }
+    if (sortConfig.key === 'organismo') {
+      aVal = getOrganismoNombre(a.organismo);
+      bVal = getOrganismoNombre(b.organismo);
+    }
 
-  const handleDelete = async (id, nombre) => {
-    const carpetaEliminada = carpetas.find(c => c.id === id);
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = (bVal ?? '').toLowerCase();
+    }
+
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const handleDelete = async (id) => {
     try {
-      const movsRes = await api.get('/movimientos/', { params: { carpeta: id } });
-      const movimientos = movsRes.data.results ?? movsRes.data;
       await api.delete(`/carpetas/${id}/`);
       setDeleteConfirm(null);
-      fetchData();
-      if (carpetaEliminada) {
-        pushUndo({
-          entidad: 'carpeta',
-          datos: carpetaEliminada,
-          movimientos,
-          restoreFn: async () => {
-            const res = await api.post('/carpetas/', carpetaEliminada);
-            const nuevaCarpetaId = res.data.id;
-            for (const mov of movimientos) {
-              const { id: _id, carpeta_nombre, tipo_nombre, estado_nombre, vencido, ...movData } = mov;
-              await api.post('/movimientos/', { ...movData, carpeta: nuevaCarpetaId });
-            }
-            fetchData();
-          },
-        });
-      }
-      toast((t) => (
-        <div className="flex items-center gap-3">
-          <span className="text-sm">Carpeta eliminada</span>
-          {carpetaEliminada && (
-            <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
-              className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
-              DESHACER
-            </button>
-          )}
-        </div>
-      ), { duration: 8000 });
+      fetchData(page, pageSize);
+      toast.success('Carpeta eliminada');
     } catch (error) {
       console.error('Error deleting carpeta:', error);
       toast.error('Error al eliminar');
@@ -453,49 +335,16 @@ const CarpetasList = () => {
 
   const handleBulkDelete = async () => {
     setLoading(true);
+    const selectedCount = selectedItems.length;
     try {
-      const eliminadas = carpetas.filter(c => selectedItems.includes(c.id));
-
-      const movsPerCarpeta = await Promise.all(
-        eliminadas.map(c =>
-          api.get('/movimientos/', { params: { carpeta: c.id } })
-            .then(r => ({ carpetaId: c.id, movs: r.data.results ?? r.data }))
-        )
-      );
-
       for (const id of selectedItems) {
         await api.delete(`/carpetas/${id}/`);
       }
-
       setSelectedItems([]);
       setSelectAll(false);
       setBulkDeleteConfirm(false);
-      fetchData();
-      pushUndo({
-        entidad: 'carpetas',
-        datos: eliminadas,
-        restoreFn: async () => {
-          for (const carpeta of eliminadas) {
-            const res = await api.post('/carpetas/', carpeta);
-            const nuevaCarpetaId = res.data.id;
-            const entry = movsPerCarpeta.find(e => e.carpetaId === carpeta.id);
-            for (const mov of entry?.movs ?? []) {
-              const { id: _id, carpeta_nombre, tipo_nombre, estado_nombre, vencido, ...movData } = mov;
-              await api.post('/movimientos/', { ...movData, carpeta: nuevaCarpetaId });
-            }
-          }
-          fetchData();
-        },
-      });
-      toast((t) => (
-        <div className="flex items-center gap-3">
-          <span className="text-sm">{eliminadas.length} carpetas eliminadas</span>
-          <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
-            className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
-            DESHACER
-          </button>
-        </div>
-      ), { duration: 10000 });
+      fetchData(page, pageSize);
+      toast.success(`${selectedCount} carpetas eliminadas`);
     } catch (error) {
       console.error('Error deleting carpetas:', error);
       toast.error('Error al eliminar algunas carpetas');
@@ -506,24 +355,6 @@ const CarpetasList = () => {
 
   const openEditModal = (carpeta) => {
     setEditingCarpeta(carpeta);
-
-    const personaObj = personas.find(p => p.id === carpeta.persona);
-    const organismoObj = carpeta.organismo
-      ? (organismos.find(o => o.id === carpeta.organismo) || { id: carpeta.organismo, nombre: carpeta.organismo_nombre || '' })
-      : null;
-
-    setFormData({
-      nombre: carpeta.nombre,
-      numero_expediente: carpeta.numero_expediente || '',
-      persona: carpeta.persona || '',
-      persona_obj: personaObj || null,
-      parte: carpeta.parte || 'actor',
-      estado: carpeta.estado || '',
-      tipo: carpeta.tipo || '',
-      objeto: carpeta.objeto || '',
-      organismo: organismoObj,
-      descripcion: carpeta.descripcion || ''
-    });
     setModalOpen(true);
   };
 
@@ -586,7 +417,7 @@ const CarpetasList = () => {
           )}
           <button
             onClick={() => {
-              resetForm();
+              setEditingCarpeta(null);
               setModalOpen(true);
             }}
             className="flex-1 sm:flex-none bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 uppercase text-xs transition-colors"
@@ -687,7 +518,8 @@ const CarpetasList = () => {
 
           <button
             onClick={() => {
-              setSearchTerm('');
+              setSearchNombre('');
+              setSearchExpediente('');
               setFilters({ estado: '', tipo: '', persona: '' });
             }}
             className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-1.5 uppercase text-xs"
@@ -854,230 +686,24 @@ const CarpetasList = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          count={count}
+          onPageChange={setPage}
+          onPageSizeChange={(ps) => setPageSize(ps)}
+        />
       </div>
 
       {/* Modal de creación/edición */}
       {modalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
-          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[95vh] overflow-y-auto">
-            <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-dark-surface">
-              <h2 className="text-base font-bold uppercase">
-                {editingCarpeta ? 'EDITAR CARPETA' : 'NUEVA CARPETA'}
-              </h2>
-              <button onClick={() => setModalOpen(false)} className="p-1 hover:text-accent">
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-3 space-y-3">
-              {/* Nombre de la carpeta (único obligatorio) */}
-              <div>
-                <label className="block text-xs font-medium mb-1 uppercase">NOMBRE / CARÁTULA *</label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({...formData, nombre: e.target.value.toUpperCase()})}
-                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  required
-                  placeholder="Ej: GARCÍA JUAN C/ MUNICIPALIDAD S/ AMPARO"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">N° EXPEDIENTE</label>
-                  <input
-                    type="text"
-                    value={formData.numero_expediente}
-                    onChange={(e) => setFormData({...formData, numero_expediente: e.target.value.toUpperCase()})}
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                    placeholder="Ej: 12345/2024"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">CLIENTE</label>
-                  <BuscadorPersona
-                    value={formData.persona_obj}
-                    onChange={(persona) => {
-                      setFormData({
-                        ...formData,
-                        persona_obj: persona,
-                        persona: persona?.id || ''
-                      });
-                    }}
-                    onCrearNueva={(callback) => {
-                      console.log('🟡 Abriendo modal para crear CLIENTE');
-                      abrirModalPersona((nuevaPersonaId) => {
-                        console.log('✅ CLIENTE creado con ID:', nuevaPersonaId);
-                        api.get(`/personas/${nuevaPersonaId}/`)
-                          .then(response => {
-                            console.log('✅ Datos del CLIENTE:', response.data);
-                            callback(response.data.id);
-                          })
-                          .catch(error => {
-                            console.error('❌ Error:', error);
-                          });
-                      });
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">PARTE</label>
-                  <select
-                    value={formData.parte}
-                    onChange={(e) => setFormData({...formData, parte: e.target.value})}
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  >
-                    {parteOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">ORGANISMO</label>
-                  <BuscadorOrganismo
-                    value={formData.organismo}
-                    onChange={(org) => setFormData({...formData, organismo: org})}
-                    onCrearNuevo={() => setShowOrganismoForm(true)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">ESTADO</label>
-                  <div className="flex gap-1">
-                    <select
-                      value={formData.estado}
-                      onChange={(e) => setFormData({...formData, estado: e.target.value})}
-                      className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                    >
-                      <option value="">SELECCIONAR</option>
-                      {estados.map(estado => (
-                        <option key={estado.id} value={estado.id}>{estado.nombre}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setEstadoModalOpen(true)}
-                      className="p-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                      title="Editar estados"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">TIPO</label>
-                  <div className="flex gap-1">
-                    <select
-                      value={formData.tipo}
-                      onChange={(e) => setFormData({...formData, tipo: e.target.value})}
-                      className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                    >
-                      <option value="">SELECCIONAR</option>
-                      {tipos.map(tipo => (
-                        <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setTipoModalOpen(true)}
-                      className="p-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                      title="Editar tipos"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">OBJETO</label>
-                  <div className="flex gap-1">
-                    <select
-                      value={formData.objeto}
-                      onChange={(e) => setFormData({...formData, objeto: e.target.value})}
-                      className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                    >
-                      <option value="">SELECCIONAR</option>
-                      {objetos.map(objeto => (
-                        <option key={objeto.id} value={objeto.id}>{objeto.nombre}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setObjetoModalOpen(true)}
-                      className="p-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                      title="Editar objetos"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">DESCRIPCIÓN</label>
-                  <textarea
-                    value={formData.descripcion}
-                    onChange={(e) => setFormData({...formData, descripcion: e.target.value})}
-                    rows="3"
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
-                >
-                  CANCELAR
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors uppercase"
-                >
-                  {editingCarpeta ? 'ACTUALIZAR' : 'CREAR'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <CarpetaForm
+          carpeta={editingCarpeta}
+          onClose={() => { setModalOpen(false); setEditingCarpeta(null); }}
+          onSave={() => { setModalOpen(false); setEditingCarpeta(null); fetchData(page, pageSize); }}
+        />
       )}
-
-      {/* Modales de gestión */}
-      <EstadoCarpetaManager
-        isOpen={estadoModalOpen}
-        onClose={() => setEstadoModalOpen(false)}
-        onSave={() => {
-          fetchEstados();
-          fetchData();
-        }}
-      />
-
-      <TipoCarpetaManager
-        isOpen={tipoModalOpen}
-        onClose={() => setTipoModalOpen(false)}
-        onSave={() => {
-          fetchTipos();
-          fetchData();
-        }}
-      />
-
-      <ObjetoCarpetaManager
-        isOpen={objetoModalOpen}
-        onClose={() => setObjetoModalOpen(false)}
-        onSave={() => {
-          fetchObjetos();
-          fetchData();
-        }}
-      />
 
       {/* Modal de compartir */}
       {compartirModalOpen && (
@@ -1086,7 +712,7 @@ const CarpetasList = () => {
           onClose={() => setCompartirModalOpen(false)}
           carpeta={selectedCarpeta}
           onSave={() => {
-            fetchData();
+            fetchData(page, pageSize);
             toast.success('Carpetas compartidas');
           }}
         />
@@ -1116,16 +742,6 @@ const CarpetasList = () => {
         />
       )}
 
-      {showOrganismoForm && (
-        <OrganismoForm
-          onClose={() => setShowOrganismoForm(false)}
-          onSave={(nuevoOrganismo) => {
-            setOrganismos(prev => [...prev, nuevoOrganismo]);
-            setFormData(prev => ({ ...prev, organismo: nuevoOrganismo }));
-            setShowOrganismoForm(false);
-          }}
-        />
-      )}
     </div>
   );
 };

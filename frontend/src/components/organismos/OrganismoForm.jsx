@@ -2,13 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Save, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
-
-const MATERIAS = [
-  { value: 'civil_comercial', label: 'Civil y Comercial' },
-  { value: 'laboral',         label: 'Laboral' },
-  { value: 'familia',         label: 'Familia' },
-  { value: 'penal',           label: 'Penal' },
-];
+import BuscadorConfig from '../buscadores/BuscadorConfig';
 
 const PROVINCIAS = [
   'Buenos Aires',
@@ -48,7 +42,9 @@ const OrganismoForm = ({ organismo = null, onClose, onSave }) => {
     direccion:    organismo?.direccion    ?? '',
     provincia:    organismo?.provincia    ?? '',
     localidad:    organismo?.localidad    ?? '',
-    materia:      organismo?.materia      ?? '',
+    materia_obj:  organismo?.materia
+      ? { id: organismo.materia, nombre: organismo.materia_nombre }
+      : null,
     activo:       organismo?.activo       ?? true,
   });
 
@@ -88,7 +84,16 @@ const OrganismoForm = ({ organismo = null, onClose, onSave }) => {
     }
     setLoading(true);
     try {
-      const payload = { ...formData };
+      const payload = {
+        nombre:       formData.nombre,
+        descripcion:  formData.descripcion,
+        jurisdiccion: formData.jurisdiccion,
+        direccion:    formData.direccion,
+        provincia:    formData.provincia,
+        localidad:    formData.localidad,
+        materia:      formData.materia_obj?.id || null,
+        activo:       formData.activo,
+      };
       let response;
       if (organismo?.id) {
         response = await api.put(`/organismos/${organismo.id}/`, payload);
@@ -141,16 +146,13 @@ const OrganismoForm = ({ organismo = null, onClose, onSave }) => {
           {/* Materia */}
           <div>
             <label className="block text-xs font-medium uppercase mb-0.5">Materia</label>
-            <select
-              value={formData.materia}
-              onChange={e => set('materia', e.target.value)}
-              className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-            >
-              <option value="">Seleccionar</option>
-              {MATERIAS.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
+            <BuscadorConfig
+              endpoint="/organismos/materias/"
+              placeholder="Buscar materia..."
+              label="materia"
+              value={formData.materia_obj}
+              onChange={(v) => set('materia_obj', v)}
+            />
           </div>
 
           {/* Jurisdicción */}

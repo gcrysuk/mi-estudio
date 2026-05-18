@@ -11,7 +11,6 @@ const ObjetoCarpetaManager = ({ isOpen, onClose, onSave }) => {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
-    orden: 0,
     descripcion: ''
   });
 
@@ -25,7 +24,7 @@ const ObjetoCarpetaManager = ({ isOpen, onClose, onSave }) => {
     setLoading(true);
     try {
       const response = await api.get('/carpetas/objetos/');
-      setObjetos(response.data);
+      setObjetos(response.data.results ?? response.data);
     } catch (error) {
       console.error('Error fetching objetos:', error);
       toast.error('Error al cargar objetos');
@@ -78,7 +77,6 @@ const ObjetoCarpetaManager = ({ isOpen, onClose, onSave }) => {
     setEditingId(objeto.id);
     setFormData({
       nombre: objeto.nombre,
-      orden: objeto.orden || 0,
       descripcion: objeto.descripcion || ''
     });
   };
@@ -87,7 +85,6 @@ const ObjetoCarpetaManager = ({ isOpen, onClose, onSave }) => {
     setEditingId(null);
     setFormData({
       nombre: '',
-      orden: 0,
       descripcion: ''
     });
   };
@@ -130,17 +127,7 @@ const ObjetoCarpetaManager = ({ isOpen, onClose, onSave }) => {
                   required
                 />
               </div>
-              
-              <div>
-                <label className="block text-xs font-medium mb-1 uppercase">ORDEN</label>
-                <input
-                  type="number"
-                  value={formData.orden}
-                  onChange={(e) => setFormData({...formData, orden: parseInt(e.target.value) || 0})}
-                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated"
-                />
-              </div>
-              
+
               <div className="col-span-2">
                 <label className="block text-xs font-medium mb-1 uppercase">DESCRIPCIÓN</label>
                 <input
@@ -189,7 +176,6 @@ const ObjetoCarpetaManager = ({ isOpen, onClose, onSave }) => {
                       {objeto.descripcion && (
                         <span className="text-xs text-gray-500 ml-2">({objeto.descripcion})</span>
                       )}
-                      <span className="text-xs text-gray-500 ml-2">Orden: {objeto.orden}</span>
                     </div>
                     <div className="flex gap-1">
                       <button

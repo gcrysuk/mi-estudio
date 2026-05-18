@@ -9,7 +9,6 @@ const TABS = [
     endpoint: '/carpetas/tipos/',
     fields: [
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-      { key: 'orden', label: 'Orden', type: 'number', default: 0 },
     ],
   },
   {
@@ -19,7 +18,6 @@ const TABS = [
     fields: [
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },
       { key: 'color', label: 'Color', type: 'color', default: '#4FC3F7' },
-      { key: 'orden', label: 'Orden', type: 'number', default: 0 },
     ],
   },
   {
@@ -28,7 +26,6 @@ const TABS = [
     endpoint: '/carpetas/objetos/',
     fields: [
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-      { key: 'orden', label: 'Orden', type: 'number', default: 0 },
     ],
   },
   {
@@ -38,7 +35,6 @@ const TABS = [
     fields: [
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },
       { key: 'color', label: 'Color', type: 'color', default: '#4FC3F7' },
-      { key: 'orden', label: 'Orden', type: 'number', default: 0 },
     ],
   },
   {
@@ -48,7 +44,14 @@ const TABS = [
     fields: [
       { key: 'nombre', label: 'Nombre', type: 'text', required: true },
       { key: 'color', label: 'Color', type: 'color', default: '#4FC3F7' },
-      { key: 'orden', label: 'Orden', type: 'number', default: 0 },
+    ],
+  },
+  {
+    id: 'materias',
+    label: 'Materias',
+    endpoint: '/organismos/materias/',
+    fields: [
+      { key: 'nombre', label: 'Nombre', type: 'text', required: true },
     ],
   },
 ];

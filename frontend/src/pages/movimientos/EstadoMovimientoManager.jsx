@@ -18,7 +18,6 @@ const EstadoMovimientoManager = ({ onClose, onSave }) => {
             fields={[
               { key: 'nombre', label: 'Nombre', type: 'text', required: true },
               { key: 'color', label: 'Color', type: 'color', default: '#4FC3F7' },
-              { key: 'orden', label: 'Orden', type: 'number', default: 0 }
             ]}
             onSave={onSave}
           />

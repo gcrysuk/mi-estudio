@@ -1,20 +1,34 @@
 from django.db import models
 
-class Organismo(models.Model):
-    MATERIA_CHOICES = [
-        ('civil_comercial', 'Civil y Comercial'),
-        ('laboral', 'Laboral'),
-        ('familia', 'Familia'),
-        ('penal', 'Penal'),
-    ]
 
+class Materia(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    activo = models.BooleanField(default=True)
+    orden = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['orden', 'nombre']
+        verbose_name = "Materia"
+        verbose_name_plural = "Materias"
+
+    def __str__(self):
+        return self.nombre
+
+
+class Organismo(models.Model):
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
     jurisdiccion = models.CharField(max_length=100, blank=True)
     direccion = models.CharField(max_length=255, blank=True)
     provincia = models.CharField(max_length=100, blank=True)
     localidad = models.CharField(max_length=100, blank=True)
-    materia = models.CharField(max_length=50, choices=MATERIA_CHOICES, blank=True)
+    materia = models.ForeignKey(
+        Materia,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='organismos'
+    )
     activo = models.BooleanField(default=True)
 
     class Meta:

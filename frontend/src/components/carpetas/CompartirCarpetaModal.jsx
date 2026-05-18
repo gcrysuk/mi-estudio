@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
-import { X, Search, UserPlus, Trash2 } from 'lucide-react';
+import { X, Search, UserPlus, Trash2, Crown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
   const [usuarios, setUsuarios] = useState([]);
   const [compartidos, setCompartidos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUsuario, setSelectedUsuario] = useState('');
+  const [selectedUsuario, setSelectedUsuario] = useState(null); // { id, username, email }
   const [puedeEditar, setPuedeEditar] = useState(false);
-
-  const [searchNewUsername, setSearchNewUsername] = useState('');
+  const [hacerPropietario, setHacerPropietario] = useState(false);
   const [foundUser, setFoundUser] = useState(null);
-  const [searchingNew, setSearchingNew] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [confirmTransfer, setConfirmTransfer] = useState(null);
+  const [confirmDejarCompartir, setConfirmDejarCompartir] = useState(null);
 
   useEffect(() => {
     if (isOpen && carpeta) {
@@ -24,12 +26,22 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
     }
   }, [isOpen, carpeta]);
 
+  // Reset on close
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('');
+      setSelectedUsuario(null);
+      setPuedeEditar(false);
+      setHacerPropietario(false);
+      setFoundUser(null);
+    }
+  }, [isOpen]);
+
   const fetchUsuarios = async () => {
     try {
       const response = await api.get('/usuarios/');
       const data = Array.isArray(response.data) ? response.data : (response.data.results ?? []);
-      const propietarioId = carpeta.multiple ? null : carpeta.propietario;
-      setUsuarios(data.filter(u => u.id !== propietarioId));
+      setUsuarios(data);
     } catch (error) {
       console.error('Error fetching usuarios:', error);
     }
@@ -55,22 +67,23 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
       if (carpeta.multiple) {
         await api.post('/carpetas/compartir_multiples/', {
           carpetas: carpeta.id,
-          usuario_id: parseInt(selectedUsuario),
-          puede_editar: puedeEditar
+          usuario_id: selectedUsuario.id,
+          puede_editar: puedeEditar,
         });
         toast.success('Carpetas compartidas');
       } else {
         await api.post(`/carpetas/${carpeta.id}/compartir/`, {
-          usuario_id: parseInt(selectedUsuario),
-          puede_editar: puedeEditar
+          usuario_id: selectedUsuario.id,
+          puede_editar: puedeEditar,
         });
         toast.success('Carpeta compartida');
         fetchCompartidos();
       }
-      setSelectedUsuario('');
+      setSearchTerm('');
+      setSelectedUsuario(null);
       setFoundUser(null);
-      setSearchNewUsername('');
       setPuedeEditar(false);
+      setHacerPropietario(false);
       if (onSave) onSave();
     } catch (error) {
       console.error('Error compartiendo:', error);
@@ -82,26 +95,39 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
 
   const handleDejarCompartir = async (usuarioId) => {
     try {
-      await api.post(`/carpetas/${carpeta.id}/dejar_compartir/`, {
-        usuario_id: usuarioId
-      });
+      await api.post(`/carpetas/${carpeta.id}/dejar_compartir/`, { usuario_id: usuarioId });
       toast.success('Compartido eliminado');
       fetchCompartidos();
     } catch (error) {
-      toast.error('Error al eliminar');
+      toast.error(error.response?.data?.error || 'Error al eliminar');
     }
   };
 
-  const handleBuscarNuevo = async () => {
-    if (!searchNewUsername.trim()) return;
-    setSearchingNew(true);
+  const handleTransferirPropiedad = async () => {
+    if (!confirmTransfer) return;
     try {
-      const response = await api.get(`/usuarios/?search=${encodeURIComponent(searchNewUsername.trim())}`);
-      if (response.data.length > 0) {
-        const user = response.data[0];
+      await api.post(`/carpetas/${carpeta.id}/transferir_propiedad/`, {
+        usuario_id: confirmTransfer.usuario_id,
+      });
+      toast.success('Propiedad transferida. Ahora sos colaborador de esta carpeta.');
+      setConfirmTransfer(null);
+      if (onSave) onSave();
+      onClose();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Error al transferir');
+    }
+  };
+
+  const handleBuscar = async () => {
+    if (!searchTerm.trim()) return;
+    setSearching(true);
+    try {
+      const response = await api.get(`/usuarios/?search=${encodeURIComponent(searchTerm.trim())}`);
+      const data = Array.isArray(response.data) ? response.data : (response.data.results ?? []);
+      if (data.length > 0) {
+        const user = data[0];
         setFoundUser(user);
-        setSelectedUsuario(String(user.id));
-        setSearchNewUsername('');
+        setSelectedUsuario({ id: user.id, username: user.username, email: user.email });
       } else {
         setFoundUser(null);
         toast.error('Usuario no registrado en el sistema');
@@ -109,25 +135,50 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
     } catch (error) {
       toast.error('Error al buscar usuario');
     } finally {
-      setSearchingNew(false);
+      setSearching(false);
     }
   };
 
   if (!isOpen) return null;
 
-  const filteredUsuarios = usuarios.filter(u =>
-    u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Conocidos filtrados localmente por username (excluye ya seleccionado y foundUser)
+  const filteredKnown = searchTerm.trim()
+    ? usuarios.filter(u =>
+        u.username?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        (!foundUser || u.id !== foundUser.id)
+      )
+    : [];
+
+  const isSelected = (u) => selectedUsuario?.id === u.id;
 
   return (
+    <>
+    <ConfirmDialog
+      isOpen={!!confirmDejarCompartir}
+      title="QUITAR ACCESO"
+      message={confirmDejarCompartir
+        ? `¿Querés quitarle el acceso a ${confirmDejarCompartir.username}? Ya no podrá ver ni editar esta carpeta.`
+        : ''}
+      confirmLabel="QUITAR ACCESO"
+      onConfirm={() => { handleDejarCompartir(confirmDejarCompartir.usuario_id); setConfirmDejarCompartir(null); }}
+      onCancel={() => setConfirmDejarCompartir(null)}
+    />
+    <ConfirmDialog
+      isOpen={!!confirmTransfer}
+      title="⚠️ TRANSFERIR PROPIEDAD"
+      message={confirmTransfer
+        ? `Estás por transferir la propiedad de esta carpeta a ${confirmTransfer.username}. A partir de ese momento, ${confirmTransfer.username} será el único propietario y podrá quitarte el acceso. Vos quedarás como colaborador. Esta acción no se puede deshacer fácilmente. ¿Confirmás la transferencia?`
+        : ''}
+      confirmLabel="TRANSFERIR"
+      onConfirm={handleTransferirPropiedad}
+      onCancel={() => setConfirmTransfer(null)}
+    />
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-md">
+        {/* Header */}
         <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h2 className="text-base font-bold uppercase">
             {carpeta?.multiple ? 'COMPARTIR CARPETAS' : 'COMPARTIR CARPETA'}
@@ -138,82 +189,80 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
         </div>
 
         <div className="p-3">
-          {!carpeta?.multiple && carpeta && (
-            <div className="mb-4 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <p className="text-sm font-medium">{carpeta.numero_expediente} - {carpeta.caratula}</p>
+          {/* Info carpeta */}
+          {!carpeta?.multiple && carpeta && (carpeta.numero_expediente || carpeta.caratula || carpeta.nombre) && (
+            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-sm font-medium">
+                {[carpeta.numero_expediente, carpeta.caratula, carpeta.nombre]
+                  .filter(Boolean)
+                  .join(' - ') || 'Sin nombre'}
+              </p>
             </div>
           )}
-
           {carpeta?.multiple && (
-            <div className="mb-4 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <p className="text-sm font-medium">Compartir {carpeta.id.length} carpetas</p>
             </div>
           )}
 
-          {/* Sección 1: Conocidos */}
+          {/* Sección: Agregar colaborador */}
           <div className="mb-4">
-            <p className="text-xs font-bold uppercase mb-2">CONOCIDOS</p>
-            {usuarios.length === 0 ? (
-              <p className="text-xs text-gray-400 dark:text-gray-500 italic">Aún no tenés colaboradores</p>
-            ) : (
-              <>
-                <div className="relative mb-2">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-                  <input
-                    type="text"
-                    placeholder="BUSCAR USUARIO..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  />
-                </div>
-                <select
-                  value={selectedUsuario}
-                  onChange={(e) => {
-                    setSelectedUsuario(e.target.value);
-                    if (foundUser) setFoundUser(null);
-                  }}
-                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                >
-                  <option value="">SELECCIONAR USUARIO</option>
-                  {filteredUsuarios.map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.username} - {u.email}
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
-          </div>
+            <p className="text-xs font-bold uppercase mb-2">AGREGAR COLABORADOR</p>
 
-          {/* Sección 2: Buscar nuevo usuario */}
-          <div className="mb-3">
-            <p className="text-xs font-bold uppercase mb-2">AGREGAR SOLO POR USERNAME</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="USERNAME..."
-                value={searchNewUsername}
-                onChange={(e) => {
-                  setSearchNewUsername(e.target.value);
-                  setFoundUser(null);
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && handleBuscarNuevo()}
-                className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-              />
+            {/* Input + botón buscar */}
+            <div className="flex gap-2 mb-1">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                <input
+                  type="text"
+                  placeholder="Buscar username..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setFoundUser(null);
+                    if (!e.target.value.trim()) setSelectedUsuario(null);
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
+                  className="w-full pl-7 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                />
+              </div>
               <button
-                onClick={handleBuscarNuevo}
-                disabled={searchingNew || !searchNewUsername.trim()}
+                onClick={handleBuscar}
+                disabled={searching || !searchTerm.trim()}
                 className="px-3 py-1.5 text-xs uppercase rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
-                {searchingNew ? '...' : 'BUSCAR'}
+                {searching ? '...' : 'BUSCAR'}
               </button>
             </div>
+
+            {/* Lista de conocidos filtrados */}
+            {filteredKnown.length > 0 && (
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mb-2">
+                {filteredKnown.map((u) => (
+                  <div
+                    key={u.id}
+                    onClick={() => {
+                      setSelectedUsuario({ id: u.id, username: u.username, email: u.email });
+                      setFoundUser(null);
+                    }}
+                    className={`px-3 py-2 cursor-pointer transition-colors text-sm ${
+                      isSelected(u)
+                        ? 'bg-accent/10 dark:bg-accent/20 border-l-2 border-accent'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {u.username}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Usuario encontrado por búsqueda exacta */}
             {foundUser && (
               <div
-                onClick={() => setSelectedUsuario(String(foundUser.id))}
-                className={`mt-2 p-2 rounded-lg cursor-pointer border transition-colors ${
-                  selectedUsuario === String(foundUser.id)
+                onClick={() => setSelectedUsuario({ id: foundUser.id, username: foundUser.username, email: foundUser.email })}
+                className={`p-2 rounded-lg cursor-pointer border transition-colors mb-2 ${
+                  isSelected(foundUser)
                     ? 'border-accent bg-accent/10 dark:bg-accent/20'
                     : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
                 }`}
@@ -222,30 +271,60 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
                 <p className="text-xs text-gray-500">{foundUser.email}</p>
               </div>
             )}
+
+            {/* Opciones y botón compartir — solo visibles cuando hay usuario seleccionado */}
+            {selectedUsuario && (
+              <>
+                <div className="p-2 rounded-lg bg-accent/10 dark:bg-accent/20 border border-accent mb-2">
+                  <p className="text-sm font-medium">{selectedUsuario.username}</p>
+                  {selectedUsuario.email && (
+                    <p className="text-xs text-gray-500">{selectedUsuario.email}</p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4 mb-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={puedeEditar}
+                      onChange={(e) => { setPuedeEditar(e.target.checked); if (e.target.checked) setHacerPropietario(false); }}
+                      className="rounded border-gray-300 text-accent focus:ring-accent"
+                    />
+                    <span className="text-xs uppercase">Puede editar</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hacerPropietario}
+                      onChange={(e) => { setHacerPropietario(e.target.checked); if (e.target.checked) setPuedeEditar(false); }}
+                      className="rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                    />
+                    <span className="text-xs uppercase flex items-center gap-1">
+                      <Crown size={12} className="text-yellow-500" /> Hacer propietario
+                    </span>
+                  </label>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (hacerPropietario) {
+                      setConfirmTransfer({ usuario_id: selectedUsuario.id, username: selectedUsuario.username });
+                    } else {
+                      handleCompartir();
+                    }
+                  }}
+                  disabled={loading}
+                  className="w-full bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg text-xs uppercase flex items-center justify-center gap-2 disabled:opacity-50 transition-colors"
+                >
+                  <UserPlus size={14} />
+                  {loading ? 'COMPARTIENDO...' : hacerPropietario ? 'TRANSFERIR' : 'COMPARTIR'}
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Checkbox puede editar */}
-          <label className="flex items-center gap-2 mb-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={puedeEditar}
-              onChange={(e) => setPuedeEditar(e.target.checked)}
-              className="rounded border-gray-300 text-accent focus:ring-accent"
-            />
-            <span className="text-xs uppercase">Puede editar</span>
-          </label>
-
-          {/* Botón compartir */}
-          <button
-            onClick={handleCompartir}
-            disabled={loading || !selectedUsuario}
-            className="w-full bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg text-xs uppercase flex items-center justify-center gap-2 disabled:opacity-50 mb-4 transition-colors"
-          >
-            <UserPlus size={14} />
-            {loading ? 'COMPARTIENDO...' : 'COMPARTIR'}
-          </button>
-
-          {/* Lista de usuarios con acceso */}
+          {/* Lista de colaboradores actuales */}
           {!carpeta?.multiple && compartidos.length > 0 && (
             <div>
               <h3 className="text-xs font-bold uppercase mb-2">COMPARTIDO CON:</h3>
@@ -259,13 +338,22 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
                         <span className="text-xs text-accent">Puede editar</span>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDejarCompartir(c.usuario_id)}
-                      className="p-1 hover:text-red-500 transition-colors"
-                      title="Dejar de compartir"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setConfirmTransfer({ usuario_id: c.usuario_id, username: c.username })}
+                        className="p-1 hover:text-yellow-500 transition-colors"
+                        title="Hacer propietario"
+                      >
+                        <Crown size={14} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDejarCompartir({ usuario_id: c.usuario_id, username: c.username })}
+                        className="p-1 hover:text-red-500 transition-colors"
+                        title="Dejar de compartir"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -274,6 +362,7 @@ const CompartirCarpetaModal = ({ isOpen, onClose, carpeta, onSave }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

@@ -16,7 +16,6 @@ const EstadoCarpetaManager = ({ isOpen, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     nombre: '',
     color: '#4FC3F7',
-    orden: 0,
     descripcion: ''
   });
 
@@ -30,7 +29,7 @@ const EstadoCarpetaManager = ({ isOpen, onClose, onSave }) => {
     setLoading(true);
     try {
       const response = await api.get('/carpetas/estados/');
-      setEstados(response.data);
+      setEstados(response.data.results ?? response.data);
     } catch (error) {
       console.error('Error fetching estados:', error);
       toast.error('Error al cargar estados');
@@ -65,7 +64,6 @@ const verificarUso = async (id) => {
       setFormData({
         nombre: estado.nombre,
         color: estado.color || '#4FC3F7',
-        orden: estado.orden || 0,
         descripcion: estado.descripcion || ''
       });
     }
@@ -107,7 +105,6 @@ const verificarUso = async (id) => {
       setFormData({
         nombre: pendingAction.data.nombre,
         color: pendingAction.data.color || '#4FC3F7',
-        orden: pendingAction.data.orden || 0,
         descripcion: pendingAction.data.descripcion || ''
       });
       toast.success(`Se actualizarán ${carpetasCount} carpetas`, {
@@ -168,7 +165,6 @@ const verificarUso = async (id) => {
     setFormData({
       nombre: estado.nombre,
       color: estado.color || '#4FC3F7',
-      orden: estado.orden || 0,
       descripcion: estado.descripcion || ''
     });
   };
@@ -178,7 +174,6 @@ const verificarUso = async (id) => {
     setFormData({
       nombre: '',
       color: '#4FC3F7',
-      orden: 0,
       descripcion: ''
     });
   };
@@ -287,16 +282,6 @@ const verificarUso = async (id) => {
               </div>
               
               <div>
-                <label className="block text-xs font-medium mb-1 uppercase">ORDEN</label>
-                <input
-                  type="number"
-                  value={formData.orden}
-                  onChange={(e) => setFormData({...formData, orden: parseInt(e.target.value) || 0})}
-                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated"
-                />
-              </div>
-              
-              <div>
                 <label className="block text-xs font-medium mb-1 uppercase">DESCRIPCIÓN</label>
                 <input
                   type="text"
@@ -349,7 +334,6 @@ const verificarUso = async (id) => {
                         {estado.descripcion && (
                           <span className="text-xs text-gray-500 ml-2">({estado.descripcion})</span>
                         )}
-                        <span className="text-xs text-gray-500 ml-2">Orden: {estado.orden}</span>
                       </div>
                     </div>
                     <div className="flex gap-1">

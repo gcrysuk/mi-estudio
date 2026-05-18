@@ -2,11 +2,12 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
-from django.db.models import Q
+from django.db.models import Q, Max
 from django.utils import timezone
 from .models import Movimiento, TipoMovimiento, EstadoMovimiento
 from .serializers import MovimientoSerializer, TipoMovimientoSerializer, EstadoMovimientoSerializer
 from apps.carpetas.models import Carpeta, CompartirCarpeta
+from config.pagination import StandardPagination
 
 
 def _user_puede_editar_carpeta(user, carpeta):
@@ -23,6 +24,7 @@ def _user_puede_editar_carpeta(user, carpeta):
 class MovimientoViewSet(viewsets.ModelViewSet):
     serializer_class = MovimientoSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
     filterset_fields = ['carpeta', 'tipo', 'estado', 'vencido']
     search_fields = ['titulo', 'descripcion']
 
@@ -35,7 +37,8 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             )
 
         carpetas_accesibles = Carpeta.objects.filter(
-            Q(propietario=user) | Q(compartida_con=user) | Q(es_publico=True)
+            Q(propietario=user) | Q(compartida_con=user) | Q(es_publico=True),
+            activo=True,
         ).values_list('id', flat=True)
 
         queryset = Movimiento.objects.filter(
@@ -83,10 +86,11 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         elif request.method == 'POST':
             serializer = TipoMovimientoSerializer(data=request.data)
             if serializer.is_valid():
-                serializer.save()
+                ultimo = TipoMovimiento.objects.aggregate(max_orden=Max('orden'))['max_orden'] or 0
+                serializer.save(orden=ultimo + 1)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         elif request.method == 'PUT':
             tipo_id = request.data.get('id')
             try:
@@ -126,10 +130,11 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         elif request.method == 'POST':
             serializer = EstadoMovimientoSerializer(data=request.data)
             if serializer.is_valid():
-                serializer.save()
+                ultimo = EstadoMovimiento.objects.aggregate(max_orden=Max('orden'))['max_orden'] or 0
+                serializer.save(orden=ultimo + 1)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
         elif request.method == 'PUT':
             estado_id = request.data.get('id')
             try:
@@ -157,24 +162,29 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def vencidos(self, request):
-        """Obtener movimientos vencidos"""
         queryset = self.get_queryset().filter(
             vencido=True,
             fecha_vencimiento__isnull=False
         )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
-    
+
     @action(detail=False, methods=['get'])
     def proximos_vencer(self, request):
-        """Movimientos a vencer en los próximos días"""
         dias = int(request.query_params.get('dias', 7))
         fecha_limite = timezone.now() + timezone.timedelta(days=dias)
-        
         queryset = self.get_queryset().filter(
             vencido=False,
             fecha_vencimiento__lte=fecha_limite,
             fecha_vencimiento__gte=timezone.now()
         )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
