@@ -65,7 +65,8 @@ const BuscadorConfig = ({ endpoint, placeholder, label, value, onChange, withCol
   };
 
   const handleFormSubmit = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
+    if (e?.stopPropagation) e.stopPropagation();
     const nombre = newNombre.trim();
     if (!nombre) return;
     setCreating(true);
@@ -185,7 +186,7 @@ const BuscadorConfig = ({ endpoint, placeholder, label, value, onChange, withCol
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="p-4 space-y-3">
+            <div className="p-4 space-y-3">
               <div>
                 <label className="block text-xs font-medium mb-1 uppercase">NOMBRE *</label>
                 <input
@@ -193,8 +194,8 @@ const BuscadorConfig = ({ endpoint, placeholder, label, value, onChange, withCol
                   type="text"
                   value={newNombre}
                   onChange={(e) => setNewNombre(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleFormSubmit(e); } }}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  required
                   placeholder={`Nombre del ${label}...`}
                 />
               </div>
@@ -233,7 +234,8 @@ const BuscadorConfig = ({ endpoint, placeholder, label, value, onChange, withCol
                   CANCELAR
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleFormSubmit}
                   disabled={creating}
                   className="px-3 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white uppercase flex items-center gap-1.5 disabled:opacity-60"
                 >
@@ -241,7 +243,7 @@ const BuscadorConfig = ({ endpoint, placeholder, label, value, onChange, withCol
                   {creating ? 'CREANDO...' : 'CREAR'}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

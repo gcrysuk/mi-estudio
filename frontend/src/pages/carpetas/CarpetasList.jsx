@@ -36,12 +36,10 @@ const CarpetasList = () => {
   const [pageSize, setPageSize]   = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [count, setCount]         = useState(0);
-  const [searchNombre, setSearchNombre] = useState('');
-  const [searchExpediente, setSearchExpediente] = useState('');
+  const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({
     estado: '',
     tipo: '',
-    persona: ''
   });
   const [sortConfig, setSortConfig] = useState({
     key: 'fecha_inicio',
@@ -108,11 +106,9 @@ const CarpetasList = () => {
     setLoading(true);
     try {
       const params = { page: p, page_size: ps };
-      if (searchNombre)     params.nombre     = searchNombre;
-      if (searchExpediente) params.expediente = searchExpediente;
-      if (filters.estado)   params.estado     = filters.estado;
-      if (filters.tipo)     params.tipo       = filters.tipo;
-      if (filters.persona)  params.persona    = filters.persona;
+      if (search)         params.search = search;
+      if (filters.estado) params.estado = filters.estado;
+      if (filters.tipo)   params.tipo   = filters.tipo;
 
       const response = await api.get('/carpetas/', { params });
       const data = response.data;
@@ -127,7 +123,7 @@ const CarpetasList = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchNombre, searchExpediente, filters.estado, filters.tipo, filters.persona]); // eslint-disable-line
+  }, [search, filters.estado, filters.tipo]); // eslint-disable-line
 
   useEffect(() => {
     fetchPersonas();
@@ -429,51 +425,29 @@ const CarpetasList = () => {
       </div>
 
       {/* Filtros y búsqueda */}
-      <div className="bg-white dark:bg-dark-surface p-3 rounded-lg shadow space-y-3">
-        {/* Buscador nombre/carátula */}
-        <div className="relative flex-1 min-w-[160px]">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-          <input
-            type="text"
-            placeholder="NOMBRE / CARÁTULA..."
-            value={searchNombre}
-            onChange={(e) => setSearchNombre(e.target.value)}
-            className="w-full pl-7 pr-7 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
-          />
-          {searchNombre && (
-            <button
-              type="button"
-              onClick={() => setSearchNombre('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
-
-        {/* Buscador expediente */}
-        <div className="relative min-w-[140px]">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-          <input
-            type="text"
-            placeholder="N° EXPEDIENTE..."
-            value={searchExpediente}
-            onChange={(e) => setSearchExpediente(e.target.value)}
-            className="w-full pl-7 pr-7 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
-          />
-          {searchExpediente && (
-            <button
-              type="button"
-              onClick={() => setSearchExpediente('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              <X size={12} />
-            </button>
-          )}
-        </div>
-
-        {/* Filtros */}
+      <div className="bg-white dark:bg-dark-surface p-3 rounded-lg shadow">
         <div className="flex flex-col sm:flex-row gap-2">
+          {/* Buscador general */}
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+            <input
+              type="text"
+              placeholder="Buscar en carpetas..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-7 pr-7 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent text-xs"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
           <select
             value={filters.estado}
             onChange={(e) => setFilters({...filters, estado: e.target.value})}
@@ -496,20 +470,6 @@ const CarpetasList = () => {
             ))}
           </select>
 
-          <select
-            value={filters.persona}
-            onChange={(e) => setFilters({...filters, persona: e.target.value})}
-            className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs min-w-[150px]"
-          >
-            <option value="">TODAS LAS PERSONAS</option>
-            {personas.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.apellido}, {p.nombre}
-              </option>
-            ))}
-          </select>
-
-          {/* SELECTOR DE COLUMNAS */}
           <ColumnSelector
             columns={columnDefinitions}
             visibleColumns={visibleColumns}
@@ -518,9 +478,8 @@ const CarpetasList = () => {
 
           <button
             onClick={() => {
-              setSearchNombre('');
-              setSearchExpediente('');
-              setFilters({ estado: '', tipo: '', persona: '' });
+              setSearch('');
+              setFilters({ estado: '', tipo: '' });
             }}
             className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-1.5 uppercase text-xs"
           >

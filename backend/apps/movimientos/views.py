@@ -2,6 +2,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Max
 from django.utils import timezone
 from .models import Movimiento, TipoMovimiento, EstadoMovimiento
@@ -25,8 +27,16 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     serializer_class = MovimientoSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
+    filter_backends = [SearchFilter, DjangoFilterBackend]
     filterset_fields = ['carpeta', 'tipo', 'estado', 'vencido']
-    search_fields = ['titulo', 'descripcion']
+    search_fields = [
+        'titulo',
+        'descripcion',
+        'carpeta__nombre',
+        'carpeta__numero_expediente',
+        'tipo__nombre',
+        'estado__nombre',
+    ]
 
     def get_queryset(self):
         user = self.request.user

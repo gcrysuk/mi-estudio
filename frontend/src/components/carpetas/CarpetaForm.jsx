@@ -173,22 +173,13 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave, nombreInicial = '' }) =>
                 })}
                 placeholder="Buscar contraparte..."
               />
-              {!formData.contraparte_obj && (
-                <input
-                  type="text"
-                  value={formData.contraparte}
-                  onChange={(e) => setFormData({ ...formData, contraparte: e.target.value })}
-                  placeholder="O escribir manualmente..."
-                  className="mt-1 w-full px-3 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                />
-              )}
             </div>
           </div>
 
           {/* Fila 3 — Relación | Organismo */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs font-medium mb-0.5 uppercase">RELACIÓN</label>
+              <label className="block text-xs font-medium mb-0.5 uppercase">PARTE</label>
               <select
                 value={formData.parte}
                 onChange={(e) => setFormData({...formData, parte: e.target.value})}

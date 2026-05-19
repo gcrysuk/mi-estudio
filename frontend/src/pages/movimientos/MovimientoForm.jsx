@@ -236,7 +236,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               <div>
                 <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
                   <Calendar size={12} />
-                  FECHA MOV
+                  FECHA MOVIMIENTO
                 </label>
                 <input
                   type="datetime-local"
@@ -249,7 +249,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               <div>
                 <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
                   <Calendar size={12} />
-                  FECHA NOTIF
+                  FECHA NOTIFICACIÓN
                 </label>
                 <input
                   type="datetime-local"

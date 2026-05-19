@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search, X, Edit, Trash2, Calendar, Clock,
-  FolderOpen, AlertCircle, ChevronDown, ChevronUp,
+  FolderOpen, AlertCircle, ChevronDown, ChevronUp, Plus,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
@@ -11,6 +12,193 @@ import ConfirmDialog from '../ui/ConfirmDialog';
 import ColumnSelector from '../common/ColumnSelector';
 import Pagination from '../ui/Pagination';
 import { useUndo } from '../../hooks/useUndo';
+import useClickOutside from '../../hooks/useClickOutside';
+
+// ── EstadoSelector ────────────────────────────────────────────────────────────
+
+const EstadoSelector = ({ movimiento, onUpdate }) => {
+  const [isOpen, setIsOpen]         = useState(false);
+  const [search, setSearch]         = useState('');
+  const [estados, setEstados]       = useState([]);
+  const [loading, setLoading]       = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 208 });
+  const cellRef    = useRef(null);
+  const dropdownRef = useRef(null);
+  const inputRef   = useRef(null);
+
+  useClickOutside(dropdownRef, () => { setIsOpen(false); setSearch(''); });
+
+  const handleOpen = () => {
+    const rect = cellRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top:   rect.bottom + window.scrollY + 4,
+      left:  rect.left   + window.scrollX,
+      width: Math.max(rect.width, 208),
+    });
+    setIsOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    api.get('/movimientos/estados/')
+      .then((r) => setEstados(r.data.results ?? r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, [isOpen]);
+
+  const filtered = estados.filter((e) =>
+    e.nombre.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const showAdd = search.trim().length > 0 && !loading &&
+    !estados.some((e) => e.nombre.toLowerCase() === search.trim().toLowerCase());
+
+  const apply = async (estadoId, estadoObj) => {
+    setSaving(true);
+    try {
+      const res = await api.patch(`/movimientos/${movimiento.id}/`, { estado: estadoId });
+      onUpdate({ ...movimiento, estado: estadoId, estado_nombre: estadoObj.nombre, estado_color: estadoObj.color ?? null });
+      setIsOpen(false);
+      setSearch('');
+      toast.success('Estado actualizado');
+    } catch {
+      toast.error('Error al actualizar estado');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    const nombre = search.trim().toUpperCase();
+    if (!nombre) return;
+    setSaving(true);
+    try {
+      const res = await api.post('/movimientos/estados/', { nombre });
+      await apply(res.data.id, res.data);
+    } catch {
+      toast.error('Error al crear estado');
+      setSaving(false);
+    }
+  };
+
+  const badge = movimiento.estado_nombre ? (
+    <span
+      className="text-xs px-2 py-0.5 rounded font-medium"
+      style={{
+        backgroundColor: movimiento.estado_color ? `${movimiento.estado_color}22` : '#f3f4f6',
+        color: movimiento.estado_color ?? '#6b7280',
+      }}
+    >
+      {movimiento.estado_nombre}
+    </span>
+  ) : (
+    <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+  );
+
+  return (
+    <div ref={cellRef}>
+      <div
+        className="cursor-pointer hover:opacity-75 transition-opacity"
+        onClick={handleOpen}
+        title="Click para cambiar estado"
+      >
+        {badge}
+      </div>
+
+      {isOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'absolute',
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+            zIndex: 9999,
+          }}
+          className="bg-white dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl"
+        >
+          <div className="p-1.5 border-b border-gray-100 dark:border-gray-700">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar estado..."
+                className="w-full pl-7 pr-2 py-1 text-xs rounded border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto">
+            {loading ? (
+              <div className="p-2 text-center text-xs text-gray-400">Cargando...</div>
+            ) : (
+              <>
+                {movimiento.estado && (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => apply(null, { nombre: null, color: null })}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 italic"
+                  >
+                    Sin estado
+                  </button>
+                )}
+                {filtered.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => apply(e.id, e)}
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 ${
+                      e.id === movimiento.estado ? 'font-semibold' : ''
+                    }`}
+                  >
+                    {e.color && (
+                      <span
+                        className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: e.color }}
+                      />
+                    )}
+                    {e.nombre}
+                    {e.id === movimiento.estado && (
+                      <span className="ml-auto text-accent">✓</span>
+                    )}
+                  </button>
+                ))}
+                {showAdd && (
+                  <>
+                    {filtered.length > 0 && (
+                      <div className="border-t border-gray-100 dark:border-gray-700" />
+                    )}
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={handleCreate}
+                      className="w-full text-left px-3 py-1.5 text-xs text-accent hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1.5"
+                    >
+                      <Plus size={12} />
+                      {saving ? 'Creando...' : `+ Agregar "${search.trim()}"`}
+                    </button>
+                  </>
+                )}
+                {filtered.length === 0 && !showAdd && (
+                  <div className="p-2 text-center text-xs text-gray-400">Sin resultados</div>
+                )}
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
 
 const COLUMN_CONFIG = [
   { key: 'carpeta',     label: 'Carpeta',     fixed: false },
@@ -18,7 +206,7 @@ const COLUMN_CONFIG = [
   { key: 'estado',      label: 'Estado',      fixed: false },
   { key: 'fecha',       label: 'Fecha',       fixed: false },
   { key: 'vencimiento', label: 'Vencimiento', fixed: false },
-  { key: 'fecha_notif', label: 'Fecha Notif', fixed: false },
+  { key: 'fecha_notif', label: 'Notificación', fixed: false },
   { key: 'tiempo',      label: 'Tiempo',      fixed: false },
   { key: 'descripcion', label: 'Descripción', fixed: false },
 ];
@@ -29,9 +217,6 @@ const DEFAULT_COLUMNS = {
 };
 
 const STORAGE_KEY = 'movimientos_columnas';
-
-const norm = (s) =>
-  (s ?? '').normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
 
 const MovimientosTable = ({
   baseFetchUrl,
@@ -56,12 +241,15 @@ const MovimientosTable = ({
     try { return { ...DEFAULT_COLUMNS, ...(JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}) }; }
     catch { return DEFAULT_COLUMNS; }
   });
-  const [searchTitulo, setSearchTitulo]       = useState('');
-  const [searchCarpeta, setSearchCarpeta]     = useState('');
+  const [search, setSearch]                   = useState('');
   const [filters, setFilters]                 = useState({ tipo: '', estado: '', vencido: '' });
   const [tipos, setTipos]                     = useState([]);
   const [estados, setEstados]                 = useState([]);
   const { pushUndo, undoLast }                = useUndo();
+
+  const handleUpdateMovimiento = (updated) => {
+    setMovimientos((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+  };
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleColumns));
@@ -86,9 +274,9 @@ const MovimientosTable = ({
     setLoading(true);
     try {
       const params = { ...baseParams, page: p, page_size: ps };
-      if (searchTitulo) params.search = searchTitulo;
-      if (filters.tipo)   params.tipo    = filters.tipo;
-      if (filters.estado) params.estado  = filters.estado;
+      if (search)             params.search  = search;
+      if (filters.tipo)       params.tipo    = filters.tipo;
+      if (filters.estado)     params.estado  = filters.estado;
       if (filters.vencido !== '') params.vencido = filters.vencido;
 
       const res = await api.get(baseFetchUrl, { params });
@@ -110,7 +298,7 @@ const MovimientosTable = ({
     } finally {
       setLoading(false);
     }
-  }, [baseFetchUrl, baseParamsKey, searchTitulo, filters.tipo, filters.estado, filters.vencido]); // eslint-disable-line
+  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.vencido]); // eslint-disable-line
 
   // Reset to page 1 and fetch when URL/params/search/filters/refreshKey change
   useEffect(() => {
@@ -169,12 +357,11 @@ const MovimientosTable = ({
 
   const clearFilters = () => {
     setFilters({ tipo: '', estado: '', vencido: '' });
-    setSearchTitulo('');
-    setSearchCarpeta('');
+    setSearch('');
   };
 
   const hasActiveFilters =
-    searchTitulo || searchCarpeta || filters.tipo || filters.estado || filters.vencido !== '';
+    search || filters.tipo || filters.estado || filters.vencido !== '';
 
   const formatFecha = (fecha) =>
     fecha
@@ -197,10 +384,10 @@ const MovimientosTable = ({
       : <ChevronDown size={14} className="inline ml-1" />;
   };
 
-  const TH = ({ columnKey, children }) => (
+  const TH = ({ columnKey, children, className = '' }) => (
     <th
       onClick={() => handleSort(columnKey)}
-      className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-pointer hover:text-accent select-none"
+      className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-pointer hover:text-accent select-none ${className}`}
     >
       {children}<SortIcon columnKey={columnKey} />
     </th>
@@ -210,12 +397,9 @@ const MovimientosTable = ({
     ? COLUMN_CONFIG
     : COLUMN_CONFIG.filter((c) => c.key !== 'carpeta');
 
-  // Client-side: carpeta name text filter + sort within current page
+  // Client-side: sort within current page
   const displayed = movimientos
-    .filter((mov) => {
-      if (searchCarpeta && !norm(mov.carpeta_nombre).includes(norm(searchCarpeta))) return false;
-      return true;
-    })
+    .slice()
     .sort((a, b) => {
       const dir = sortConfig.direction === 'asc' ? 1 : -1;
       let aVal, bVal;
@@ -251,41 +435,22 @@ const MovimientosTable = ({
     <div className="space-y-2">
       {/* Barra de filtros */}
       <div className="bg-white dark:bg-dark-surface rounded-lg shadow p-3 flex flex-wrap gap-2 items-center">
-        {/* Búsqueda por título (server-side via ?search=) */}
+        {/* Búsqueda general (server-side via ?search=) */}
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
           <input
             type="text"
-            value={searchTitulo}
-            onChange={(e) => setSearchTitulo(e.target.value)}
-            placeholder="Buscar por título..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar en movimientos..."
             className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
           />
-          {searchTitulo && (
-            <button onClick={() => setSearchTitulo('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
               <X size={14} />
             </button>
           )}
         </div>
-
-        {/* Búsqueda por carpeta — solo en vista global (client-side dentro de la página) */}
-        {showCarpetaColumn && (
-          <div className="relative flex-1 min-w-[180px]">
-            <FolderOpen className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
-            <input
-              type="text"
-              value={searchCarpeta}
-              onChange={(e) => setSearchCarpeta(e.target.value)}
-              placeholder="Buscar por carpeta..."
-              className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-            />
-            {searchCarpeta && (
-              <button onClick={() => setSearchCarpeta('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Tipo */}
         <div className="relative">
@@ -365,19 +530,20 @@ const MovimientosTable = ({
         </div>
       ) : (
         <div className="bg-white dark:bg-dark-surface rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-200 dark:border-gray-700">
                 <TH columnKey="titulo">Título</TH>
-                {showCarpetaColumn && visibleColumns.carpeta     && <TH columnKey="carpeta_nombre">Carpeta</TH>}
-                {visibleColumns.tipo        && <TH columnKey="tipo_nombre">Tipo</TH>}
+                {showCarpetaColumn && visibleColumns.carpeta     && <TH columnKey="carpeta_nombre" className="hidden sm:table-cell">Carpeta</TH>}
+                {visibleColumns.tipo        && <TH columnKey="tipo_nombre"        className="hidden md:table-cell">Tipo</TH>}
                 {visibleColumns.estado      && <TH columnKey="estado_nombre">Estado</TH>}
-                {visibleColumns.fecha       && <TH columnKey="fecha_movimiento">Fecha</TH>}
-                {visibleColumns.vencimiento && <TH columnKey="fecha_vencimiento">Vencimiento</TH>}
-                {visibleColumns.fecha_notif && <TH columnKey="fecha_notificacion">Fecha Notif</TH>}
-                {visibleColumns.tiempo      && <TH columnKey="tiempo_trabajo">Tiempo</TH>}
+                {visibleColumns.fecha       && <TH columnKey="fecha_movimiento"   className="hidden sm:table-cell">Fecha</TH>}
+                {visibleColumns.vencimiento && <TH columnKey="fecha_vencimiento"  className="hidden lg:table-cell">Vencimiento</TH>}
+                {visibleColumns.fecha_notif && <TH columnKey="fecha_notificacion" className="hidden lg:table-cell">Notificación</TH>}
+                {visibleColumns.tiempo      && <TH columnKey="tiempo_trabajo"     className="hidden xl:table-cell">Tiempo</TH>}
                 {visibleColumns.descripcion && (
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide">Descripción</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell">Descripción</th>
                 )}
                 <th className="px-4 py-2.5 w-20"></th>
               </tr>
@@ -393,7 +559,7 @@ const MovimientosTable = ({
                   </td>
 
                   {showCarpetaColumn && visibleColumns.carpeta && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 hidden sm:table-cell">
                       {mov.carpeta ? (
                         <Link
                           to={`/carpetas/${mov.carpeta}`}
@@ -410,7 +576,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.tipo && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 hidden md:table-cell">
                       {mov.tipo_nombre
                         ? <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{mov.tipo_nombre}</span>
                         : <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>}
@@ -419,24 +585,12 @@ const MovimientosTable = ({
 
                   {visibleColumns.estado && (
                     <td className="px-4 py-2.5">
-                      {mov.estado_nombre ? (
-                        <span
-                          className="text-xs px-2 py-0.5 rounded font-medium"
-                          style={{
-                            backgroundColor: mov.estado_color ? `${mov.estado_color}22` : undefined,
-                            color: mov.estado_color ?? undefined,
-                          }}
-                        >
-                          {mov.estado_nombre}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
-                      )}
+                      <EstadoSelector movimiento={mov} onUpdate={handleUpdateMovimiento} />
                     </td>
                   )}
 
                   {visibleColumns.fecha && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap hidden sm:table-cell">
                       {mov.fecha_movimiento ? (
                         <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                           <Calendar size={12} /> {formatFecha(mov.fecha_movimiento)}
@@ -448,7 +602,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.vencimiento && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap hidden lg:table-cell">
                       {mov.fecha_vencimiento ? (
                         <span className={`flex items-center gap-1 text-xs ${colorVencimiento(mov)}`}>
                           {mov.vencido ? <AlertCircle size={12} /> : <Clock size={12} />}
@@ -461,7 +615,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.fecha_notif && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap hidden lg:table-cell">
                       {mov.fecha_notificacion ? (
                         <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                           <Calendar size={12} /> {formatFecha(mov.fecha_notificacion)}
@@ -473,7 +627,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.tiempo && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap hidden xl:table-cell">
                       {mov.tiempo_trabajo ? (
                         <span className="text-xs text-gray-600 dark:text-gray-400">
                           {mov.tiempo_trabajo} min
@@ -485,7 +639,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.descripcion && (
-                    <td className="px-4 py-2.5 max-w-[200px]">
+                    <td className="px-4 py-2.5 max-w-[200px] hidden xl:table-cell">
                       {mov.descripcion ? (
                         <span className="text-xs text-gray-600 dark:text-gray-400 truncate block">
                           {mov.descripcion}
@@ -518,6 +672,7 @@ const MovimientosTable = ({
               ))}
             </tbody>
           </table>
+          </div>
 
           <Pagination
             page={page}

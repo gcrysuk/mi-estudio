@@ -3,6 +3,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Max
 from django.contrib.auth import get_user_model
 from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
@@ -32,33 +34,31 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     serializer_class = CarpetaSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
-    filterset_fields = ['estado', 'tipo', 'persona']
+    filter_backends = [SearchFilter, DjangoFilterBackend]
+    filterset_fields = ['estado', 'tipo']
+    search_fields = [
+        'nombre',
+        'numero_expediente',
+        'persona__nombre',
+        'persona__apellido',
+        'contraparte',
+        'estado__nombre',
+        'tipo__nombre',
+        'objeto__nombre',
+        'organismo__nombre',
+        'descripcion',
+    ]
 
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            qs = Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
-        else:
-            qs = Carpeta.objects.filter(
-                Q(propietario=user) |
-                Q(compartida_con=user) |
-                Q(es_publico=True),
-                activo=True,
-            ).select_related('persona', 'propietario').distinct()
-
-        nombre = self.request.query_params.get('nombre')
-        if nombre:
-            qs = qs.filter(
-                Q(nombre__icontains=nombre) |
-                Q(persona__apellido__icontains=nombre) |
-                Q(persona__nombre__icontains=nombre)
-            )
-
-        expediente = self.request.query_params.get('expediente')
-        if expediente:
-            qs = qs.filter(numero_expediente__icontains=expediente)
-
-        return qs
+            return Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
+        return Carpeta.objects.filter(
+            Q(propietario=user) |
+            Q(compartida_con=user) |
+            Q(es_publico=True),
+            activo=True,
+        ).select_related('persona', 'propietario').distinct()
 
     def perform_create(self, serializer):
         serializer.save(propietario=self.request.user)
