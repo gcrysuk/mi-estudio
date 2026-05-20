@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, FolderOpen, Settings, Clock, Calendar } from 'lucide-react';
+import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import MovimientoConfig from './MovimientoConfig';
@@ -15,6 +15,9 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
   const [showCarpetaForm, setShowCarpetaForm] = useState(false);
   const [carpetaSeleccionada, setCarpetaSeleccionada] = useState(null);
   const [nombreInicial, setNombreInicial] = useState('');
+  const [notificaciones, setNotificaciones] = useState([]); // [{id, fecha, isNew}]
+  const [toDelete, setToDelete] = useState([]);             // ids to DELETE on save
+  const [nuevaFecha, setNuevaFecha] = useState('');
 
   const getCurrentDateTime = () => {
     const now = new Date();
@@ -32,7 +35,6 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
     tipo: '',
     estado: '',
     fecha_movimiento: getCurrentDateTime(),
-    fecha_notificacion: '',
     fecha_vencimiento: '',
     tiempo_trabajo: '',
     carpeta: initialCarpetaId || ''
@@ -50,8 +52,6 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
         estado: movimiento.estado || '',
         fecha_movimiento: movimiento.fecha_movimiento ?
           new Date(movimiento.fecha_movimiento).toISOString().slice(0, 16) : getCurrentDateTime(),
-        fecha_notificacion: movimiento.fecha_notificacion ?
-          new Date(movimiento.fecha_notificacion).toISOString().slice(0, 16) : '',
         fecha_vencimiento: movimiento.fecha_vencimiento ?
           new Date(movimiento.fecha_vencimiento).toISOString().slice(0, 16) : '',
         tiempo_trabajo: movimiento.tiempo_trabajo || '',
@@ -63,6 +63,17 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
           nombre: movimiento.carpeta_nombre || ''
         });
       }
+      // Cargar notificaciones existentes
+      api.get('/movimientos/notificaciones/', { params: { movimiento: movimiento.id } })
+        .then(res => {
+          const items = (res.data.results ?? res.data).map(n => ({
+            id: n.id,
+            fecha: new Date(n.fecha).toISOString().slice(0, 16),
+            isNew: false,
+          }));
+          setNotificaciones(items);
+        })
+        .catch(() => {});
     } else if (initialCarpetaId) {
       setCarpetaSeleccionada({ id: initialCarpetaId, nombre: carpetaNombre || '' });
     }
@@ -109,8 +120,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
         ...formData,
         carpeta: formData.carpeta || null,
         fecha_movimiento: new Date(formData.fecha_movimiento).toISOString(),
-        fecha_notificacion: formData.fecha_notificacion ?
-          new Date(formData.fecha_notificacion).toISOString() : null,
+        fecha_notificacion: null,
         fecha_vencimiento: formData.fecha_vencimiento ?
           new Date(formData.fecha_vencimiento).toISOString() : null,
         tiempo_trabajo: formData.tiempo_trabajo ? parseInt(formData.tiempo_trabajo) : null,
@@ -118,13 +128,27 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
         estado: formData.estado || null
       };
 
+      let movimientoId;
       if (movimiento) {
         await api.put(`/movimientos/${movimiento.id}/`, dataToSend);
+        movimientoId = movimiento.id;
         toast.success('Movimiento actualizado');
       } else {
-        await api.post('/movimientos/', dataToSend);
+        const res = await api.post('/movimientos/', dataToSend);
+        movimientoId = res.data.id;
         toast.success('Movimiento creado');
       }
+
+      // Sincronizar notificaciones
+      await Promise.all(toDelete.map(id => api.delete(`/movimientos/notificaciones/${id}/`)));
+      await Promise.all(
+        notificaciones
+          .filter(n => n.isNew)
+          .map(n => api.post('/movimientos/notificaciones/', {
+            movimiento: movimientoId,
+            fecha: new Date(n.fecha).toISOString(),
+          }))
+      );
 
       onSave();
     } catch (error) {
@@ -133,6 +157,18 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAgregarFecha = () => {
+    if (!nuevaFecha) return;
+    setNotificaciones(prev => [...prev, { id: null, fecha: nuevaFecha, isNew: true }]);
+    setNuevaFecha('');
+  };
+
+  const handleRemoverFecha = (index) => {
+    const notif = notificaciones[index];
+    if (notif.id) setToDelete(prev => [...prev, notif.id]);
+    setNotificaciones(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleCarpetaCreada = (nuevaCarpeta) => {
@@ -231,33 +267,63 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               </div>
             </div>
 
-            {/* Fechas */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
-                  <Calendar size={12} />
-                  FECHA MOVIMIENTO
-                </label>
-                <input
-                  type="datetime-local"
-                  value={formData.fecha_movimiento}
-                  onChange={(e) => setFormData({ ...formData, fecha_movimiento: e.target.value })}
-                  className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                />
-              </div>
+            {/* Fecha movimiento */}
+            <div>
+              <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
+                <Calendar size={12} />
+                FECHA MOVIMIENTO
+              </label>
+              <input
+                type="datetime-local"
+                value={formData.fecha_movimiento}
+                onChange={(e) => setFormData({ ...formData, fecha_movimiento: e.target.value })}
+                className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
-                  <Calendar size={12} />
-                  FECHA NOTIFICACIÓN
-                </label>
+            {/* Notificaciones múltiples */}
+            <div>
+              <label className="block text-xs font-medium mb-1 uppercase flex items-center gap-1">
+                <Bell size={12} />
+                FECHAS DE NOTIFICACIÓN
+              </label>
+              <div className="flex gap-1">
                 <input
                   type="datetime-local"
-                  value={formData.fecha_notificacion}
-                  onChange={(e) => setFormData({ ...formData, fecha_notificacion: e.target.value })}
-                  className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                  value={nuevaFecha}
+                  onChange={(e) => setNuevaFecha(e.target.value)}
+                  className="flex-1 px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 />
+                <button
+                  type="button"
+                  onClick={handleAgregarFecha}
+                  disabled={!nuevaFecha}
+                  className="px-2 py-1 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-40 flex items-center gap-1 uppercase"
+                >
+                  <Plus size={12} /> AGREGAR
+                </button>
               </div>
+              {notificaciones.length > 0 && (
+                <ul className="mt-1.5 space-y-1">
+                  {notificaciones.map((n, i) => (
+                    <li key={i} className="flex items-center justify-between text-xs bg-gray-50 dark:bg-dark-elevated rounded px-2 py-1">
+                      <span>
+                        {new Date(n.fecha).toLocaleString('es-AR', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoverFecha(i)}
+                        className="text-gray-400 hover:text-red-500 transition-colors ml-2"
+                      >
+                        <X size={12} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Vencimiento y Tiempo */}

@@ -46,7 +46,8 @@ class Persona(models.Model):
     provincia = models.CharField(max_length=100, blank=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
     activo = models.BooleanField(default=True)
-    
+    fecha_eliminacion = models.DateTimeField(null=True, blank=True)
+
     propietario = models.ForeignKey(
         User,
         on_delete=models.PROTECT,

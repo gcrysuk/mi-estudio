@@ -11,7 +11,6 @@ import MovimientoForm from '../../pages/movimientos/MovimientoForm';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import ColumnSelector from '../common/ColumnSelector';
 import Pagination from '../ui/Pagination';
-import { useUndo } from '../../hooks/useUndo';
 import useClickOutside from '../../hooks/useClickOutside';
 
 // ── EstadoSelector ────────────────────────────────────────────────────────────
@@ -245,7 +244,6 @@ const MovimientosTable = ({
   const [filters, setFilters]                 = useState({ tipo: '', estado: '', vencido: '' });
   const [tipos, setTipos]                     = useState([]);
   const [estados, setEstados]                 = useState([]);
-  const { pushUndo, undoLast }                = useUndo();
 
   const handleUpdateMovimiento = (updated) => {
     setMovimientos((prev) => prev.map((m) => m.id === updated.id ? updated : m));
@@ -315,31 +313,11 @@ const MovimientosTable = ({
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
-    const saved = movimientos.find((m) => m.id === confirmDelete.id);
     try {
       await api.delete(`/movimientos/${confirmDelete.id}/`);
       setConfirmDelete(null);
       doFetch(page, pageSize);
-      if (saved) {
-        pushUndo({
-          entidad: 'movimiento',
-          datos: saved,
-          restoreFn: async () => { await api.post('/movimientos/', saved); doFetch(page, pageSize); },
-        });
-      }
-      toast((t) => (
-        <div className="flex items-center gap-3">
-          <span className="text-sm">Movimiento eliminado</span>
-          {saved && (
-            <button
-              onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
-              className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase"
-            >
-              DESHACER
-            </button>
-          )}
-        </div>
-      ), { duration: 8000 });
+      toast.success('Movimiento movido a la papelera');
     } catch {
       toast.error('Error al eliminar');
       setConfirmDelete(null);
@@ -410,7 +388,7 @@ const MovimientosTable = ({
         case 'estado_nombre':      aVal = a.estado_nombre ?? '';      bVal = b.estado_nombre ?? '';      break;
         case 'fecha_movimiento':   aVal = a.fecha_movimiento ?? '';   bVal = b.fecha_movimiento ?? '';   break;
         case 'fecha_vencimiento':  aVal = a.fecha_vencimiento ?? '';  bVal = b.fecha_vencimiento ?? '';  break;
-        case 'fecha_notificacion': aVal = a.fecha_notificacion ?? ''; bVal = b.fecha_notificacion ?? ''; break;
+        case 'fecha_notificacion': aVal = a.proxima_notificacion ?? ''; bVal = b.proxima_notificacion ?? ''; break;
         case 'tiempo_trabajo':     aVal = a.tiempo_trabajo ?? 0;      bVal = b.tiempo_trabajo ?? 0;      break;
         default:                   aVal = ''; bVal = '';
       }
@@ -616,9 +594,9 @@ const MovimientosTable = ({
 
                   {visibleColumns.fecha_notif && (
                     <td className="px-4 py-2.5 whitespace-nowrap hidden lg:table-cell">
-                      {mov.fecha_notificacion ? (
+                      {mov.proxima_notificacion ? (
                         <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                          <Calendar size={12} /> {formatFecha(mov.fecha_notificacion)}
+                          <Calendar size={12} /> {formatFecha(mov.proxima_notificacion)}
                         </span>
                       ) : (
                         <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>

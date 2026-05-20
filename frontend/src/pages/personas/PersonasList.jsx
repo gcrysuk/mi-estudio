@@ -16,7 +16,6 @@ import useAuthStore from '../../stores/authStore';
 import api from '../../services/api';
 import DetallePersonaModal from '../../components/personas/DetallePersonaModal';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
-import { useUndo } from '../../hooks/useUndo';
 
 const TIPO_PERSONA_OPTIONS = [
   { value: 'fisica',   label: 'Física' },
@@ -73,7 +72,6 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   const [pendingCallback, setPendingCallback] = useState(null);
   const [localidades, setLocalidades] = useState([]);
   const [loadingLocalidades, setLoadingLocalidades] = useState(false);
-  const { pushUndo, undoLast } = useUndo();
   const [formData, setFormData] = useState({
     nombre: '',
     apellido: '',
@@ -265,57 +263,30 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
     }
   };
 
-  // Eliminación individual con UNDO
-  const handleDelete = async (id, nombreCompleto) => {
-    const personaEliminada = personas.find(p => p.id === id);
+  const handleDelete = async (id) => {
     try {
       await api.delete(`/personas/${id}/`);
       setDeleteConfirm(null);
       fetchData();
-      if (personaEliminada) {
-        pushUndo({ entidad: 'persona', datos: personaEliminada, restoreFn: async () => { await api.post('/personas/', personaEliminada); fetchData(); } });
-      }
-      toast((t) => (
-        <div className="flex items-center gap-3">
-          <span className="text-sm">Persona eliminada</span>
-          {personaEliminada && (
-            <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
-              className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
-              DESHACER
-            </button>
-          )}
-        </div>
-      ), { duration: 8000 });
+      toast.success('Persona movida a la papelera');
     } catch (error) {
       console.error('Error deleting persona:', error);
       toast.error('Error al eliminar');
     }
   };
 
-  // Eliminación múltiple con UNDO
   const handleBulkDelete = async () => {
     setLoading(true);
+    const count = selectedItems.length;
     try {
-      const eliminadas = personas.filter(p => selectedItems.includes(p.id));
-      
       for (const id of selectedItems) {
         await api.delete(`/personas/${id}/`);
       }
-      
       setSelectedItems([]);
       setSelectAll(false);
       setBulkDeleteConfirm(false);
       fetchData();
-      pushUndo({ entidad: 'personas', datos: eliminadas, restoreFn: async () => { await Promise.all(eliminadas.map(p => api.post('/personas/', p))); fetchData(); } });
-      toast((t) => (
-        <div className="flex items-center gap-3">
-          <span className="text-sm">{eliminadas.length} personas eliminadas</span>
-          <button onClick={async () => { await undoLast(); toast.dismiss(t.id); }}
-            className="text-xs bg-accent hover:bg-accent-hover text-white px-2 py-1 rounded uppercase">
-            DESHACER
-          </button>
-        </div>
-      ), { duration: 10000 });
+      toast.success(`${count} persona(s) movidas a la papelera`);
     } catch (error) {
       console.error('Error deleting personas:', error);
       toast.error('Error al eliminar algunas personas');

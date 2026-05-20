@@ -6,8 +6,8 @@ from rest_framework.filters import SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Max
 from django.utils import timezone
-from .models import Movimiento, TipoMovimiento, EstadoMovimiento
-from .serializers import MovimientoSerializer, TipoMovimientoSerializer, EstadoMovimientoSerializer
+from .models import Movimiento, TipoMovimiento, EstadoMovimiento, NotificacionMovimiento
+from .serializers import MovimientoSerializer, TipoMovimientoSerializer, EstadoMovimientoSerializer, NotificacionSerializer
 from apps.carpetas.models import Carpeta, CompartirCarpeta
 from config.pagination import StandardPagination
 
@@ -80,7 +80,37 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         if not _user_puede_editar_carpeta(self.request.user, instance.carpeta):
             raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
         instance.activo = False
-        instance.save(update_fields=['activo'])
+        instance.fecha_eliminacion = timezone.now()
+        instance.save(update_fields=['activo', 'fecha_eliminacion'])
+
+    @action(detail=False, methods=['get'], url_path='papelera')
+    def papelera(self, request):
+        movimientos = Movimiento.objects.filter(
+            creado_por=request.user,
+            activo=False,
+        ).select_related('carpeta', 'tipo', 'estado', 'creado_por')
+        serializer = self.get_serializer(movimientos, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='restaurar')
+    def restaurar(self, request, pk=None):
+        try:
+            movimiento = Movimiento.objects.get(pk=pk, creado_por=request.user, activo=False)
+        except Movimiento.DoesNotExist:
+            return Response({'error': 'Movimiento no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        movimiento.activo = True
+        movimiento.fecha_eliminacion = None
+        movimiento.save(update_fields=['activo', 'fecha_eliminacion'])
+        return Response({'ok': True})
+
+    @action(detail=True, methods=['delete'], url_path='eliminar_definitivo')
+    def eliminar_definitivo(self, request, pk=None):
+        try:
+            movimiento = Movimiento.objects.get(pk=pk, creado_por=request.user, activo=False)
+        except Movimiento.DoesNotExist:
+            return Response({'error': 'Movimiento no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        movimiento.delete()
+        return Response({'ok': True})
     
     @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='tipos')
     def tipos_movimiento(self, request):
@@ -182,6 +212,126 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='vencen_hoy')
+    def vencen_hoy(self, request):
+        now = timezone.now()
+        now_local = timezone.localtime(now)
+        hoy_inicio = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        hoy_fin = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+        queryset = self.get_queryset().filter(
+            fecha_vencimiento__gte=hoy_inicio,
+            fecha_vencimiento__lte=hoy_fin,
+        )
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='pendientes')
+    def pendientes(self, request):
+        queryset = self.get_queryset().filter(estado__nombre__iexact='pendiente')
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='dashboard_stats')
+    def dashboard_stats(self, request):
+        user = request.user
+        now = timezone.now()
+        now_local = timezone.localtime(now)   # convierte a la zona horaria del proyecto (TIME_ZONE)
+        hoy_inicio = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        hoy_fin = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+        manana = hoy_fin + timezone.timedelta(seconds=1)
+        en_7_dias = hoy_inicio + timezone.timedelta(days=7)
+
+        carpetas_ids = Carpeta.objects.filter(
+            Q(propietario=user) | Q(compartida_con=user),
+            activo=True,
+        ).values_list('id', flat=True)
+
+        movs = Movimiento.objects.filter(
+            carpeta_id__in=carpetas_ids,
+            activo=True,
+        )
+
+        return Response({
+            'vencen_hoy': movs.filter(
+                fecha_vencimiento__gte=hoy_inicio,
+                fecha_vencimiento__lte=hoy_fin,
+            ).count(),
+            'vencen_semana': movs.filter(
+                fecha_vencimiento__gte=hoy_fin,
+                fecha_vencimiento__lte=en_7_dias,
+            ).count(),
+            'carpetas_activas': Carpeta.objects.filter(
+                Q(propietario=user) | Q(compartida_con=user),
+                activo=True,
+                estado__nombre__iexact='activa',
+            ).count(),
+            'pendientes': movs.filter(
+                estado__nombre__iexact='pendiente',
+            ).count(),
+        })
+
+    @action(detail=False, methods=['get'], url_path='proximos_vencer')
+    def proximos_vencer(self, request):
+        dias = int(request.query_params.get('dias', 7))
+        limit = int(request.query_params.get('page_size', 5))
+        now = timezone.now()
+        fecha_limite = now + timezone.timedelta(days=dias)
+        queryset = self.get_queryset().filter(
+            vencido=False,
+            fecha_vencimiento__isnull=False,
+            fecha_vencimiento__gte=now,
+            fecha_vencimiento__lte=fecha_limite,
+        ).order_by('fecha_vencimiento')[:limit]
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class NotificacionViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificacionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['movimiento', 'leida']
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return NotificacionMovimiento.objects.all().select_related(
+                'movimiento', 'movimiento__carpeta'
+            )
+        carpetas_accesibles = Carpeta.objects.filter(
+            Q(propietario=user) | Q(compartida_con=user) | Q(es_publico=True),
+            activo=True,
+        ).values_list('id', flat=True)
+        return NotificacionMovimiento.objects.filter(
+            Q(movimiento__carpeta_id__in=carpetas_accesibles) |
+            Q(movimiento__carpeta__isnull=True, movimiento__creado_por=user),
+            movimiento__activo=True,
+        ).select_related('movimiento', 'movimiento__carpeta')
+
+    @action(detail=False, methods=['get'], url_path='pendientes')
+    def pendientes(self, request):
+        queryset = self.get_queryset().filter(
+            fecha__lte=timezone.now(),
+            leida=False,
+        )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='marcar_leida')
+    def marcar_leida(self, request, pk=None):
+        notificacion = self.get_object()
+        notificacion.leida = True
+        notificacion.save(update_fields=['leida'])
+        return Response({'ok': True})
 
     @action(detail=False, methods=['get'])
     def proximos_vencer(self, request):

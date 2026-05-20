@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { Plus, FileText, ArrowLeft, AlertCircle, Clock } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -8,10 +8,16 @@ import MovimientosTable from '../../components/movimientos/MovimientosTable';
 
 const MovimientosList = () => {
   const { carpetaId } = useParams();
-  const [carpeta, setCarpeta]       = useState(null);
-  const [filtro, setFiltro]         = useState('todos');
-  const [modalOpen, setModalOpen]   = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [searchParams] = useSearchParams();
+  const estadoNombreParam = searchParams.get('estado_nombre');
+
+  const [carpeta, setCarpeta]           = useState(null);
+  const [filtro, setFiltro]             = useState('todos');
+  const [estados, setEstados]           = useState([]);
+  const [filtroEstadoId, setFiltroEstadoId] = useState('');
+  const [filtersReady, setFiltersReady] = useState(!estadoNombreParam);
+  const [modalOpen, setModalOpen]       = useState(false);
+  const [refreshKey, setRefreshKey]     = useState(0);
 
   useEffect(() => {
     if (!carpetaId) { toast.error('ID de carpeta no válido'); return; }
@@ -19,6 +25,24 @@ const MovimientosList = () => {
       .then((r) => setCarpeta(r.data))
       .catch(() => toast.error('Error al cargar la carpeta'));
   }, [carpetaId]);
+
+  // Cargar estados solo cuando se necesita resolver un nombre
+  useEffect(() => {
+    if (!estadoNombreParam) return;
+    api.get('/movimientos/estados/')
+      .then(r => setEstados(r.data.results ?? r.data))
+      .catch(() => setFiltersReady(true)); // si falla, fetchear sin filtro
+  }, [estadoNombreParam]);
+
+  // Resolver estado_nombre → ID una vez que cargaron los estados
+  useEffect(() => {
+    if (!estadoNombreParam || estados.length === 0) return;
+    const match = estados.find(
+      e => e.nombre.toLowerCase() === estadoNombreParam.toLowerCase()
+    );
+    if (match) setFiltroEstadoId(String(match.id));
+    setFiltersReady(true);
+  }, [estados, estadoNombreParam]); // eslint-disable-line
 
   if (!carpetaId) {
     return (
@@ -42,6 +66,7 @@ const MovimientosList = () => {
   const getBaseParams = () => {
     const params = { carpeta: carpetaId };
     if (filtro === 'proximos') params.dias = 7;
+    if (filtroEstadoId) params.estado = filtroEstadoId;
     return params;
   };
 
@@ -92,13 +117,15 @@ const MovimientosList = () => {
         </button>
       </div>
 
-      <MovimientosTable
-        baseFetchUrl={getFetchUrl()}
-        baseParams={getBaseParams()}
-        showCarpetaColumn={false}
-        emptyMessage="No hay movimientos para esta carpeta"
-        refreshKey={refreshKey}
-      />
+      {filtersReady && (
+        <MovimientosTable
+          baseFetchUrl={getFetchUrl()}
+          baseParams={getBaseParams()}
+          showCarpetaColumn={false}
+          emptyMessage="No hay movimientos para esta carpeta"
+          refreshKey={refreshKey}
+        />
+      )}
 
       {modalOpen && (
         <MovimientoForm

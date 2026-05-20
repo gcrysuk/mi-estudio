@@ -132,6 +132,7 @@ class Carpeta(models.Model):
     
     es_publico = models.BooleanField(default=False, help_text="Visible para todos los usuarios autenticados")
     activo = models.BooleanField(default=True)
+    fecha_eliminacion = models.DateTimeField(null=True, blank=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
 
     class Meta:

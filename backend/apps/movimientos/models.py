@@ -84,7 +84,8 @@ class Movimiento(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
     activo = models.BooleanField(default=True)
-    
+    fecha_eliminacion = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ['-fecha_movimiento']
         verbose_name = "Movimiento"
@@ -99,3 +100,21 @@ class Movimiento(models.Model):
         if self.fecha_vencimiento and self.fecha_vencimiento < timezone.now():
             self.vencido = True
         super().save(*args, **kwargs)
+
+
+class NotificacionMovimiento(models.Model):
+    movimiento = models.ForeignKey(
+        Movimiento,
+        on_delete=models.CASCADE,
+        related_name='notificaciones'
+    )
+    fecha = models.DateTimeField()
+    leida = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['fecha']
+        verbose_name = "Notificación de Movimiento"
+
+    def __str__(self):
+        return f"{self.movimiento.titulo} - {self.fecha}"

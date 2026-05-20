@@ -16,6 +16,7 @@ import MovimientosGlobal from "./pages/movimientos/MovimientosGlobal";
 import OrganismosList from "./pages/organismos/OrganismosList";
 import TiposList from "./pages/tipos/TiposList";
 import CalendarioPage from "./pages/calendario/CalendarioPage";
+import PapeleraPage from "./pages/papelera/PapeleraPage";
 import useAuthStore from "./stores/authStore";
 import ModalGlobal from './components/modals/ModalGlobal';
 
@@ -45,6 +46,7 @@ function App() {
               <Route path="/organismos" element={<OrganismosList />} />
               <Route path="/tipos" element={<TiposList />} />
               <Route path="/calendario" element={<CalendarioPage />} />
+              <Route path="/papelera" element={<PapeleraPage />} />
 
             </Route>
           </Route>

@@ -19,12 +19,16 @@ import api from '../../services/api';
 import CompartirCarpetaModal from '../../components/carpetas/CompartirCarpetaModal';
 import CarpetaForm from '../../components/carpetas/CarpetaForm';
 import { useModal } from '../../contexts/ModalContext';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import DetalleCarpetaModal from '../../components/carpetas/DetalleCarpetaModal';
 import ColumnSelector from '../../components/common/ColumnSelector';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
 const CarpetasList = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const estadoNombreParam = searchParams.get('estado_nombre');
+
   const [carpetas, setCarpetas] = useState([]);
   const [personas, setPersonas] = useState([]);
   const [organismos, setOrganismos] = useState([]);
@@ -41,6 +45,8 @@ const CarpetasList = () => {
     estado: '',
     tipo: '',
   });
+  // Si hay ?estado_nombre en la URL, esperar a que se resuelva el ID antes del primer fetch
+  const [filtersReady, setFiltersReady] = useState(!searchParams.get('estado_nombre'));
   const [sortConfig, setSortConfig] = useState({
     key: 'fecha_inicio',
     direction: 'desc'
@@ -100,6 +106,8 @@ const CarpetasList = () => {
     }));
   };
 
+  const user = useAuthStore(state => state.user);
+
   const { abrirModalPersona } = useModal();
 
   const fetchData = useCallback(async (p, ps) => {
@@ -123,7 +131,7 @@ const CarpetasList = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, filters.estado, filters.tipo]); // eslint-disable-line
+  }, [filters, search]); // eslint-disable-line
 
   useEffect(() => {
     fetchPersonas();
@@ -133,11 +141,22 @@ const CarpetasList = () => {
     fetchObjetos();
   }, []);
 
-  // Reset to page 1 and fetch when filters/search change
+  // Resolver estado_nombre → ID una vez que cargaron los estados
   useEffect(() => {
+    if (!estadoNombreParam || estados.length === 0) return;
+    const match = estados.find(
+      e => e.nombre.toLowerCase() === estadoNombreParam.toLowerCase()
+    );
+    if (match) setFilters(prev => ({ ...prev, estado: String(match.id) }));
+    setFiltersReady(true);
+  }, [estados, estadoNombreParam]); // eslint-disable-line
+
+  // Reset to page 1 and fetch when filters/search change — esperar filtersReady
+  useEffect(() => {
+    if (!filtersReady) return;
     setPage(1);
     fetchData(1, pageSize);
-  }, [fetchData, pageSize]); // eslint-disable-line
+  }, [filters, pageSize, filtersReady]); // eslint-disable-line
 
   // Fetch when page changes (user navigates)
   useEffect(() => {
@@ -317,15 +336,23 @@ const CarpetasList = () => {
     return 0;
   });
 
+  const handleDeleteClick = (carpeta) => {
+    if (carpeta.compartida_con_count > 0) {
+      toast.error('Debés quitar todos los colaboradores antes de eliminar la carpeta');
+      return;
+    }
+    setDeleteConfirm({ id: carpeta.id, nombre: carpeta.nombre });
+  };
+
   const handleDelete = async (id) => {
     try {
       await api.delete(`/carpetas/${id}/`);
       setDeleteConfirm(null);
       fetchData(page, pageSize);
-      toast.success('Carpeta eliminada');
+      toast.success('Carpeta movida a la papelera');
     } catch (error) {
       console.error('Error deleting carpeta:', error);
-      toast.error('Error al eliminar');
+      toast.error(error.response?.data?.detail || 'Error al eliminar');
     }
   };
 
@@ -343,7 +370,7 @@ const CarpetasList = () => {
       toast.success(`${selectedCount} carpetas eliminadas`);
     } catch (error) {
       console.error('Error deleting carpetas:', error);
-      toast.error('Error al eliminar algunas carpetas');
+      toast.error(error.response?.data?.detail || error.response?.data?.error || 'Error al eliminar algunas carpetas');
     } finally {
       setLoading(false);
     }
@@ -424,6 +451,26 @@ const CarpetasList = () => {
         </div>
       </div>
 
+      {/* Badge de filtro activo desde dashboard */}
+      {estadoNombreParam && filters.estado && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 px-1">
+          <span>Filtro activo:</span>
+          <span className="bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium uppercase">
+            {estadoNombreParam}
+          </span>
+          <button
+            onClick={() => {
+              setFilters({ estado: '', tipo: '' });
+              setSearch('');
+              navigate('/carpetas', { replace: true });
+            }}
+            className="flex items-center gap-0.5 text-gray-400 hover:text-red-500 transition-colors"
+          >
+            <X size={12} /> Limpiar
+          </button>
+        </div>
+      )}
+
       {/* Filtros y búsqueda */}
       <div className="bg-white dark:bg-dark-surface p-3 rounded-lg shadow">
         <div className="flex flex-col sm:flex-row gap-2">
@@ -480,6 +527,7 @@ const CarpetasList = () => {
             onClick={() => {
               setSearch('');
               setFilters({ estado: '', tipo: '' });
+              if (estadoNombreParam) navigate('/carpetas', { replace: true });
             }}
             className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-1.5 uppercase text-xs"
           >
@@ -627,16 +675,15 @@ const CarpetasList = () => {
                         >
                           <Share2 size={14} />
                         </button>
-                        <button
-                          onClick={() => setDeleteConfirm({ 
-                            id: carpeta.id, 
-                            nombre: carpeta.nombre 
-                          })}
-                          className="p-1 hover:text-red-500 transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {(!user || carpeta.propietario === user.id) && (
+                          <button
+                            onClick={() => handleDeleteClick(carpeta)}
+                            className="p-1 hover:text-red-500 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </td>
                     )}
                   </tr>
@@ -681,7 +728,7 @@ const CarpetasList = () => {
         isOpen={!!deleteConfirm}
         title="Confirmar eliminación"
         message={`¿Eliminar la carpeta "${deleteConfirm?.nombre}"?`}
-        onConfirm={() => handleDelete(deleteConfirm.id, deleteConfirm.nombre)}
+        onConfirm={() => handleDelete(deleteConfirm.id)}
         onCancel={() => setDeleteConfirm(null)}
       />
 

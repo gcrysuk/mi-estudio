@@ -1,24 +1,61 @@
+import { useRef, useState, useCallback } from 'react'
 import { Bell, Moon, Sun } from 'lucide-react'
 import useThemeStore from '../../stores/themeStore'
+import { useNotificaciones } from '../../hooks/useNotificaciones'
+import PanelNotificaciones from '../notificaciones/PanelNotificaciones'
+import useClickOutside from '../../hooks/useClickOutside'
 
 const Topbar = () => {
   const { theme, toggleTheme } = useThemeStore()
+  const { notificaciones, count, marcarLeida, marcarTodasLeidas } = useNotificaciones()
+  const [panelOpen, setPanelOpen] = useState(false)
+
+  const containerRef = useRef(null)
+  useClickOutside(containerRef, useCallback(() => setPanelOpen(false), []))
+
+  const handleMarcarTodas = async () => {
+    await marcarTodasLeidas()
+    setPanelOpen(false)
+  }
 
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
       <div className="flex items-center justify-end">
         <div className="flex items-center gap-4">
-          <button className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-            <Bell size={20} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
-          
-          <button 
+
+          {/* Campana con badge y panel */}
+          <div ref={containerRef} className="relative">
+            <button
+              onClick={() => setPanelOpen(prev => !prev)}
+              className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Notificaciones"
+            >
+              <Bell size={20} />
+              {count > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                  {count > 99 ? '99+' : count}
+                </span>
+              )}
+            </button>
+
+            {panelOpen && (
+              <PanelNotificaciones
+                notificaciones={notificaciones}
+                onMarcarLeida={marcarLeida}
+                onMarcarTodas={handleMarcarTodas}
+                onClose={() => setPanelOpen(false)}
+              />
+            )}
+          </div>
+
+          {/* Tema */}
+          <button
             onClick={toggleTheme}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
+
         </div>
       </div>
     </header>

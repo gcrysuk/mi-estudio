@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ChevronLeft, ChevronRight, Calendar, RefreshCw,
-  Link2, Unlink2, AlertCircle, ExternalLink,
+  Link2, Unlink2, AlertCircle, ExternalLink, Edit2, X, Save,
 } from 'lucide-react';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
@@ -19,7 +19,6 @@ const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const TZ = 'America/Argentina/Buenos_Aires';
 
 const LEGEND = [
-  { color: 'bg-blue-500', label: 'Movimiento' },
   { color: 'bg-yellow-500', label: 'Vencimiento' },
   { color: 'bg-orange-400', label: 'Vence pronto' },
   { color: 'bg-red-500', label: 'Vencido' },
@@ -45,6 +44,9 @@ const CalendarioPage = () => {
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null); // {id, titulo, carpeta, fechaActual}
+  const [editingFecha, setEditingFecha] = useState('');
+  const [savingFecha, setSavingFecha] = useState(false);
 
   const tokenClientRef = useRef(null);
   const accessTokenRef = useRef(null);
@@ -190,17 +192,6 @@ const CalendarioPage = () => {
       const events = [];
 
       movimientos.forEach(mov => {
-        if (mov.fecha_movimiento) {
-          events.push({
-            id: `mov-${mov.id}`,
-            title: mov.titulo,
-            date: parseISO(mov.fecha_movimiento),
-            type: 'movimiento',
-            carpeta: mov.carpeta_nombre,
-            descripcion: mov.descripcion,
-            source: 'app',
-          });
-        }
         if (mov.fecha_vencimiento) {
           const d = parseISO(mov.fecha_vencimiento);
           let type = 'vencimiento';
@@ -208,6 +199,7 @@ const CalendarioPage = () => {
           else if (isBefore(d, in7)) type = 'vencimiento_proximo';
           events.push({
             id: `venc-${mov.id}`,
+            movimientoId: mov.id,
             title: `Vence: ${mov.titulo}`,
             date: d,
             type,
@@ -223,6 +215,30 @@ const CalendarioPage = () => {
       toast.error('Error al cargar movimientos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Editar vencimiento ────────────────────────────────────────────────────
+
+  const abrirEditModal = (ev) => {
+    setEditingEvent({ id: ev.movimientoId, titulo: ev.title, carpeta: ev.carpeta, fechaActual: ev.date });
+    setEditingFecha(ev.date.toISOString().slice(0, 16));
+  };
+
+  const handleGuardarVencimiento = async () => {
+    if (!editingFecha || !editingEvent) return;
+    setSavingFecha(true);
+    try {
+      await api.patch(`/movimientos/${editingEvent.id}/`, {
+        fecha_vencimiento: new Date(editingFecha).toISOString(),
+      });
+      toast.success('Fecha de vencimiento actualizada');
+      setEditingEvent(null);
+      fetchAppEvents();
+    } catch {
+      toast.error('Error al guardar');
+    } finally {
+      setSavingFecha(false);
     }
   };
 
@@ -426,9 +442,20 @@ const CalendarioPage = () => {
                         </a>
                       )}
                     </div>
-                    <span className="text-[10px] text-gray-400 flex-shrink-0 mt-0.5">
-                      {format(ev.date, 'HH:mm')}
-                    </span>
+                    <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                      <span className="text-[10px] text-gray-400">
+                        {format(ev.date, 'HH:mm')}
+                      </span>
+                      {ev.type.startsWith('vencimiento') && ev.source === 'app' && (
+                        <button
+                          onClick={() => abrirEditModal(ev)}
+                          className="p-0.5 text-gray-400 hover:text-accent transition-colors"
+                          title="Editar fecha de vencimiento"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
@@ -436,6 +463,63 @@ const CalendarioPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Mini-modal: editar fecha de vencimiento */}
+      {editingEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setEditingEvent(null)}
+        >
+          <div
+            className="bg-white dark:bg-dark-surface rounded-xl shadow-2xl w-full max-w-sm mx-4 p-5 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-bold truncate">{editingEvent.titulo}</p>
+                {editingEvent.carpeta && (
+                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">📁 {editingEvent.carpeta}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setEditingEvent(null)}
+                className="flex-shrink-0 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold uppercase text-gray-500">
+                Nueva fecha de vencimiento
+              </label>
+              <input
+                type="datetime-local"
+                value={editingFecha}
+                onChange={e => setEditingFecha(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setEditingEvent(null)}
+                className="px-4 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGuardarVencimiento}
+                disabled={savingFecha || !editingFecha}
+                className="flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white font-semibold disabled:opacity-60 transition-colors"
+              >
+                <Save size={12} />
+                {savingFecha ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

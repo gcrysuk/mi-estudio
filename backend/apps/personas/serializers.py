@@ -11,7 +11,7 @@ class PersonaSerializer(serializers.ModelSerializer):
             'id', 'nombre', 'apellido', 'tipo_persona',
             'tipo_documento', 'numero_documento', 'email', 'telefono',
             'direccion', 'ciudad', 'provincia', 'fecha_registro', 'activo',
-            'propietario', 'propietario_nombre'
+            'fecha_eliminacion', 'propietario', 'propietario_nombre'
         ]
         read_only_fields = ['fecha_registro', 'propietario', 'propietario_nombre']
     

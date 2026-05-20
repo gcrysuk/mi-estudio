@@ -7,6 +7,7 @@ from rest_framework.filters import SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Max
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
 from apps.organismos.models import Organismo
 from .serializers import (
@@ -35,7 +36,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
     filter_backends = [SearchFilter, DjangoFilterBackend]
-    filterset_fields = ['estado', 'tipo']
+    filterset_fields = ['estado', 'tipo', 'objeto']
     search_fields = [
         'nombre',
         'numero_expediente',
@@ -69,10 +70,44 @@ class CarpetaViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
-        if not _user_puede_editar_carpeta(self.request.user, instance):
-            raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
+        if instance.propietario != self.request.user:
+            raise PermissionDenied('Solo el propietario puede eliminar esta carpeta.')
+        if CompartirCarpeta.objects.filter(carpeta=instance).exists():
+            raise PermissionDenied('Debés quitar todos los colaboradores antes de eliminar la carpeta.')
         instance.activo = False
-        instance.save(update_fields=['activo'])
+        instance.fecha_eliminacion = timezone.now()
+        instance.save(update_fields=['activo', 'fecha_eliminacion'])
+
+    @action(detail=False, methods=['get'], url_path='papelera')
+    def papelera(self, request):
+        carpetas = Carpeta.objects.filter(
+            propietario=request.user,
+            activo=False,
+        ).select_related('persona', 'propietario')
+        serializer = self.get_serializer(carpetas, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='restaurar')
+    def restaurar(self, request, pk=None):
+        try:
+            carpeta = Carpeta.objects.get(pk=pk, propietario=request.user, activo=False)
+        except Carpeta.DoesNotExist:
+            return Response({'error': 'Carpeta no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        carpeta.activo = True
+        carpeta.fecha_eliminacion = None
+        carpeta.save(update_fields=['activo', 'fecha_eliminacion'])
+        return Response({'ok': True})
+
+    @action(detail=True, methods=['delete'], url_path='eliminar_definitivo')
+    def eliminar_definitivo(self, request, pk=None):
+        if request.user.is_superuser:
+            raise PermissionDenied('Acción no permitida')
+        try:
+            carpeta = Carpeta.objects.get(pk=pk, propietario=request.user, activo=False)
+        except Carpeta.DoesNotExist:
+            return Response({'error': 'Carpeta no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        carpeta.delete()
+        return Response({'ok': True})
 
     # ── Compartir ─────────────────────────────────────────────────────────────
 

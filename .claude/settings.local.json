@@ -38,7 +38,10 @@
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/carpetas/**)",
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/movimientos/**)",
       "Bash(wslpath -u \"\\\\\\\\\\\\\\\\wsl.localhost\\\\\\\\Ubuntu\\\\\\\\home\\\\\\\\focus\\\\\\\\mi_estudio\")",
-      "Bash(python manage.py makemigrations organismos)"
+      "Bash(python manage.py makemigrations organismos)",
+      "Bash(New-Item *)",
+      "Bash(docker compose *)",
+      "Bash(docker-compose ps *)"
     ]
   }
 }
