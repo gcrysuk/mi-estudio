@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell } from 'lucide-react';
+import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import MovimientoConfig from './MovimientoConfig';
 import BuscadorCarpeta from '../../components/carpetas/BuscadorCarpeta';
 import CarpetaForm from '../../components/carpetas/CarpetaForm';
+import useSpeechRecognition from '../../hooks/useSpeechRecognition';
 
 const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
@@ -18,6 +19,32 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
   const [notificaciones, setNotificaciones] = useState([]); // [{id, fecha, isNew}]
   const [toDelete, setToDelete] = useState([]);             // ids to DELETE on save
   const [nuevaFecha, setNuevaFecha] = useState('');
+  const [generandoMinuta, setGenerandoMinuta] = useState(false);
+
+  const { isListening, start, stop } = useSpeechRecognition({
+    onResult: (transcript) => {
+      setFormData(prev => ({
+        ...prev,
+        descripcion: prev.descripcion ? prev.descripcion + ' ' + transcript : transcript
+      }));
+    }
+  });
+
+  const generarMinuta = async () => {
+    setGenerandoMinuta(true);
+    try {
+      const res = await api.post('/movimientos/generar_minuta/', { texto: formData.descripcion });
+      const minuta = res.data.minuta;
+      if (minuta) {
+        setFormData(prev => ({ ...prev, descripcion: minuta }));
+        toast.success('Minuta generada');
+      }
+    } catch {
+      toast.error('Error al generar la minuta');
+    } finally {
+      setGenerandoMinuta(false);
+    }
+  };
 
   const getCurrentDateTime = () => {
     const now = new Date();
@@ -360,7 +387,31 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
 
             {/* Descripción */}
             <div>
-              <label className="block text-xs font-medium mb-0.5 uppercase">DESCRIPCIÓN</label>
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="text-xs font-medium uppercase">DESCRIPCIÓN</label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={isListening ? stop : start}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    title={isListening ? 'Detener grabación' : 'Iniciar grabación de voz'}
+                  >
+                    <Mic size={12} />
+                    {isListening ? 'Grabando...' : 'Grabar'}
+                  </button>
+                  {formData.descripcion && !isListening && (
+                    <button
+                      type="button"
+                      onClick={generarMinuta}
+                      disabled={generandoMinuta}
+                      className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors disabled:opacity-50"
+                    >
+                      <Sparkles size={12} />
+                      {generandoMinuta ? 'Procesando...' : 'Generar minuta'}
+                    </button>
+                  )}
+                </div>
+              </div>
               <textarea
                 value={formData.descripcion}
                 onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}

@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import MovimientoForm from '../../pages/movimientos/MovimientoForm';
+import MovimientoDetalleModal from './MovimientoDetalleModal';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import ColumnSelector from '../common/ColumnSelector';
 import Pagination from '../ui/Pagination';
@@ -234,6 +235,7 @@ const MovimientosTable = ({
   const [editingMovimiento, setEditingMovimiento] = useState(null);
   const [modalOpen, setModalOpen]             = useState(false);
   const [confirmDelete, setConfirmDelete]     = useState(null);
+  const [detalleMovId, setDetalleMovId]       = useState(null);
 
   const [sortConfig, setSortConfig]           = useState({ key: 'fecha_movimiento', direction: 'desc' });
   const [visibleColumns, setVisibleColumns]   = useState(() => {
@@ -533,7 +535,12 @@ const MovimientosTable = ({
                   className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                 >
                   <td className="px-4 py-2.5 max-w-[220px]">
-                    <p className="font-medium truncate">{mov.titulo}</p>
+                    <button
+                      onClick={() => setDetalleMovId(mov.id)}
+                      className="font-medium truncate block text-left w-full hover:text-accent hover:underline transition-colors"
+                    >
+                      {mov.titulo}
+                    </button>
                   </td>
 
                   {showCarpetaColumn && visibleColumns.carpeta && (
@@ -669,6 +676,14 @@ const MovimientosTable = ({
         movimiento={editingMovimiento}
         onClose={() => { setModalOpen(false); setEditingMovimiento(null); }}
         onSave={() => { setModalOpen(false); setEditingMovimiento(null); doFetch(page, pageSize); }}
+      />
+    )}
+
+    {detalleMovId && (
+      <MovimientoDetalleModal
+        movimientoId={detalleMovId}
+        onClose={() => setDetalleMovId(null)}
+        onEdit={() => doFetch(page, pageSize)}
       />
     )}
     </>

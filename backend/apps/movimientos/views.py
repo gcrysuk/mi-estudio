@@ -1,3 +1,6 @@
+import json
+import os
+import urllib.request
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -293,6 +296,47 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         ).order_by('fecha_vencimiento')[:limit]
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='generar_minuta')
+    def generar_minuta(self, request):
+        texto = request.data.get('texto', '')
+        if not texto:
+            return Response({'error': 'Texto requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+        if not api_key:
+            return Response({'error': 'ANTHROPIC_API_KEY no configurada'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        payload = json.dumps({
+            'model': 'claude-haiku-4-5-20251001',
+            'max_tokens': 1000,
+            'messages': [{
+                'role': 'user',
+                'content': (
+                    'Sos un asistente legal argentino. Generá una minuta profesional y estructurada '
+                    'en español de la siguiente transcripción de una entrevista con un cliente. '
+                    'Incluí: temas tratados, acuerdos y próximos pasos.\n\n'
+                    f'Transcripción: {texto}'
+                )
+            }]
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            'https://api.anthropic.com/v1/messages',
+            data=payload,
+            headers={
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+            },
+            method='POST',
+        )
+
+        with urllib.request.urlopen(req) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+
+        minuta = data.get('content', [{}])[0].get('text', '')
+        return Response({'minuta': minuta})
 
 
 class NotificacionViewSet(viewsets.ModelViewSet):

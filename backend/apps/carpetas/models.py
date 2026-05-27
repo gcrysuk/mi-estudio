@@ -158,6 +158,31 @@ class Carpeta(models.Model):
         return self.nombre
 
 
+class ParticipanteCarpeta(models.Model):
+    TIPO_CHOICES = [
+        ('cliente', 'Cliente/Parte'),
+        ('contraparte', 'Contraparte'),
+    ]
+    carpeta = models.ForeignKey(
+        Carpeta, on_delete=models.CASCADE,
+        related_name='participantes'
+    )
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    persona = models.ForeignKey(
+        'personas.Persona', on_delete=models.PROTECT,
+        null=True, blank=True
+    )
+    nombre_manual = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['tipo', 'id']
+
+    def __str__(self):
+        if self.persona:
+            return f"{self.persona} ({self.get_tipo_display()})"
+        return f"{self.nombre_manual} ({self.get_tipo_display()})"
+
+
 class CompartirCarpeta(models.Model):
     carpeta = models.ForeignKey(Carpeta, on_delete=models.CASCADE, related_name='compartidos')
     usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carpetas_recibidas')

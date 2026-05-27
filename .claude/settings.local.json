@@ -41,7 +41,12 @@
       "Bash(python manage.py makemigrations organismos)",
       "Bash(New-Item *)",
       "Bash(docker compose *)",
-      "Bash(docker-compose ps *)"
+      "Bash(docker-compose ps *)",
+      "Read(//mnt/c/Users/focus/AppData/Local/lxss/rootfs/home/focus/**)",
+      "Read(//c/Users/Gabriel/**)",
+      "Read(//mnt/wsl/Ubuntu/home/focus/**)",
+      "Read(///wsl.localhost/Ubuntu//**)",
+      "Bash(docker-compose *)"
     ]
   }
 }

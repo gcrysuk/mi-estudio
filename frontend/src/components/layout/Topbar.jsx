@@ -1,13 +1,13 @@
 import { useRef, useState, useCallback } from 'react'
 import { Bell, Moon, Sun, Plus } from 'lucide-react'
-import useThemeStore from '../../stores/themeStore'
+import { useTheme } from '../../contexts/ThemeContext'
 import { useNotificaciones } from '../../hooks/useNotificaciones'
 import PanelNotificaciones from '../notificaciones/PanelNotificaciones'
 import useClickOutside from '../../hooks/useClickOutside'
 import MovimientoForm from '../../pages/movimientos/MovimientoForm'
 
 const Topbar = () => {
-  const { theme, toggleTheme } = useThemeStore()
+  const { theme, toggleTheme } = useTheme()
   const { notificaciones, count, marcarLeida, marcarTodasLeidas } = useNotificaciones()
   const [panelOpen, setPanelOpen] = useState(false)
   const [showMovForm, setShowMovForm] = useState(false)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
+from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta, ParticipanteCarpeta
 from apps.organismos.models import Organismo
 from apps.personas.serializers import PersonaSerializer
 from django.contrib.auth import get_user_model
@@ -27,6 +27,19 @@ class OrganismoSerializer(serializers.ModelSerializer):
         model = Organismo
         fields = '__all__'
 
+class ParticipanteSerializer(serializers.ModelSerializer):
+    persona_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ParticipanteCarpeta
+        fields = ['id', 'tipo', 'persona', 'persona_nombre', 'nombre_manual']
+
+    def get_persona_nombre(self, obj):
+        if obj.persona:
+            return f"{obj.persona.apellido}, {obj.persona.nombre}"
+        return obj.nombre_manual
+
+
 # Serializer para Carpeta
 class CarpetaSerializer(serializers.ModelSerializer):
     persona_nombre = serializers.SerializerMethodField()
@@ -38,6 +51,7 @@ class CarpetaSerializer(serializers.ModelSerializer):
     objeto_nombre = serializers.SerializerMethodField()
     organismo_nombre = serializers.SerializerMethodField()
     dias_sin_movimiento = serializers.SerializerMethodField()
+    participantes = ParticipanteSerializer(many=True, read_only=True)
     
     class Meta:
         model = Carpeta

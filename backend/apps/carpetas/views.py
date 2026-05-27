@@ -8,7 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Max
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta
+from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta, ParticipanteCarpeta
 from apps.organismos.models import Organismo
 from .serializers import (
     CarpetaSerializer,
@@ -17,6 +17,7 @@ from .serializers import (
     TipoCarpetaSerializer,
     ObjetoCarpetaSerializer,
     OrganismoSerializer,
+    ParticipanteSerializer,
 )
 from config.pagination import StandardPagination
 
@@ -53,14 +54,14 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            queryset = Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
+            queryset = Carpeta.objects.filter(activo=True).select_related('persona', 'propietario').prefetch_related('participantes', 'participantes__persona')
         else:
             queryset = Carpeta.objects.filter(
                 Q(propietario=user) |
                 Q(compartida_con=user) |
                 Q(es_publico=True),
                 activo=True,
-            ).select_related('persona', 'propietario').distinct()
+            ).select_related('persona', 'propietario').prefetch_related('participantes', 'participantes__persona').distinct()
 
         dias_sin_mov = self.request.query_params.get('dias_sin_movimiento')
         if dias_sin_mov:
@@ -123,6 +124,44 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Carpeta no encontrada'}, status=status.HTTP_404_NOT_FOUND)
         carpeta.delete()
         return Response({'ok': True})
+
+    # ── Participantes ─────────────────────────────────────────────────────────
+
+    @action(detail=True, methods=['post'], url_path='agregar_participante')
+    def agregar_participante(self, request, pk=None):
+        carpeta = self.get_object()
+        if not _user_puede_editar_carpeta(request.user, carpeta):
+            raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
+
+        tipo = request.data.get('tipo')
+        persona_id = request.data.get('persona_id') or None
+        nombre_manual = request.data.get('nombre_manual', '').strip()
+
+        if tipo not in ('cliente', 'contraparte'):
+            return Response({'error': 'Tipo inválido'}, status=status.HTTP_400_BAD_REQUEST)
+        if not persona_id and not nombre_manual:
+            return Response({'error': 'Persona o nombre manual requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        participante = ParticipanteCarpeta.objects.create(
+            carpeta=carpeta,
+            tipo=tipo,
+            persona_id=persona_id,
+            nombre_manual=nombre_manual,
+        )
+        return Response(ParticipanteSerializer(participante).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path=r'quitar_participante/(?P<participante_id>\d+)')
+    def quitar_participante(self, request, pk=None, participante_id=None):
+        carpeta = self.get_object()
+        if not _user_puede_editar_carpeta(request.user, carpeta):
+            raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
+
+        try:
+            participante = ParticipanteCarpeta.objects.get(pk=participante_id, carpeta=carpeta)
+            participante.delete()
+            return Response({'ok': True})
+        except ParticipanteCarpeta.DoesNotExist:
+            return Response({'error': 'Participante no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
     # ── Compartir ─────────────────────────────────────────────────────────────
 
