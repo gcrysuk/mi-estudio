@@ -3,13 +3,14 @@ import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, FolderOpen, Hash, User, Building2, Scale,
   FileText, Calendar, Clock, AlertCircle, Edit,
-  Plus, Users,
+  Plus, Users, Share2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../services/api'
 import MovimientoForm from '../movimientos/MovimientoForm'
 import CarpetaForm from '../../components/carpetas/CarpetaForm'
 import MovimientosTable from '../../components/movimientos/MovimientosTable'
+import CompartirCarpetaModal from '../../components/carpetas/CompartirCarpetaModal'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (fecha, opts) =>
@@ -37,9 +38,10 @@ const CarpetaDetail = () => {
   const [carpeta, setCarpeta]               = useState(null)
   const [loadingCarpeta, setLoadingCarpeta] = useState(true)
   const [filtro, setFiltro]                 = useState('todos')
-  const [showMovForm, setShowMovForm]       = useState(false)
+  const [showMovForm, setShowMovForm]         = useState(false)
   const [showCarpetaForm, setShowCarpetaForm] = useState(false)
-  const [refreshKey, setRefreshKey]         = useState(0)
+  const [showCompartir, setShowCompartir]     = useState(false)
+  const [refreshKey, setRefreshKey]           = useState(0)
 
   useEffect(() => { fetchCarpeta() }, [id])
 
@@ -133,6 +135,18 @@ const CarpetaDetail = () => {
             <span className="flex items-center gap-1">
               <Calendar size={11} /> Desde {fmt(carpeta.fecha_inicio)}
             </span>
+            {carpeta.dias_sin_movimiento !== null && carpeta.dias_sin_movimiento !== undefined && (
+              <span className={`flex items-center gap-1 ${
+                carpeta.dias_sin_movimiento <= 7  ? 'text-green-500' :
+                carpeta.dias_sin_movimiento <= 30 ? 'text-yellow-500' :
+                'text-red-500'
+              }`}>
+                <Clock size={11} />
+                {carpeta.dias_sin_movimiento === 0
+                  ? 'Movimiento hoy'
+                  : `${carpeta.dias_sin_movimiento} días sin movimiento`}
+              </span>
+            )}
             {carpeta.compartida_con_count > 0 && (
               <span className="flex items-center gap-1">
                 <Users size={11} /> Compartida con {carpeta.compartida_con_count} usuario{carpeta.compartida_con_count !== 1 ? 's' : ''}
@@ -141,18 +155,25 @@ const CarpetaDetail = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowCarpetaForm(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
-        >
-          <Edit size={13} /> Editar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCompartir(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
+          >
+            <Share2 size={13} /> Compartir
+          </button>
+          <button
+            onClick={() => setShowCarpetaForm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
+          >
+            <Edit size={13} /> Editar
+          </button>
+        </div>
       </div>
 
       {/* ── Info panel ── */}
       <div className="bg-white dark:bg-dark-surface rounded-lg shadow p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         <InfoItem icon={User}      label="Cliente"     value={carpeta.persona_nombre} />
-        <InfoItem icon={User}      label="Contraparte" value={carpeta.contraparte} />
         <InfoItem icon={Building2} label="Organismo"   value={carpeta.organismo_nombre} />
         <InfoItem icon={Scale}     label="Propietario" value={carpeta.propietario_nombre} />
         {carpeta.descripcion && (
@@ -226,6 +247,15 @@ const CarpetaDetail = () => {
           carpeta={carpeta}
           onClose={() => setShowCarpetaForm(false)}
           onSave={() => { setShowCarpetaForm(false); fetchCarpeta() }}
+        />
+      )}
+
+      {showCompartir && (
+        <CompartirCarpetaModal
+          isOpen={showCompartir}
+          onClose={() => setShowCompartir(false)}
+          carpeta={carpeta}
+          onSave={() => { setShowCompartir(false); fetchCarpeta() }}
         />
       )}
     </div>

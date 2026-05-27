@@ -37,6 +37,7 @@ class CarpetaSerializer(serializers.ModelSerializer):
     tipo_nombre = serializers.SerializerMethodField()
     objeto_nombre = serializers.SerializerMethodField()
     organismo_nombre = serializers.SerializerMethodField()
+    dias_sin_movimiento = serializers.SerializerMethodField()
     
     class Meta:
         model = Carpeta
@@ -60,6 +61,14 @@ class CarpetaSerializer(serializers.ModelSerializer):
     
     def get_organismo_nombre(self, obj):
         return obj.organismo.nombre if obj.organismo else None
+
+    def get_dias_sin_movimiento(self, obj):
+        from django.utils import timezone
+        ultimo = obj.movimientos.filter(activo=True).order_by('-fecha_movimiento').first()
+        if not ultimo:
+            return None
+        delta = timezone.now() - ultimo.fecha_movimiento
+        return delta.days
 
 # Serializer para CompartirCarpeta
 class CompartirCarpetaSerializer(serializers.ModelSerializer):

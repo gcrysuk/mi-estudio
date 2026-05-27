@@ -41,6 +41,7 @@ const CarpetasList = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [count, setCount]         = useState(0);
   const [search, setSearch] = useState('');
+  const [diasSinMovimiento, setDiasSinMovimiento] = useState('');
   const [filters, setFilters] = useState({
     estado: '',
     tipo: '',
@@ -114,9 +115,10 @@ const CarpetasList = () => {
     setLoading(true);
     try {
       const params = { page: p, page_size: ps };
-      if (search)         params.search = search;
-      if (filters.estado) params.estado = filters.estado;
-      if (filters.tipo)   params.tipo   = filters.tipo;
+      if (search)             params.search = search;
+      if (filters.estado)     params.estado = filters.estado;
+      if (filters.tipo)       params.tipo   = filters.tipo;
+      if (diasSinMovimiento)  params.dias_sin_movimiento = diasSinMovimiento;
 
       const response = await api.get('/carpetas/', { params });
       const data = response.data;
@@ -131,7 +133,7 @@ const CarpetasList = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, search]); // eslint-disable-line
+  }, [filters, search, diasSinMovimiento]); // eslint-disable-line
 
   useEffect(() => {
     fetchPersonas();
@@ -156,7 +158,7 @@ const CarpetasList = () => {
     if (!filtersReady) return;
     setPage(1);
     fetchData(1, pageSize);
-  }, [filters, pageSize, filtersReady]); // eslint-disable-line
+  }, [filters, search, diasSinMovimiento, pageSize, filtersReady]); // eslint-disable-line
 
   // Fetch when page changes (user navigates)
   useEffect(() => {
@@ -517,6 +519,17 @@ const CarpetasList = () => {
             ))}
           </select>
 
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min="1"
+              placeholder="Días sin mov."
+              value={diasSinMovimiento}
+              onChange={(e) => setDiasSinMovimiento(e.target.value)}
+              className="w-32 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+            />
+          </div>
+
           <ColumnSelector
             columns={columnDefinitions}
             visibleColumns={visibleColumns}
@@ -526,6 +539,7 @@ const CarpetasList = () => {
           <button
             onClick={() => {
               setSearch('');
+              setDiasSinMovimiento('');
               setFilters({ estado: '', tipo: '' });
               if (estadoNombreParam) navigate('/carpetas', { replace: true });
             }}

@@ -1,14 +1,16 @@
 import { useRef, useState, useCallback } from 'react'
-import { Bell, Moon, Sun } from 'lucide-react'
+import { Bell, Moon, Sun, Plus } from 'lucide-react'
 import useThemeStore from '../../stores/themeStore'
 import { useNotificaciones } from '../../hooks/useNotificaciones'
 import PanelNotificaciones from '../notificaciones/PanelNotificaciones'
 import useClickOutside from '../../hooks/useClickOutside'
+import MovimientoForm from '../../pages/movimientos/MovimientoForm'
 
 const Topbar = () => {
   const { theme, toggleTheme } = useThemeStore()
   const { notificaciones, count, marcarLeida, marcarTodasLeidas } = useNotificaciones()
   const [panelOpen, setPanelOpen] = useState(false)
+  const [showMovForm, setShowMovForm] = useState(false)
 
   const containerRef = useRef(null)
   useClickOutside(containerRef, useCallback(() => setPanelOpen(false), []))
@@ -19,9 +21,19 @@ const Topbar = () => {
   }
 
   return (
+    <>
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
       <div className="flex items-center justify-end">
         <div className="flex items-center gap-4">
+
+          {/* Nuevo Movimiento */}
+          <button
+            onClick={() => setShowMovForm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors uppercase"
+          >
+            <Plus size={14} />
+            Nuevo Movimiento
+          </button>
 
           {/* Campana con badge y panel */}
           <div ref={containerRef} className="relative">
@@ -59,6 +71,17 @@ const Topbar = () => {
         </div>
       </div>
     </header>
+
+    {showMovForm && (
+      <MovimientoForm
+        onClose={() => setShowMovForm(false)}
+        onSave={() => {
+          setShowMovForm(false)
+          window.dispatchEvent(new CustomEvent('movimiento-guardado'))
+        }}
+      />
+    )}
+  </>
   )
 }
 

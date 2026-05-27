@@ -34,6 +34,14 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave, nombreInicial = '' }) =>
   });
 
   useEffect(() => {
+    if (carpeta) return;
+    api.get('/carpetas/estados/').then(res => {
+      const activa = res.data.find(e => e.nombre.toLowerCase() === 'activa');
+      if (activa) setFormData(prev => ({ ...prev, estado_obj: activa }));
+    });
+  }, []); // eslint-disable-line
+
+  useEffect(() => {
     if (carpeta) {
       setFormData({
         nombre: carpeta.nombre || '',

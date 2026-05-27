@@ -53,13 +53,28 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            return Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
-        return Carpeta.objects.filter(
-            Q(propietario=user) |
-            Q(compartida_con=user) |
-            Q(es_publico=True),
-            activo=True,
-        ).select_related('persona', 'propietario').distinct()
+            queryset = Carpeta.objects.filter(activo=True).select_related('persona', 'propietario')
+        else:
+            queryset = Carpeta.objects.filter(
+                Q(propietario=user) |
+                Q(compartida_con=user) |
+                Q(es_publico=True),
+                activo=True,
+            ).select_related('persona', 'propietario').distinct()
+
+        dias_sin_mov = self.request.query_params.get('dias_sin_movimiento')
+        if dias_sin_mov:
+            try:
+                dias = int(dias_sin_mov)
+                fecha_limite = timezone.now() - timezone.timedelta(days=dias)
+                queryset = queryset.filter(
+                    Q(movimientos__isnull=True) |
+                    Q(movimientos__fecha_movimiento__lte=fecha_limite)
+                ).distinct()
+            except ValueError:
+                pass
+
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(propietario=self.request.user)
