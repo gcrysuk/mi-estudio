@@ -7,6 +7,10 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
 import Login from "./pages/auth/Login";
+import RegistroPage from "./pages/auth/RegistroPage";
+import VerificarEmailPage from "./pages/auth/VerificarEmailPage";
+import AdminUsuariosPage from "./pages/admin/AdminUsuariosPage";
+import PerfilPage from "./pages/perfil/PerfilPage";
 import Dashboard from "./pages/dashboard/Dashboard";
 import PersonasList from "./pages/personas/PersonasList";
 import CarpetasList from "./pages/carpetas/CarpetasList";
@@ -17,6 +21,8 @@ import OrganismosList from "./pages/organismos/OrganismosList";
 import TiposList from "./pages/tipos/TiposList";
 import CalendarioPage from "./pages/calendario/CalendarioPage";
 import PapeleraPage from "./pages/papelera/PapeleraPage";
+import KanbanPage from "./pages/kanban/KanbanPage";
+import KanbanConfigPage from "./pages/kanban/KanbanConfigPage";
 import useAuthStore from "./stores/authStore";
 import ModalGlobal from './components/modals/ModalGlobal';
 
@@ -32,6 +38,8 @@ function App() {
         <Routes>
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
+            <Route path="/registro" element={<RegistroPage />} />
+            <Route path="/verificar-email" element={<VerificarEmailPage />} />
           </Route>
           
           <Route element={<ProtectedRoute />}>
@@ -47,6 +55,10 @@ function App() {
               <Route path="/tipos" element={<TiposList />} />
               <Route path="/calendario" element={<CalendarioPage />} />
               <Route path="/papelera" element={<PapeleraPage />} />
+              <Route path="/kanban" element={<KanbanPage />} />
+              <Route path="/kanban/config" element={<KanbanConfigPage />} />
+              <Route path="/perfil" element={<PerfilPage />} />
+              <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
 
             </Route>
           </Route>

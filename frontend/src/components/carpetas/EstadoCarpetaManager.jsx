@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { X, Save, Edit, Trash2, AlertTriangle, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -51,6 +51,7 @@ const verificarUso = async (id) => {
 
 
   const handleEditClick = async (estado) => {
+    if (estado.es_obligatorio) return;
     const count = await verificarUso(estado.id);
     
     if (count > 0) {
@@ -70,6 +71,8 @@ const verificarUso = async (id) => {
   };
 
   const handleDeleteClick = async (id, nombre) => {
+    const estado = estados.find(e => e.id === id);
+    if (estado?.es_obligatorio) return;
     const count = await verificarUso(id);
     
     if (count > 0) {
@@ -336,21 +339,29 @@ const verificarUso = async (id) => {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleEditClick(estado)}
-                        className="p-1 hover:text-accent"
-                        title="Editar"
-                      >
-                        <Edit size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(estado.id, estado.nombre)}
-                        className="p-1 hover:text-red-500"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    <div className="flex gap-1 items-center">
+                      {estado.es_obligatorio ? (
+                        <span title="Estado del sistema — no modificable" className="p-1 text-gray-400">
+                          <Lock size={14} />
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEditClick(estado)}
+                            className="p-1 hover:text-accent"
+                            title="Editar"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(estado.id, estado.nombre)}
+                            className="p-1 hover:text-red-500"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

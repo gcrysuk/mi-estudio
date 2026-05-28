@@ -17,7 +17,6 @@ const useAuthStore = create(
         const refresh = localStorage.getItem('refresh_token')
         if (token && refresh) {
           set({ token, refreshToken: refresh, isAuthenticated: true })
-          // Opcional: validar token con backend
           get().fetchProfile()
         }
       },
@@ -26,59 +25,53 @@ const useAuthStore = create(
         set({ isLoading: true, error: null })
         try {
           const response = await api.post('/auth/login/', { username, password })
-          const { access, refresh, user_id, username: userName, email } = response.data
-          
+          const {
+            access, refresh, user_id, username: userName, email,
+            is_superuser, is_staff, nombre, apellido, plan,
+          } = response.data
+
           localStorage.setItem('access_token', access)
           localStorage.setItem('refresh_token', refresh)
-          
+
           set({
             token: access,
             refreshToken: refresh,
-            user: { id: user_id, username: userName, email },
+            user: { id: user_id, username: userName, email, is_superuser, is_staff, nombre, apellido, plan },
             isAuthenticated: true,
             isLoading: false,
           })
-          return true
+          return { ok: true }
         } catch (error) {
-          set({
-            error: error.response?.data?.detail || 'Error de autenticación',
-            isLoading: false,
-          })
-          return false
+          const detail = error.response?.data?.detail || 'Error de autenticación'
+          const code = error.response?.data?.code || ''
+          set({ error: detail, isLoading: false })
+          return { ok: false, detail, code }
         }
       },
 
       logout: async () => {
         const refresh = localStorage.getItem('refresh_token')
         if (refresh) {
-          try {
-            await api.post('/auth/logout/', { refresh })
-          } catch {
-            // si el token ya expiró o falló, igual limpiamos local
-          }
+          try { await api.post('/auth/logout/', { refresh }) } catch { /* ignorar */ }
         }
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
-        set({
-          user: null,
-          token: null,
-          refreshToken: null,
-          isAuthenticated: false,
-        })
+        set({ user: null, token: null, refreshToken: null, isAuthenticated: false })
       },
 
       fetchProfile: async () => {
         try {
           const response = await api.get('/auth/profile/')
-          set({ user: response.data })
+          const { id, username, email, is_superuser, is_staff, nombre, apellido, plan, email_verificado } = response.data
+          set(state => ({
+            user: { ...state.user, id, username, email, is_superuser, is_staff, nombre, apellido, plan, email_verificado },
+          }))
         } catch (error) {
           console.error('Error fetching profile:', error)
         }
       },
     }),
-    {
-      name: 'auth-storage',
-    }
+    { name: 'auth-storage' }
   )
 )
 

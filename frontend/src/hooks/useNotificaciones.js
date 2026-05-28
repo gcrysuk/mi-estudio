@@ -3,19 +3,24 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 
-const POLL_MS = 5 * 60 * 1000; // 5 minutos
+const POLL_MS = 60 * 1000; // 60 segundos
 
 export function useNotificaciones() {
   const [notificaciones, setNotificaciones] = useState([]);
+  const [notificacionesSistema, setNotificacionesSistema] = useState([]);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
   const refetch = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const res = await api.get('/movimientos/notificaciones/pendientes/');
-      setNotificaciones(res.data.results ?? res.data ?? []);
+      const [resVenc, resSist] = await Promise.all([
+        api.get('/movimientos/notificaciones/pendientes/'),
+        api.get('/movimientos/notificaciones_sistema/?no_leidas=true'),
+      ]);
+      setNotificaciones(resVenc.data.results ?? resVenc.data ?? []);
+      setNotificacionesSistema(resSist.data.results ?? []);
     } catch {
-      // silencioso — no interrumpir el flujo del usuario
+      // silencioso
     }
   }, [isAuthenticated]);
 
@@ -25,9 +30,11 @@ export function useNotificaciones() {
     return () => clearInterval(interval);
   }, [refetch]);
 
-  // Limpiar al cerrar sesión
   useEffect(() => {
-    if (!isAuthenticated) setNotificaciones([]);
+    if (!isAuthenticated) {
+      setNotificaciones([]);
+      setNotificacionesSistema([]);
+    }
   }, [isAuthenticated]);
 
   const marcarLeida = useCallback(async (id) => {
@@ -39,14 +46,23 @@ export function useNotificaciones() {
     }
   }, []);
 
+  const marcarLeidaSistema = useCallback(async (id) => {
+    try {
+      await api.patch(`/movimientos/notificaciones_sistema/${id}/marcar_leida/`);
+      setNotificacionesSistema(prev => prev.filter(n => n.id !== id));
+    } catch {
+      toast.error('Error al marcar notificación');
+    }
+  }, []);
+
   const marcarTodasLeidas = useCallback(async () => {
     try {
-      await Promise.all(
-        notificaciones.map(n =>
-          api.post(`/movimientos/notificaciones/${n.id}/marcar_leida/`)
-        )
-      );
+      await Promise.all([
+        ...notificaciones.map(n => api.post(`/movimientos/notificaciones/${n.id}/marcar_leida/`)),
+        api.patch('/movimientos/notificaciones_sistema/marcar_todas_leidas/'),
+      ]);
       setNotificaciones([]);
+      setNotificacionesSistema([]);
     } catch {
       //
     }
@@ -54,8 +70,10 @@ export function useNotificaciones() {
 
   return {
     notificaciones,
-    count: notificaciones.length,
+    notificacionesSistema,
+    count: notificaciones.length + notificacionesSistema.length,
     marcarLeida,
+    marcarLeidaSistema,
     marcarTodasLeidas,
     refetch,
   };

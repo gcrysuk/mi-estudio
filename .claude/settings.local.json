@@ -46,7 +46,30 @@
       "Read(//c/Users/Gabriel/**)",
       "Read(//mnt/wsl/Ubuntu/home/focus/**)",
       "Read(///wsl.localhost/Ubuntu//**)",
-      "Bash(docker-compose *)"
+      "Bash(docker-compose *)",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && source venv/bin/activate && python manage.py migrate 2>&1 | tail -20\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && /home/focus/mi_estudio/backend/venv/bin/python manage.py migrate 2>&1 | tail -20\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && DJANGO_SETTINGS_MODULE=config.settings.local PYTHONPATH=/home/focus/mi_estudio/backend /home/focus/mi_estudio/backend/venv/bin/python manage.py migrate 2>&1 | tail -20\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && docker-compose -f docker-compose.local.yml ps 2>&1 | head -20\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py migrate 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python -c 'from apps.movimientos.models import KanbanConfig; from apps.movimientos.serializers import KanbanConfigSerializer; print\\(\\\\\"OK\\\\\"\\)' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py check 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py show_urls 2>&1 | grep kanban\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py show_urls 2>&1 | grep cambiar_estado\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -30\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/frontend && /home/focus/mi_estudio/frontend/node_modules/.bin/vite build 2>&1 | tail -40\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"which node 2>&1; which npm 2>&1; ls /usr/local/bin/node 2>&1; ls ~/.nvm/versions 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"ls ~/.nvm/versions/node/\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -40\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -20\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -10\")",
+      "Bash(xargs basename -a)",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -8\")",
+      "Bash(test -f \"$\\(pwd\\)/frontend/src/hooks/useNotificaciones.js\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -12\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py check 2>&1 && docker exec mi_estudio_web_local python manage.py show_urls 2>&1 | grep -E 'movimientos-\\(vencen|pendientes|dashboard|proximos|cambiar|asignar|generar|kanban\\)'\")",
+      "Read(//mnt/c/Users/focus/**)",
+      "Read(//c/Users/**)"
     ]
   }
 }

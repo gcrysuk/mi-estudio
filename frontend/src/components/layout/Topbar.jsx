@@ -8,7 +8,7 @@ import MovimientoForm from '../../pages/movimientos/MovimientoForm'
 
 const Topbar = () => {
   const { theme, toggleTheme } = useTheme()
-  const { notificaciones, count, marcarLeida, marcarTodasLeidas } = useNotificaciones()
+  const { notificaciones, notificacionesSistema, count, marcarLeida, marcarLeidaSistema, marcarTodasLeidas } = useNotificaciones()
   const [panelOpen, setPanelOpen] = useState(false)
   const [showMovForm, setShowMovForm] = useState(false)
 
@@ -53,7 +53,9 @@ const Topbar = () => {
             {panelOpen && (
               <PanelNotificaciones
                 notificaciones={notificaciones}
+                notificacionesSistema={notificacionesSistema}
                 onMarcarLeida={marcarLeida}
+                onMarcarLeidaSistema={marcarLeidaSistema}
                 onMarcarTodas={handleMarcarTodas}
                 onClose={() => setPanelOpen(false)}
               />

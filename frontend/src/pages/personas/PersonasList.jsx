@@ -73,9 +73,10 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   const [localidades, setLocalidades] = useState([]);
   const [loadingLocalidades, setLoadingLocalidades] = useState(false);
   const [formData, setFormData] = useState({
+    tipo_persona: '',
+    razon_social: '',
     nombre: '',
     apellido: '',
-    tipo_persona: '',
     tipo_documento: 'DNI',
     numero_documento: '',
     email: '',
@@ -295,13 +296,24 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
     }
   };
 
+  const getPersonaLabel = (persona) => {
+    if (!persona) return '';
+    if (persona.tipo_persona === 'juridica') return persona.razon_social || '—';
+    const apellido = persona.apellido || '';
+    const nombre = persona.nombre || '';
+    if (apellido && nombre) return `${apellido}, ${nombre}`;
+    return apellido || nombre || '—';
+  };
+
   const filteredPersonas = personas
     .filter(persona => {
-      const matchesSearch = 
-        persona.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        persona.apellido?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const s = searchTerm.toLowerCase();
+      const matchesSearch =
+        persona.nombre?.toLowerCase().includes(s) ||
+        persona.apellido?.toLowerCase().includes(s) ||
+        persona.razon_social?.toLowerCase().includes(s) ||
         persona.numero_documento?.includes(searchTerm) ||
-        persona.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        persona.email?.toLowerCase().includes(s);
       const matchesTipo = !filters.tipo_persona || persona.tipo_persona === filters.tipo_persona;
       return matchesSearch && matchesTipo;
     })
@@ -327,18 +339,31 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.nombre || !formData.apellido) {
-      toast.error('Nombre y Apellido son obligatorios');
+    if (!formData.tipo_persona) {
+      toast.error('Seleccioná el tipo de persona');
       return;
+    }
+    if (formData.tipo_persona === 'juridica') {
+      if (!formData.razon_social?.trim()) {
+        toast.error('La razón social es obligatoria');
+        return;
+      }
+    } else {
+      if (!formData.nombre?.trim() || !formData.apellido?.trim()) {
+        toast.error('Nombre y Apellido son obligatorios');
+        return;
+      }
     }
 
     try {
       const documentoParaEnviar = formData.numero_documento ? formData.numero_documento.replace(/\D/g, '') : '';
+      const esJuridica = formData.tipo_persona === 'juridica';
 
       const dataToSend = {
-        nombre: formData.nombre,
-        apellido: formData.apellido,
-        tipo_persona: formData.tipo_persona || null,
+        tipo_persona: formData.tipo_persona,
+        razon_social: esJuridica ? (formData.razon_social || null) : null,
+        nombre: !esJuridica ? formData.nombre : null,
+        apellido: !esJuridica ? formData.apellido : null,
         tipo_documento: formData.tipo_documento,
         numero_documento: documentoParaEnviar || null,
         email: formData.email || '',
@@ -383,9 +408,10 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
 
   const resetForm = () => {
     setFormData({
+      tipo_persona: '',
+      razon_social: '',
       nombre: '',
       apellido: '',
-      tipo_persona: '',
       tipo_documento: 'DNI',
       numero_documento: '',
       email: '',
@@ -401,10 +427,11 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   const openEditModal = (persona) => {
     setEditingPersona(persona);
     setFormData({
-      nombre: persona.nombre,
-      apellido: persona.apellido,
       tipo_persona: persona.tipo_persona || '',
-      tipo_documento: persona.tipo_documento,
+      razon_social: persona.razon_social || '',
+      nombre: persona.nombre || '',
+      apellido: persona.apellido || '',
+      tipo_documento: persona.tipo_documento || 'DNI',
       numero_documento: formatDocumento(persona.tipo_documento, persona.numero_documento),
       email: persona.email || '',
       telefono: persona.telefono || '',
@@ -434,162 +461,147 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-3 space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium mb-1 uppercase">APELLIDO *</label>
-              <input 
-                type="text" 
-                value={formData.apellido} 
-                onChange={(e) => setFormData({...formData, apellido: e.target.value.toUpperCase()})} 
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-                required 
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1 uppercase">NOMBRE *</label>
-              <input 
-                type="text" 
-                value={formData.nombre} 
-                onChange={(e) => setFormData({...formData, nombre: e.target.value.toUpperCase()})} 
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-                required 
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium mb-1 uppercase">TIPO DOCUMENTO</label>
-              <select 
-                value={formData.tipo_documento} 
-                onChange={(e) => { 
-                  const nuevoTipo = e.target.value; 
-                  setFormData({...formData, tipo_documento: nuevoTipo, numero_documento: ''}); 
-                }} 
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-              >
-                {tipoDocumentoOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1 uppercase">NÚMERO</label>
-              <input 
-                type="text" 
-                value={formData.numero_documento} 
-                onChange={(e) => { 
-                  let value = e.target.value; 
-                  if (formData.tipo_documento === 'DNI') { 
-                    value = formatDNI(value); 
-                  } else if (formData.tipo_documento === 'CUIT' || formData.tipo_documento === 'CUIL') { 
-                    value = formatCUITCUIL(value); 
-                  } else { 
-                    value = value.replace(/\D/g, ''); 
-                  } 
-                  setFormData({...formData, numero_documento: value}); 
-                }} 
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent font-mono" 
-                placeholder={formData.tipo_documento === 'DNI' ? '12.345.678' : '20-12345678-9'} 
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium mb-1 uppercase">TIPO PERSONA</label>
-              <select
-                value={formData.tipo_persona}
-                onChange={(e) => setFormData({...formData, tipo_persona: e.target.value})}
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-              >
-                <option value="">SELECCIONAR</option>
-                {TIPO_PERSONA_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1 uppercase">EMAIL</label>
-              <input 
-                type="email" 
-                value={formData.email} 
-                onChange={(e) => setFormData({...formData, email: e.target.value})} 
-                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-              />
-            </div>
-          </div>
-
+          {/* TIPO PERSONA — siempre primero */}
           <div>
-            <label className="block text-xs font-medium mb-1 uppercase">TELÉFONO</label>
-            <input 
-              type="text" 
-              value={formData.telefono} 
-              onChange={(e) => setFormData({...formData, telefono: e.target.value})} 
-              className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium mb-1 uppercase">DIRECCIÓN</label>
-            <input 
-              type="text" 
-              value={formData.direccion} 
-              onChange={(e) => setFormData({...formData, direccion: e.target.value})} 
-              className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium mb-1 uppercase">PROVINCIA</label>
+            <label className="block text-xs font-medium mb-1 uppercase">TIPO PERSONA *</label>
             <select
-              value={formData.provincia}
-              onChange={(e) => setFormData({ ...formData, provincia: e.target.value, localidad: '' })}
+              value={formData.tipo_persona}
+              onChange={(e) => {
+                    const tipo = e.target.value;
+                    setFormData({ ...formData, tipo_persona: tipo, nombre: '', apellido: '', razon_social: '', tipo_documento: tipo === 'juridica' ? 'CUIT' : 'DNI', numero_documento: '' });
+                  }}
               className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+              required
             >
-              <option value="">SELECCIONAR PROVINCIA</option>
-              {PROVINCIAS.map((p) => (
-                <option key={p} value={p}>{p}</option>
+              <option value="">SELECCIONAR</option>
+              {TIPO_PERSONA_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium mb-1 uppercase">
-              LOCALIDAD
-              {loadingLocalidades && (
-                <span className="ml-2 text-gray-400 normal-case font-normal">(cargando...)</span>
+          {/* Resto del formulario — solo visible una vez elegido el tipo */}
+          {formData.tipo_persona && (
+            <>
+              {formData.tipo_persona === 'juridica' ? (
+                <div>
+                  <label className="block text-xs font-medium mb-1 uppercase">RAZÓN SOCIAL *</label>
+                  <input
+                    type="text"
+                    value={formData.razon_social}
+                    onChange={(e) => setFormData({ ...formData, razon_social: e.target.value.toUpperCase() })}
+                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                    required
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium mb-1 uppercase">APELLIDO *</label>
+                    <input
+                      type="text"
+                      value={formData.apellido}
+                      onChange={(e) => setFormData({ ...formData, apellido: e.target.value.toUpperCase() })}
+                      className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1 uppercase">NOMBRE *</label>
+                    <input
+                      type="text"
+                      value={formData.nombre}
+                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value.toUpperCase() })}
+                      className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                      required
+                    />
+                  </div>
+                </div>
               )}
-            </label>
-            <select
-              value={formData.localidad}
-              onChange={(e) => setFormData({ ...formData, localidad: e.target.value })}
-              disabled={!formData.provincia || loadingLocalidades}
-              className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option value="">
-                {!formData.provincia
-                  ? 'PRIMERO SELECCIONÁ UNA PROVINCIA'
-                  : loadingLocalidades
-                  ? 'CARGANDO LOCALIDADES...'
-                  : 'SELECCIONAR LOCALIDAD'}
-              </option>
-              {localidades.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium mb-1 uppercase">TIPO DOCUMENTO</label>
+                  <select
+                    value={formData.tipo_documento}
+                    onChange={(e) => setFormData({ ...formData, tipo_documento: e.target.value, numero_documento: '' })}
+                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                  >
+                    {tipoDocumentoOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1 uppercase">NÚMERO</label>
+                  <input
+                    type="text"
+                    value={formData.numero_documento}
+                    onChange={(e) => {
+                      let value = e.target.value;
+                      if (formData.tipo_documento === 'DNI') value = formatDNI(value);
+                      else if (formData.tipo_documento === 'CUIT' || formData.tipo_documento === 'CUIL') value = formatCUITCUIL(value);
+                      else value = value.replace(/\D/g, '');
+                      setFormData({ ...formData, numero_documento: value });
+                    }}
+                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent font-mono"
+                    placeholder={formData.tipo_documento === 'DNI' ? '12.345.678' : '20-12345678-9'}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 uppercase">EMAIL</label>
+                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 uppercase">TELÉFONO</label>
+                <input type="text" value={formData.telefono} onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 uppercase">DIRECCIÓN</label>
+                <input type="text" value={formData.direccion} onChange={(e) => setFormData({ ...formData, direccion: e.target.value })} className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 uppercase">PROVINCIA</label>
+                <select
+                  value={formData.provincia}
+                  onChange={(e) => setFormData({ ...formData, provincia: e.target.value, localidad: '' })}
+                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">SELECCIONAR PROVINCIA</option>
+                  {PROVINCIAS.map((p) => (<option key={p} value={p}>{p}</option>))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 uppercase">
+                  LOCALIDAD
+                  {loadingLocalidades && <span className="ml-2 text-gray-400 normal-case font-normal">(cargando...)</span>}
+                </label>
+                <select
+                  value={formData.localidad}
+                  onChange={(e) => setFormData({ ...formData, localidad: e.target.value })}
+                  disabled={!formData.provincia || loadingLocalidades}
+                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {!formData.provincia ? 'PRIMERO SELECCIONÁ UNA PROVINCIA' : loadingLocalidades ? 'CARGANDO LOCALIDADES...' : 'SELECCIONAR LOCALIDAD'}
+                  </option>
+                  {localidades.map((l) => (<option key={l} value={l}>{l}</option>))}
+                </select>
+              </div>
+            </>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onCancelar}
-              className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
-            >
+            <button type="button" onClick={onCancelar} className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase">
               CANCELAR
             </button>
-            <button
-              type="submit"
-              className="px-3 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors uppercase"
-            >
+            <button type="submit" className="px-3 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors uppercase">
               CREAR
             </button>
           </div>
@@ -715,8 +727,12 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
                         className="rounded border-gray-300 text-accent focus:ring-accent"
                       />
                     </td>
-                    <td className="px-2 py-2 whitespace-nowrap text-sm">{persona.apellido}</td>
-                    <td className="px-2 py-2 whitespace-nowrap text-sm">{persona.nombre}</td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm">
+                      {persona.tipo_persona === 'juridica' ? (persona.razon_social || '—') : (persona.apellido || '')}
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap text-sm">
+                      {persona.tipo_persona === 'juridica' ? '' : (persona.nombre || '')}
+                    </td>
                     <td className="px-2 py-2 whitespace-nowrap hidden md:table-cell font-mono text-xs">
                       {formatDocumento(persona.tipo_documento, persona.numero_documento)}
                     </td>
@@ -735,9 +751,9 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
                         <Edit size={14} />
                       </button>
                       <button 
-                        onClick={() => setDeleteConfirm({ 
-                          id: persona.id, 
-                          nombre: `${persona.apellido}, ${persona.nombre}` 
+                        onClick={() => setDeleteConfirm({
+                          id: persona.id,
+                          nombre: getPersonaLabel(persona),
                         })} 
                         className="p-1 hover:text-red-500"
                       >
@@ -766,163 +782,146 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-3 space-y-3">
-              {/* Mismo formulario que en la vista modal */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">APELLIDO *</label>
-                  <input 
-                    type="text" 
-                    value={formData.apellido} 
-                    onChange={(e) => setFormData({...formData, apellido: e.target.value.toUpperCase()})} 
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-                    required 
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">NOMBRE *</label>
-                  <input 
-                    type="text" 
-                    value={formData.nombre} 
-                    onChange={(e) => setFormData({...formData, nombre: e.target.value.toUpperCase()})} 
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-                    required 
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">TIPO DOCUMENTO</label>
-                  <select 
-                    value={formData.tipo_documento} 
-                    onChange={(e) => { 
-                      const nuevoTipo = e.target.value; 
-                      setFormData({...formData, tipo_documento: nuevoTipo, numero_documento: ''}); 
-                    }} 
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  >
-                    {tipoDocumentoOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">NÚMERO</label>
-                  <input 
-                    type="text" 
-                    value={formData.numero_documento} 
-                    onChange={(e) => { 
-                      let value = e.target.value; 
-                      if (formData.tipo_documento === 'DNI') { 
-                        value = formatDNI(value); 
-                      } else if (formData.tipo_documento === 'CUIT' || formData.tipo_documento === 'CUIL') { 
-                        value = formatCUITCUIL(value); 
-                      } else { 
-                        value = value.replace(/\D/g, ''); 
-                      } 
-                      setFormData({...formData, numero_documento: value}); 
-                    }} 
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent font-mono" 
-                    placeholder={formData.tipo_documento === 'DNI' ? '12.345.678' : '20-12345678-9'} 
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">TIPO PERSONA</label>
-                  <select
-                    value={formData.tipo_persona}
-                    onChange={(e) => setFormData({...formData, tipo_persona: e.target.value})}
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  >
-                    <option value="">SELECCIONAR</option>
-                    {TIPO_PERSONA_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1 uppercase">EMAIL</label>
-                  <input 
-                    type="email" 
-                    value={formData.email} 
-                    onChange={(e) => setFormData({...formData, email: e.target.value})} 
-                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-                  />
-                </div>
-              </div>
-
+              {/* TIPO PERSONA — siempre primero */}
               <div>
-                <label className="block text-xs font-medium mb-1 uppercase">TELÉFONO</label>
-                <input 
-                  type="text" 
-                  value={formData.telefono} 
-                  onChange={(e) => setFormData({...formData, telefono: e.target.value})} 
-                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium mb-1 uppercase">DIRECCIÓN</label>
-                <input 
-                  type="text" 
-                  value={formData.direccion} 
-                  onChange={(e) => setFormData({...formData, direccion: e.target.value})} 
-                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium mb-1 uppercase">PROVINCIA</label>
+                <label className="block text-xs font-medium mb-1 uppercase">TIPO PERSONA *</label>
                 <select
-                  value={formData.provincia}
-                  onChange={(e) => setFormData({ ...formData, provincia: e.target.value, localidad: '' })}
+                  value={formData.tipo_persona}
+                  onChange={(e) => {
+                    const tipo = e.target.value;
+                    setFormData({ ...formData, tipo_persona: tipo, nombre: '', apellido: '', razon_social: '', tipo_documento: tipo === 'juridica' ? 'CUIT' : 'DNI', numero_documento: '' });
+                  }}
                   className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                  required
                 >
-                  <option value="">SELECCIONAR PROVINCIA</option>
-                  {PROVINCIAS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
+                  <option value="">SELECCIONAR</option>
+                  {TIPO_PERSONA_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium mb-1 uppercase">
-                  LOCALIDAD
-                  {loadingLocalidades && (
-                    <span className="ml-2 text-gray-400 normal-case font-normal">(cargando...)</span>
+              {formData.tipo_persona && (
+                <>
+                  {formData.tipo_persona === 'juridica' ? (
+                    <div>
+                      <label className="block text-xs font-medium mb-1 uppercase">RAZÓN SOCIAL *</label>
+                      <input
+                        type="text"
+                        value={formData.razon_social}
+                        onChange={(e) => setFormData({ ...formData, razon_social: e.target.value.toUpperCase() })}
+                        className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                        required
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium mb-1 uppercase">APELLIDO *</label>
+                        <input
+                          type="text"
+                          value={formData.apellido}
+                          onChange={(e) => setFormData({ ...formData, apellido: e.target.value.toUpperCase() })}
+                          className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                          required
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1 uppercase">NOMBRE *</label>
+                        <input
+                          type="text"
+                          value={formData.nombre}
+                          onChange={(e) => setFormData({ ...formData, nombre: e.target.value.toUpperCase() })}
+                          className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                          required
+                        />
+                      </div>
+                    </div>
                   )}
-                </label>
-                <select
-                  value={formData.localidad}
-                  onChange={(e) => setFormData({ ...formData, localidad: e.target.value })}
-                  disabled={!formData.provincia || loadingLocalidades}
-                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="">
-                    {!formData.provincia
-                      ? 'PRIMERO SELECCIONÁ UNA PROVINCIA'
-                      : loadingLocalidades
-                      ? 'CARGANDO LOCALIDADES...'
-                      : 'SELECCIONAR LOCALIDAD'}
-                  </option>
-                  {localidades.map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </select>
-              </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 uppercase">TIPO DOCUMENTO</label>
+                      <select
+                        value={formData.tipo_documento}
+                        onChange={(e) => setFormData({ ...formData, tipo_documento: e.target.value, numero_documento: '' })}
+                        className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                      >
+                        {tipoDocumentoOptions.map(opt => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1 uppercase">NÚMERO</label>
+                      <input
+                        type="text"
+                        value={formData.numero_documento}
+                        onChange={(e) => {
+                          let value = e.target.value;
+                          if (formData.tipo_documento === 'DNI') value = formatDNI(value);
+                          else if (formData.tipo_documento === 'CUIT' || formData.tipo_documento === 'CUIL') value = formatCUITCUIL(value);
+                          else value = value.replace(/\D/g, '');
+                          setFormData({ ...formData, numero_documento: value });
+                        }}
+                        className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent font-mono"
+                        placeholder={formData.tipo_documento === 'DNI' ? '12.345.678' : '20-12345678-9'}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1 uppercase">EMAIL</label>
+                    <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1 uppercase">TELÉFONO</label>
+                    <input type="text" value={formData.telefono} onChange={(e) => setFormData({ ...formData, telefono: e.target.value })} className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1 uppercase">DIRECCIÓN</label>
+                    <input type="text" value={formData.direccion} onChange={(e) => setFormData({ ...formData, direccion: e.target.value })} className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1 uppercase">PROVINCIA</label>
+                    <select
+                      value={formData.provincia}
+                      onChange={(e) => setFormData({ ...formData, provincia: e.target.value, localidad: '' })}
+                      className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                    >
+                      <option value="">SELECCIONAR PROVINCIA</option>
+                      {PROVINCIAS.map((p) => (<option key={p} value={p}>{p}</option>))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium mb-1 uppercase">
+                      LOCALIDAD
+                      {loadingLocalidades && <span className="ml-2 text-gray-400 normal-case font-normal">(cargando...)</span>}
+                    </label>
+                    <select
+                      value={formData.localidad}
+                      onChange={(e) => setFormData({ ...formData, localidad: e.target.value })}
+                      disabled={!formData.provincia || loadingLocalidades}
+                      className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="">
+                        {!formData.provincia ? 'PRIMERO SELECCIONÁ UNA PROVINCIA' : loadingLocalidades ? 'CARGANDO LOCALIDADES...' : 'SELECCIONAR LOCALIDAD'}
+                      </option>
+                      {localidades.map((l) => (<option key={l} value={l}>{l}</option>))}
+                    </select>
+                  </div>
+                </>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setModalOpen(false)} 
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
-                >
+                <button type="button" onClick={() => setModalOpen(false)} className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase">
                   CANCELAR
                 </button>
-                <button 
-                  type="submit" 
-                  className="px-3 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors uppercase"
-                >
+                <button type="submit" className="px-3 py-1.5 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors uppercase">
                   {editingPersona ? 'ACTUALIZAR' : 'CREAR'}
                 </button>
               </div>

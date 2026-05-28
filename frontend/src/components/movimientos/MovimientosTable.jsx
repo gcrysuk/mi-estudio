@@ -541,6 +541,18 @@ const MovimientosTable = ({
                     >
                       {mov.titulo}
                     </button>
+                    {mov.responsable_username && (
+                      <span className={`inline-flex items-center gap-1 text-[10px] mt-0.5 px-1.5 py-0.5 rounded font-medium ${
+                        mov.es_responsable
+                          ? 'bg-accent/15 text-accent'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                      }`}>
+                        <span className="w-3.5 h-3.5 rounded-full bg-current/20 flex items-center justify-center font-bold text-[8px] flex-shrink-0">
+                          {mov.responsable_username[0].toUpperCase()}
+                        </span>
+                        {mov.es_responsable ? 'Asignado a mí' : mov.responsable_username}
+                      </span>
+                    )}
                   </td>
 
                   {showCarpetaColumn && visibleColumns.carpeta && (

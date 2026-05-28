@@ -1,11 +1,11 @@
 # apps/movimientos/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import MovimientoViewSet, NotificacionViewSet
+from .views import MovimientoViewSet, NotificacionViewSet, NotificacionSistemaViewSet
 
 router = DefaultRouter()
-# notificaciones must be registered first so its literal prefix
-# takes precedence over MovimientoViewSet's pk-capture pattern
+# Registrar primero los prefijos literales para evitar colisiones con el pk-capture de MovimientoViewSet
+router.register('notificaciones_sistema', NotificacionSistemaViewSet, basename='notificacion_sistema')
 router.register('notificaciones', NotificacionViewSet, basename='notificacion')
 router.register(r'', MovimientoViewSet, basename='movimientos')
 

@@ -12,11 +12,15 @@ import {
   LogOut,
   PanelLeftOpen,
   PanelLeftClose,
+  Kanban,
+  ShieldCheck,
+  UserCircle,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 
 const navItems = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard'    },
+  { to: '/kanban',      icon: Kanban,          label: 'Kanban'       },
   { to: '/personas',    icon: Users,           label: 'Personas'     },
   { to: '/movimientos', icon: ClipboardList,   label: 'Movimientos'  },
   { to: '/carpetas',    icon: FolderOpen,      label: 'Carpetas'     },
@@ -102,11 +106,42 @@ const Sidebar = () => {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-gray-800 p-3">
+      <div className="border-t border-gray-800 p-3 space-y-1">
+        {/* Perfil */}
+        <NavLink
+          to="/perfil"
+          title={!isExpanded ? 'Mi perfil' : undefined}
+          className={({ isActive }) =>
+            `flex items-center gap-3 py-1.5 mx-0 rounded-lg transition-colors text-xs ${
+              isExpanded ? 'px-2' : 'px-0 justify-center'
+            } ${isActive ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`
+          }
+        >
+          <UserCircle size={16} className="flex-shrink-0" />
+          {isExpanded && <span className="whitespace-nowrap">Mi perfil</span>}
+        </NavLink>
+
+        {/* Administración — solo superadmin */}
+        {user?.is_superuser && (
+          <NavLink
+            to="/admin/usuarios"
+            title={!isExpanded ? 'Administración' : undefined}
+            className={({ isActive }) =>
+              `flex items-center gap-3 py-1.5 mx-0 rounded-lg transition-colors text-xs ${
+                isExpanded ? 'px-2' : 'px-0 justify-center'
+              } ${isActive ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`
+            }
+          >
+            <ShieldCheck size={16} className="flex-shrink-0" />
+            {isExpanded && <span className="whitespace-nowrap">Administración</span>}
+          </NavLink>
+        )}
+
+        {/* Avatar + logout */}
         {isExpanded ? (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-sm">
+          <div className="flex items-center gap-2 pt-1">
+            <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-xs">
                 {user?.username?.[0]?.toUpperCase() ?? 'A'}
               </span>
             </div>
@@ -114,30 +149,19 @@ const Sidebar = () => {
               <p className="font-medium truncate">{user?.username ?? 'Admin'}</p>
               <p className="text-gray-400 truncate">{user?.email ?? ''}</p>
             </div>
-            <button
-              onClick={handleLogout}
-              title="Cerrar sesión"
-              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors flex-shrink-0"
-            >
-              <LogOut size={16} />
+            <button onClick={handleLogout} title="Cerrar sesión"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors flex-shrink-0">
+              <LogOut size={15} />
             </button>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2">
-            <div
-              className="w-8 h-8 rounded-full bg-accent flex items-center justify-center"
-              title={user?.username ?? 'Admin'}
-            >
-              <span className="text-white font-bold text-sm">
-                {user?.username?.[0]?.toUpperCase() ?? 'A'}
-              </span>
+          <div className="flex flex-col items-center gap-1.5 pt-1">
+            <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center" title={user?.username ?? 'Admin'}>
+              <span className="text-white font-bold text-xs">{user?.username?.[0]?.toUpperCase() ?? 'A'}</span>
             </div>
-            <button
-              onClick={handleLogout}
-              title="Cerrar sesión"
-              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
-            >
-              <LogOut size={16} />
+            <button onClick={handleLogout} title="Cerrar sesión"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors">
+              <LogOut size={15} />
             </button>
           </div>
         )}

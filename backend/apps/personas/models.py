@@ -18,8 +18,9 @@ class Persona(models.Model):
         ('otro',     'Otro'),
     ]
 
-    nombre = models.CharField(max_length=100)
-    apellido = models.CharField(max_length=100)
+    nombre = models.CharField(max_length=100, blank=True, null=True)
+    apellido = models.CharField(max_length=100, blank=True, null=True)
+    razon_social = models.CharField(max_length=200, blank=True, null=True)
     tipo_persona = models.CharField(
         max_length=20,
         choices=TIPO_PERSONA_CHOICES,
@@ -62,4 +63,6 @@ class Persona(models.Model):
         verbose_name_plural = "Personas"
 
     def __str__(self):
-        return f"{self.apellido}, {self.nombre}"
+        if self.tipo_persona == 'juridica':
+            return self.razon_social or 'Sin razón social'
+        return f"{self.apellido or ''}, {self.nombre or ''}".strip(', ')

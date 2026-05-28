@@ -11,21 +11,42 @@ class EstadoCarpetaSerializer(serializers.ModelSerializer):
     class Meta:
         model = EstadoCarpeta
         fields = '__all__'
+        read_only_fields = ['es_obligatorio']
 
 class TipoCarpetaSerializer(serializers.ModelSerializer):
+    es_propio = serializers.SerializerMethodField()
+
     class Meta:
         model = TipoCarpeta
         fields = '__all__'
+        read_only_fields = ['propietario']
+
+    def get_es_propio(self, obj):
+        return obj.propietario_id is not None
+
 
 class ObjetoCarpetaSerializer(serializers.ModelSerializer):
+    es_propio = serializers.SerializerMethodField()
+
     class Meta:
         model = ObjetoCarpeta
         fields = '__all__'
+        read_only_fields = ['propietario']
+
+    def get_es_propio(self, obj):
+        return obj.propietario_id is not None
+
 
 class OrganismoSerializer(serializers.ModelSerializer):
+    es_propio = serializers.SerializerMethodField()
+
     class Meta:
         model = Organismo
         fields = '__all__'
+        read_only_fields = ['propietario']
+
+    def get_es_propio(self, obj):
+        return obj.propietario_id is not None
 
 class ParticipanteSerializer(serializers.ModelSerializer):
     persona_nombre = serializers.SerializerMethodField()

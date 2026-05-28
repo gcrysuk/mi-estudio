@@ -36,7 +36,27 @@ class PerfilUsuario(models.Model):
     # Configuración
     firma_digital = models.FileField(upload_to='firmas/', blank=True, null=True)
     notificaciones_email = models.BooleanField(default=True)
-    
+
+    # Cuenta / acceso
+    username_display = models.CharField(
+        max_length=50, unique=True, blank=True, null=True,
+        verbose_name="Nombre de usuario",
+    )
+    PLAN_CHOICES = [('free', 'Free'), ('pro', 'Pro'), ('enterprise', 'Enterprise')]
+    plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default='free')
+    fecha_inicio_plan = models.DateTimeField(null=True, blank=True)
+    fecha_fin_plan = models.DateTimeField(null=True, blank=True)
+
+    # Verificación de email
+    email_verificado = models.BooleanField(default=False)
+    token_verificacion = models.CharField(max_length=64, blank=True)
+    fecha_token = models.DateTimeField(null=True, blank=True)
+
+    # Estado y auditoría
+    activo = models.BooleanField(default=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    ultimo_acceso = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         verbose_name = "Perfil de Usuario"
         verbose_name_plural = "Perfiles de Usuario"

@@ -4,8 +4,7 @@ from .base import *
 DEBUG = True
 ALLOWED_HOSTS = ['*']  # <--- ESTA LÍNEA ES LA QUE FALTA
 
-# Email a consola para desarrollo
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Email: base.py elige automáticamente SMTP o consola según EMAIL_HOST_USER
 
 # Logging más detallado
 LOGGING = {

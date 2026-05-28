@@ -13,7 +13,8 @@ class EstadoCarpeta(models.Model):
     color = models.CharField(max_length=7, default='#4FC3F7', help_text='Color en HEX')
     orden = models.IntegerField(default=0)
     activo = models.BooleanField(default=True)
-    
+    es_obligatorio = models.BooleanField(default=False)
+
     class Meta:
         ordering = ['orden', 'nombre']
         verbose_name = "Estado de Carpeta"
@@ -24,30 +25,46 @@ class EstadoCarpeta(models.Model):
 
 class TipoCarpeta(models.Model):
     """Modelo configurable para tipos de carpeta"""
-    nombre = models.CharField(max_length=50, unique=True)
+    nombre = models.CharField(max_length=50)
     descripcion = models.TextField(blank=True)
     orden = models.IntegerField(default=0)
     activo = models.BooleanField(default=True)
-    
+    propietario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tipos_carpeta',
+    )
+
     class Meta:
         ordering = ['orden', 'nombre']
+        unique_together = [['nombre', 'propietario']]
         verbose_name = "Tipo de Carpeta"
-    
+
     def __str__(self):
         return self.nombre
 
 
 class ObjetoCarpeta(models.Model):
     """Modelo configurable para objetos/materias"""
-    nombre = models.CharField(max_length=100, unique=True)
+    nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True)
     orden = models.IntegerField(default=0)
     activo = models.BooleanField(default=True)
-    
+    propietario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='objetos_carpeta',
+    )
+
     class Meta:
         ordering = ['orden', 'nombre']
+        unique_together = [['nombre', 'propietario']]
         verbose_name = "Objeto de Carpeta"
-    
+
     def __str__(self):
         return self.nombre
 
@@ -200,3 +217,15 @@ class CompartirCarpeta(models.Model):
 
     def __str__(self):
         return f"{self.carpeta} → {self.usuario}"
+
+
+class CarpetaInicializada(models.Model):
+    carpeta = models.ForeignKey(Carpeta, on_delete=models.CASCADE, related_name='inicializadas')
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='carpetas_inicializadas')
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [['carpeta', 'usuario']]
+
+    def __str__(self):
+        return f"{self.carpeta} init para {self.usuario}"

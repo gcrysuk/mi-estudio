@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Edit, Trash2, Save, ChevronUp, ChevronDown } from 'lucide-react';
+import { Edit, Trash2, Save, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import ConfirmDialog from '../ui/ConfirmDialog';
@@ -96,31 +96,6 @@ const ConfigManager = ({
     }
   };
 
-  const moveItem = async (id, direction) => {
-    const index = items.findIndex(i => i.id === id);
-    if (
-      (direction === 'up' && index === 0) || 
-      (direction === 'down' && index === items.length - 1)
-    ) return;
-
-    const newItems = [...items];
-    const temp = newItems[index];
-    newItems[index] = newItems[direction === 'up' ? index - 1 : index + 1];
-    newItems[direction === 'up' ? index - 1 : index + 1] = temp;
-
-    // Actualizar órdenes
-    try {
-      await Promise.all(newItems.map((item, idx) => 
-        api.put(`${endpoint}${item.id}/`, { ...item, orden: idx + 1 })
-      ));
-      setItems(newItems);
-      toast.success('Orden actualizado');
-    } catch (error) {
-      console.error('Error reordering:', error);
-      toast.error('Error al reordenar');
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* Formulario */}
@@ -190,7 +165,6 @@ const ConfigManager = ({
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase w-16">ORDEN</th>
                 {fields.map(field => (
                   <th key={field.key} className="px-4 py-2 text-left text-xs font-medium uppercase">
                     {field.label}
@@ -201,35 +175,14 @@ const ConfigManager = ({
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
-                <tr><td colSpan={fields.length + 2} className="px-4 py-3 text-center">Cargando...</td></tr>
+                <tr><td colSpan={fields.length + 1} className="px-4 py-3 text-center">Cargando...</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={fields.length + 2} className="px-4 py-6 text-center text-gray-500">
+                <tr><td colSpan={fields.length + 1} className="px-4 py-6 text-center text-gray-500">
                   No hay {title.toLowerCase()} creados
                 </td></tr>
               ) : (
-                items.map((item, index) => (
+                items.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm">{index + 1}</span>
-                        <div className="flex flex-col">
-                          <button
-                            onClick={() => moveItem(item.id, 'up')}
-                            disabled={index === 0}
-                            className="text-gray-500 hover:text-accent disabled:opacity-30"
-                          >
-                            <ChevronUp size={14} />
-                          </button>
-                          <button
-                            onClick={() => moveItem(item.id, 'down')}
-                            disabled={index === items.length - 1}
-                            className="text-gray-500 hover:text-accent disabled:opacity-30"
-                          >
-                            <ChevronDown size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </td>
                     {fields.map(field => (
                       <td key={field.key} className="px-4 py-2 whitespace-nowrap">
                         {field.key === 'color' ? (
@@ -246,20 +199,31 @@ const ConfigManager = ({
                       </td>
                     ))}
                     <td className="px-4 py-2 whitespace-nowrap text-right space-x-2">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="text-blue-500 hover:text-blue-700"
-                        title="Editar"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete({ id: item.id, nombre: item.nombre })}
-                        className="text-red-500 hover:text-red-700"
-                        title="Eliminar"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {(item.es_obligatorio || item.es_propio === false) ? (
+                        <span
+                          title={item.es_obligatorio ? 'Estado del sistema — no modificable' : 'Registro global — no modificable'}
+                          className="text-gray-400 inline-flex items-center gap-1 text-xs"
+                        >
+                          <Lock size={14} />
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleEdit(item)}
+                            className="text-blue-500 hover:text-blue-700"
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete({ id: item.id, nombre: item.nombre })}
+                            className="text-red-500 hover:text-red-700"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))

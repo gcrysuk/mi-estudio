@@ -1,23 +1,50 @@
 from rest_framework import serializers
-from .models import Movimiento, TipoMovimiento, EstadoMovimiento, NotificacionMovimiento
+from .models import Movimiento, TipoMovimiento, EstadoMovimiento, NotificacionMovimiento, KanbanConfig, NotificacionSistema
+
 
 class TipoMovimientoSerializer(serializers.ModelSerializer):
+    es_propio = serializers.SerializerMethodField()
+
     class Meta:
         model = TipoMovimiento
         fields = '__all__'
+        read_only_fields = ['propietario']
+
+    def get_es_propio(self, obj):
+        return obj.propietario_id is not None
+
 
 class EstadoMovimientoSerializer(serializers.ModelSerializer):
     class Meta:
         model = EstadoMovimiento
         fields = '__all__'
+        read_only_fields = ['es_final', 'es_obligatorio']
+
+
+class KanbanConfigSerializer(serializers.ModelSerializer):
+    estados_visibles = EstadoMovimientoSerializer(many=True, read_only=True)
+    estados_visibles_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=EstadoMovimiento.objects.all(),
+        write_only=True,
+        source='estados_visibles',
+    )
+
+    class Meta:
+        model = KanbanConfig
+        fields = ['id', 'estados_visibles', 'estados_visibles_ids', 'orden_columnas']
+
 
 class MovimientoSerializer(serializers.ModelSerializer):
     carpeta_nombre = serializers.ReadOnlyField(source='carpeta.nombre')
+    carpeta_propietario_id = serializers.ReadOnlyField(source='carpeta.propietario_id')
     tipo_nombre = serializers.ReadOnlyField(source='tipo.nombre')
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
     estado_color = serializers.ReadOnlyField(source='estado.color')
     creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
-    
+    responsable_username = serializers.ReadOnlyField(source='responsable.username')
+    es_responsable = serializers.SerializerMethodField()
+
     tiempo_trabajo_formateado = serializers.SerializerMethodField()
     proxima_notificacion = serializers.SerializerMethodField()
 
@@ -25,7 +52,13 @@ class MovimientoSerializer(serializers.ModelSerializer):
         model = Movimiento
         fields = '__all__'
         read_only_fields = ['creado_por', 'fecha_creacion', 'ultima_actualizacion', 'vencido']
-    
+
+    def get_es_responsable(self, obj):
+        request = self.context.get('request')
+        if request and obj.responsable_id:
+            return obj.responsable_id == request.user.pk
+        return False
+
     def get_tiempo_trabajo_formateado(self, obj):
         if obj.tiempo_trabajo:
             horas = obj.tiempo_trabajo // 60
@@ -52,3 +85,14 @@ class NotificacionSerializer(serializers.ModelSerializer):
     class Meta:
         model = NotificacionMovimiento
         fields = ['id', 'movimiento', 'movimiento_titulo', 'carpeta_nombre', 'carpeta_id', 'fecha', 'leida']
+
+
+class NotificacionSistemaSerializer(serializers.ModelSerializer):
+    movimiento_titulo = serializers.ReadOnlyField(source='movimiento.titulo')
+    carpeta_nombre = serializers.ReadOnlyField(source='movimiento.carpeta.nombre')
+    carpeta_id = serializers.ReadOnlyField(source='movimiento.carpeta_id')
+
+    class Meta:
+        model = NotificacionSistema
+        fields = ['id', 'tipo', 'mensaje', 'leida', 'fecha_creacion',
+                  'movimiento', 'movimiento_titulo', 'carpeta_nombre', 'carpeta_id']

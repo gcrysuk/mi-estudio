@@ -5,16 +5,24 @@ from apps.carpetas.models import Carpeta
 User = get_user_model()
 
 class TipoMovimiento(models.Model):
-    nombre = models.CharField(max_length=50, unique=True)
+    nombre = models.CharField(max_length=50)
     descripcion = models.TextField(blank=True)
     color = models.CharField(max_length=7, default='#4FC3F7')
     orden = models.IntegerField(default=0)
     activo = models.BooleanField(default=True)
-    
+    propietario = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tipos_movimiento',
+    )
+
     class Meta:
         ordering = ['orden', 'nombre']
+        unique_together = [['nombre', 'propietario']]
         verbose_name = "Tipo de Movimiento"
-    
+
     def __str__(self):
         return self.nombre
 
@@ -25,11 +33,13 @@ class EstadoMovimiento(models.Model):
     color = models.CharField(max_length=7, default='#4FC3F7')
     orden = models.IntegerField(default=0)
     activo = models.BooleanField(default=True)
-    
+    es_final = models.BooleanField(default=False)
+    es_obligatorio = models.BooleanField(default=False)
+
     class Meta:
         ordering = ['orden', 'nombre']
         verbose_name = "Estado de Movimiento"
-    
+
     def __str__(self):
         return self.nombre
 
@@ -74,7 +84,15 @@ class Movimiento(models.Model):
     )
     
     vencido = models.BooleanField(default=False)
-    
+
+    responsable = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimientos_responsable',
+    )
+
     # Tracking
     creado_por = models.ForeignKey(
         User,
@@ -102,6 +120,18 @@ class Movimiento(models.Model):
         super().save(*args, **kwargs)
 
 
+class KanbanConfig(models.Model):
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='kanban_config')
+    estados_visibles = models.ManyToManyField(EstadoMovimiento, blank=True, related_name='kanban_configs')
+    orden_columnas = models.JSONField(default=list)
+
+    class Meta:
+        verbose_name = "Configuración Kanban"
+
+    def __str__(self):
+        return f"KanbanConfig de {self.usuario}"
+
+
 class NotificacionMovimiento(models.Model):
     movimiento = models.ForeignKey(
         Movimiento,
@@ -118,3 +148,31 @@ class NotificacionMovimiento(models.Model):
 
     def __str__(self):
         return f"{self.movimiento.titulo} - {self.fecha}"
+
+
+class NotificacionSistema(models.Model):
+    TIPO_CHOICES = [
+        ('asignacion', 'Asignación de movimiento'),
+        ('cambio_estado', 'Cambio de estado'),
+    ]
+    usuario = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notificaciones_sistema',
+    )
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    movimiento = models.ForeignKey(
+        Movimiento,
+        on_delete=models.CASCADE,
+        related_name='notificaciones_sistema',
+    )
+    mensaje = models.CharField(max_length=300)
+    leida = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_creacion']
+        verbose_name = "Notificación de Sistema"
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} → {self.usuario}"

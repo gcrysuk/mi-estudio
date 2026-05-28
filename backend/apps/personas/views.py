@@ -21,6 +21,7 @@ class PersonaViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 Q(nombre__icontains=search) |
                 Q(apellido__icontains=search) |
+                Q(razon_social__icontains=search) |
                 Q(numero_documento__icontains=search) |
                 Q(email__icontains=search)
             )

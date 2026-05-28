@@ -1,19 +1,24 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles } from 'lucide-react';
+import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import MovimientoConfig from './MovimientoConfig';
 import BuscadorCarpeta from '../../components/carpetas/BuscadorCarpeta';
 import CarpetaForm from '../../components/carpetas/CarpetaForm';
+import AsignarResponsableModal from '../../components/movimientos/AsignarResponsableModal';
 import useSpeechRecognition from '../../hooks/useSpeechRecognition';
+import useAuthStore from '../../stores/authStore';
 
 const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento, onClose, onSave }) => {
+  const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [tiposMovimiento, setTiposMovimiento] = useState([]);
   const [estadosMovimiento, setEstadosMovimiento] = useState([]);
   const [showConfig, setShowConfig] = useState(false);
   const [showCarpetaForm, setShowCarpetaForm] = useState(false);
+  const [showAsignarModal, setShowAsignarModal] = useState(false);
+  const [movimientoActual, setMovimientoActual] = useState(movimiento || null);
   const [carpetaSeleccionada, setCarpetaSeleccionada] = useState(null);
   const [nombreInicial, setNombreInicial] = useState('');
   const [notificaciones, setNotificaciones] = useState([]); // [{id, fecha, isNew}]
@@ -87,7 +92,8 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
       if (movimiento.carpeta) {
         setCarpetaSeleccionada({
           id: movimiento.carpeta,
-          nombre: movimiento.carpeta_nombre || ''
+          nombre: movimiento.carpeta_nombre || '',
+          propietario: movimiento.carpeta_propietario_id,
         });
       }
       // Cargar notificaciones existentes
@@ -421,6 +427,42 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               />
             </div>
 
+            {/* Responsable — solo al editar y si el usuario es owner de la carpeta */}
+            {movimientoActual && carpetaSeleccionada?.propietario === user?.id && (
+              <div>
+                <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
+                  <UserCheck size={12} />
+                  RESPONSABLE
+                </label>
+                {movimientoActual.responsable_username ? (
+                  <div className="flex items-center justify-between px-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-dark-elevated">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent">
+                        {movimientoActual.responsable_username[0].toUpperCase()}
+                      </div>
+                      <span className="text-xs">{movimientoActual.responsable_username}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAsignarModal(true)}
+                      className="text-xs text-accent hover:underline"
+                    >
+                      Reasignar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAsignarModal(true)}
+                    className="w-full px-2 py-1.5 text-xs rounded-lg border border-dashed border-accent/50 text-accent hover:border-accent hover:bg-accent/5 transition-colors text-left flex items-center gap-1.5"
+                  >
+                    <UserCheck size={13} />
+                    Asignar responsable...
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Botones */}
             <div className="flex justify-end gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
               <button
@@ -457,6 +499,20 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
           nombreInicial={nombreInicial}
           onClose={() => setShowCarpetaForm(false)}
           onSave={handleCarpetaCreada}
+        />,
+        document.body
+      )}
+
+      {showAsignarModal && movimientoActual && createPortal(
+        <AsignarResponsableModal
+          movimiento={movimientoActual}
+          onClose={() => setShowAsignarModal(false)}
+          onAsignado={async () => {
+            try {
+              const res = await api.get(`/movimientos/${movimientoActual.id}/`);
+              setMovimientoActual(res.data);
+            } catch { /* silencioso */ }
+          }}
         />,
         document.body
       )}

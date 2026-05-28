@@ -125,7 +125,12 @@ const BuscadorPersona = ({
   };
 
   const formatNombre = (persona) => {
-    return persona ? `${persona.apellido}, ${persona.nombre}` : '';
+    if (!persona) return '';
+    if (persona.tipo_persona === 'juridica') return persona.razon_social || '—';
+    const apellido = persona.apellido || '';
+    const nombre = persona.nombre || '';
+    if (apellido && nombre) return `${apellido}, ${nombre}`;
+    return apellido || nombre || '—';
   };
 
   return (

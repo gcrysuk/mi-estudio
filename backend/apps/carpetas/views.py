@@ -77,6 +77,13 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.propietario_id != request.user.pk:
+            from .utils import inicializar_carpeta_para_usuario
+            inicializar_carpeta_para_usuario(instance, request.user)
+        return super().retrieve(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         serializer.save(propietario=self.request.user)
 
