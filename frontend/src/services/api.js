@@ -1,4 +1,5 @@
 import axios from 'axios'
+import toast from 'react-hot-toast'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
@@ -56,6 +57,12 @@ api.interceptors.response.use(
     const originalRequest = error.config
     const status = error.response?.status
     console.error('❌ Error en respuesta:', status, error.config?.url)
+
+    if (status === 403) {
+      toast.error('No tenés permisos para modificar este elemento. Tenés acceso de solo lectura.')
+      error._403handled = true
+      return Promise.reject(error)
+    }
 
     if (status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refresh_token')

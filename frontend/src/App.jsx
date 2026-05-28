@@ -34,7 +34,38 @@ function App() {
     <ThemeProvider>
       <UndoProvider>
       <ModalProvider>
-        <Toaster position="top-right" />
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              borderRadius: '8px',
+              padding: '10px 14px',
+              fontSize: '13px',
+              fontWeight: '500',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.10)',
+              maxWidth: '360px',
+            },
+            success: {
+              duration: 3000,
+              icon: null,
+              style: {
+                background: '#fff',
+                color: '#1f2937',
+                borderLeft: '4px solid #10B981',
+              },
+            },
+            error: {
+              duration: 4000,
+              icon: null,
+              style: {
+                background: '#fff',
+                color: '#1f2937',
+                borderLeft: '4px solid #EF4444',
+              },
+            },
+          }}
+        />
         <Routes>
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />

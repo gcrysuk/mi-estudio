@@ -245,9 +245,11 @@ export default function KanbanPage() {
 
     try {
       await cambiarEstadoMovimiento(active.id, destinoEstadoId)
-    } catch {
-      toast.error('Error al mover el movimiento')
-      cargarBoard()
+    } catch (error) {
+      if (!error._403handled) {
+        toast.error('Error al mover el movimiento')
+      }
+      cargarBoard() // siempre revertir el optimistic update
     }
   }
 

@@ -72,7 +72,9 @@
       "Read(//c/Users/**)",
       "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local pip install google-auth google-auth-oauthlib 2>&1 | tail -5\")",
       "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm install @react-oauth/google 2>&1 | tail -5\")",
-      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm list @react-oauth/google 2>&1 | head -3\")"
+      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm list @react-oauth/google 2>&1 | head -3\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -6\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -4\")"
     ]
   }
 }

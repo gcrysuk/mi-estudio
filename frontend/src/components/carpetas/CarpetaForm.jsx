@@ -178,7 +178,9 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave, nombreInicial = '' }) =>
       onClose();
     } catch (error) {
       console.error('Error guardando carpeta:', error);
-      toast.error('Error al guardar: ' + (error.response?.data?.error || 'Verifica los datos'));
+      if (!error._403handled) {
+        toast.error('Error al guardar: ' + (error.response?.data?.detail || error.response?.data?.error || 'Verifica los datos'));
+      }
     } finally {
       setLoading(false);
     }
