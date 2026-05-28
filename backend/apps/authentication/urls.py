@@ -18,4 +18,5 @@ urlpatterns = [
     path('verificar-email/', views.VerificarEmailView.as_view(), name='verificar_email'),
     path('reenviar-verificacion/', views.ReenviarVerificacionView.as_view(), name='reenviar_verificacion'),
     path('verificar-username/', views.VerificarUsernameView.as_view(), name='verificar_username'),
+    path('google/', views.GoogleAuthView.as_view(), name='google_auth'),
 ]

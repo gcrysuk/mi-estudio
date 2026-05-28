@@ -331,3 +331,117 @@ class VerificarUsernameView(APIView):
             PerfilUsuario.objects.filter(username_display__iexact=username).exists()
         )
         return Response({'disponible': not ocupado})
+
+
+# ── Google OAuth ──────────────────────────────────────────────────────────────
+
+class GoogleAuthView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token = request.data.get('token', '').strip()
+        if not token:
+            return Response({'error': 'Token requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not getattr(settings, 'GOOGLE_CLIENT_ID', ''):
+            return Response({'error': 'Google OAuth no configurado.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        try:
+            from google.oauth2 import id_token as google_id_token
+            from google.auth.transport import requests as google_requests
+            idinfo = google_id_token.verify_oauth2_token(
+                token,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except ValueError as exc:
+            return Response({'error': f'Token de Google inválido: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = idinfo.get('email', '').lower()
+        nombre = idinfo.get('given_name', '')
+        apellido = idinfo.get('family_name', '')
+
+        if not email:
+            return Response({'error': 'No se pudo obtener el email de Google.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            # Generar username único basado en el email
+            base = email.split('@')[0]
+            username = base
+            counter = 1
+            while User.objects.filter(username__iexact=username).exists():
+                username = f"{base}{counter}"
+                counter += 1
+
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                first_name=nombre,
+                last_name=apellido,
+                is_active=True,
+            )
+            user.set_unusable_password()
+            user.save(update_fields=['password'])
+
+            # Actualizar perfil creado por el signal
+            try:
+                perfil = user.perfil
+                perfil.nombre = nombre
+                perfil.apellido = apellido
+                perfil.username_display = username
+                perfil.email_verificado = True
+                perfil.activo = True
+                perfil.save()
+            except PerfilUsuario.DoesNotExist:
+                PerfilUsuario.objects.create(
+                    usuario=user, nombre=nombre, apellido=apellido,
+                    username_display=username, email_verificado=True, activo=True,
+                )
+
+        # Verificar que la cuenta esté activa
+        try:
+            perfil = user.perfil
+            if not perfil.activo:
+                return Response(
+                    {'error': 'Tu cuenta fue desactivada. Contactá al administrador.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            # Si existía con registro normal pero no había verificado: activar vía Google
+            if not user.is_active:
+                user.is_active = True
+                user.save(update_fields=['is_active'])
+                perfil.email_verificado = True
+                perfil.save(update_fields=['email_verificado'])
+        except PerfilUsuario.DoesNotExist:
+            pass
+
+        # Actualizar último acceso
+        try:
+            user.perfil.ultimo_acceso = timezone.now()
+            user.perfil.save(update_fields=['ultimo_acceso'])
+        except PerfilUsuario.DoesNotExist:
+            pass
+
+        refresh = RefreshToken.for_user(user)
+        nombre_r = apellido_r = plan = ''
+        try:
+            nombre_r = user.perfil.nombre
+            apellido_r = user.perfil.apellido
+            plan = user.perfil.plan
+        except PerfilUsuario.DoesNotExist:
+            nombre_r, apellido_r = user.first_name, user.last_name
+
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'username': user.username,
+            'email': user.email,
+            'user_id': user.id,
+            'is_superuser': user.is_superuser,
+            'is_staff': user.is_staff,
+            'nombre': nombre_r,
+            'apellido': apellido_r,
+            'plan': plan,
+        })

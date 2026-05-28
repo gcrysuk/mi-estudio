@@ -157,6 +157,7 @@ CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 # Email — usa SMTP si EMAIL_HOST_USER está configurado, consola como fallback
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Mi Estudio <noreply@miestudio.com>')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
 PASSWORD_RESET_TIMEOUT = 259200
 
 if os.getenv('EMAIL_HOST_USER'):

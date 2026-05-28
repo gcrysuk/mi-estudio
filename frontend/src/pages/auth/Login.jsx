@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../../services/api'
 import useAuthStore from '../../stores/authStore'
+import GoogleAuthButton from '../../components/auth/GoogleAuthButton'
 
 const Login = () => {
   const [username, setUsername] = useState('')
@@ -108,7 +109,19 @@ const Login = () => {
         </button>
       </form>
 
-      <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
+      {/* Separador */}
+      <div className="flex items-center gap-3 my-4">
+        <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+        <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">o</span>
+        <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+      </div>
+
+      {/* Google */}
+      <div className="flex justify-center">
+        <GoogleAuthButton onSuccess={() => navigate('/dashboard', { replace: true })} />
+      </div>
+
+      <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-5">
         ¿No tenés cuenta?{' '}
         <Link to="/registro" className="text-accent hover:underline font-medium">
           Registrate
