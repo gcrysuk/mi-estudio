@@ -406,14 +406,26 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         movimiento.save(update_fields=['estado', 'fecha_cambio_estado'])
 
         carpeta = movimiento.carpeta
-        if (movimiento.responsable_id and carpeta and
-                carpeta.propietario_id != request.user.pk):
-            NotificacionSistema.objects.create(
-                usuario=carpeta.propietario,
-                tipo='cambio_estado',
-                movimiento=movimiento,
-                mensaje=f"El movimiento '{movimiento.titulo}' cambió al estado '{estado.nombre}'",
-            )
+        if movimiento.responsable_id and carpeta:
+            if carpeta.propietario_id != request.user.pk:
+                # El responsable (u otro) cambió el estado → notificar al owner
+                NotificacionSistema.objects.create(
+                    usuario=carpeta.propietario,
+                    tipo='cambio_estado',
+                    movimiento=movimiento,
+                    mensaje=f"El movimiento '{movimiento.titulo}' cambió al estado '{estado.nombre}'",
+                )
+            elif movimiento.responsable_id != request.user.pk:
+                # El owner cambió el estado → notificar al responsable
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                responsable = User.objects.get(pk=movimiento.responsable_id)
+                NotificacionSistema.objects.create(
+                    usuario=responsable,
+                    tipo='cambio_estado',
+                    movimiento=movimiento,
+                    mensaje=f"El movimiento '{movimiento.titulo}' fue actualizado al estado '{estado.nombre}'",
+                )
 
         serializer = self.get_serializer(movimiento)
         return Response(serializer.data)
