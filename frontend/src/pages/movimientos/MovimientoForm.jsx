@@ -186,7 +186,11 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
       onSave();
     } catch (error) {
       console.error('Error saving movimiento:', error);
-      toast.error('Error al guardar: ' + (error.response?.data?.error || 'Verifica los datos'));
+      if (error.response?.status === 403) {
+        toast.error('No tenés permiso para editar este movimiento.');
+      } else {
+        toast.error('Error al guardar: ' + (error.response?.data?.detail || error.response?.data?.error || 'Verifica los datos'));
+      }
     } finally {
       setLoading(false);
     }
