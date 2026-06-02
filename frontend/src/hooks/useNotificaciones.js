@@ -19,13 +19,11 @@ export function useNotificaciones() {
       ]);
       setNotificaciones(resVenc.data.results ?? resVenc.data ?? []);
       const nuevasSistema = resSist.data.results ?? [];
-      console.log('Notificaciones sistema recibidas:', nuevasSistema);
       setNotificacionesSistema(prev => {
         const prevIds = new Set(prev.map(n => n.id));
         const hayMevNueva = nuevasSistema.some(
-          n => n.tipo === 'mev_nuevo_movimiento' && !prevIds.has(n.id)
+          n => (n.tipo === 'mev_nuevo_movimiento' || n.tipo === 'mev_cambio_estado') && !prevIds.has(n.id)
         );
-        console.log('Hay MEV nueva?', hayMevNueva);
         if (hayMevNueva) window._mev_last_sync = Date.now();
         return nuevasSistema;
       });
