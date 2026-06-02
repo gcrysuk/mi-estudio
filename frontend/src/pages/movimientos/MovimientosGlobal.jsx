@@ -27,7 +27,7 @@ const MovimientosGlobal = () => {
   const [showReporte, setShowReporte]   = useState(false);
 
   useEffect(() => {
-    let lastSync = window._mev_last_sync || 0
+    let lastSync = Date.now()
     const interval = setInterval(() => {
       if (window._mev_last_sync && window._mev_last_sync > lastSync) {
         lastSync = window._mev_last_sync
