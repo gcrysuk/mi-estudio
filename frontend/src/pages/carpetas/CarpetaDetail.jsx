@@ -48,6 +48,12 @@ const CarpetaDetail = () => {
 
   useEffect(() => { fetchCarpeta() }, [id])
 
+  useEffect(() => {
+    const handler = () => { fetchCarpeta(); setRefreshKey(k => k + 1) }
+    window.addEventListener('mev_sync_completado', handler)
+    return () => window.removeEventListener('mev_sync_completado', handler)
+  }, [])
+
   const fetchCarpeta = async () => {
     setLoadingCarpeta(true)
     try {
