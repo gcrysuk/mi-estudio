@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ClipboardList, Plus, X, Printer } from 'lucide-react';
 import MovimientoForm from './MovimientoForm';
