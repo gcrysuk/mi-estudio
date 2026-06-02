@@ -27,9 +27,14 @@ const MovimientosGlobal = () => {
   const [showReporte, setShowReporte]   = useState(false);
 
   useEffect(() => {
-    const handler = () => setRefreshKey(k => k + 1)
-    window.addEventListener('mev_sync_completado', handler)
-    return () => window.removeEventListener('mev_sync_completado', handler)
+    let lastSync = window._mev_last_sync || 0
+    const interval = setInterval(() => {
+      if (window._mev_last_sync && window._mev_last_sync > lastSync) {
+        lastSync = window._mev_last_sync
+        setRefreshKey(k => k + 1)
+      }
+    }, 3000)
+    return () => clearInterval(interval)
   }, [])
 
   const activeFiltro = FILTROS.find(f => f.key === filtro) ?? FILTROS[0];

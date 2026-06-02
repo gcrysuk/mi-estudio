@@ -49,9 +49,15 @@ const CarpetaDetail = () => {
   useEffect(() => { fetchCarpeta() }, [id])
 
   useEffect(() => {
-    const handler = () => { fetchCarpeta(); setRefreshKey(k => k + 1) }
-    window.addEventListener('mev_sync_completado', handler)
-    return () => window.removeEventListener('mev_sync_completado', handler)
+    let lastSync = window._mev_last_sync || 0
+    const interval = setInterval(() => {
+      if (window._mev_last_sync && window._mev_last_sync > lastSync) {
+        lastSync = window._mev_last_sync
+        fetchCarpeta()
+        setRefreshKey(k => k + 1)
+      }
+    }, 3000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchCarpeta = async () => {
