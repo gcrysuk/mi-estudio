@@ -7,6 +7,7 @@ from .views import (
     AdminResetPasswordView,
     PerfilView,
     CambiarPasswordView,
+    PerfilMevView,
 )
 
 router = DefaultRouter()
@@ -17,6 +18,7 @@ urlpatterns = [
     path('admin/<int:pk>/', AdminUsuarioDetailView.as_view(), name='admin_detail'),
     path('admin/<int:pk>/resetear-password/', AdminResetPasswordView.as_view(), name='admin_reset_password'),
     path('perfil/', PerfilView.as_view(), name='perfil'),
+    path('perfil/mev/', PerfilMevView.as_view(), name='perfil_mev'),
     path('cambiar-password/', CambiarPasswordView.as_view(), name='cambiar_password'),
     path('', include(router.urls)),
 ]

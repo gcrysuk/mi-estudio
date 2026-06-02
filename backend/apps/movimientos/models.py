@@ -154,16 +154,28 @@ class NotificacionSistema(models.Model):
     TIPO_CHOICES = [
         ('asignacion', 'Asignación de movimiento'),
         ('cambio_estado', 'Cambio de estado'),
+        ('carpeta_compartida', 'Carpeta compartida'),
+        ('mev_nuevo_movimiento', 'Nuevo movimiento MEV'),
+        ('mev_cambio_estado', 'Cambio de estado MEV'),
     ]
     usuario = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='notificaciones_sistema',
     )
+    actor = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notificaciones_generadas',
+    )
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     movimiento = models.ForeignKey(
         Movimiento,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='notificaciones_sistema',
     )
     mensaje = models.CharField(max_length=300)

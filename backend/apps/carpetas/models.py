@@ -152,6 +152,11 @@ class Carpeta(models.Model):
     fecha_eliminacion = models.DateTimeField(null=True, blank=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
 
+    # Integración MEV (Mesa de Entradas Virtual - SCBA)
+    mev_url = models.URLField(max_length=500, blank=True, help_text="URL del expediente en la MEV")
+    mev_ultimo_sync = models.DateTimeField(null=True, blank=True)
+    mev_estado = models.CharField(max_length=100, blank=True, default='', verbose_name="Estado en MEV")
+
     class Meta:
         verbose_name = "Carpeta"
         verbose_name_plural = "Carpetas"

@@ -389,6 +389,117 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=['get'], url_path='reporte')
+    def reporte(self, request):
+        queryset = self.get_queryset()
+        filtros_aplicados = {}
+        now = timezone.now()
+
+        estado_id = request.query_params.get('estado')
+        tipo_id = request.query_params.get('tipo')
+        carpeta_id = request.query_params.get('carpeta')
+        vencido = request.query_params.get('vencido')
+        search = request.query_params.get('search', '').strip()
+        filtro = request.query_params.get('filtro', '')
+
+        if carpeta_id:
+            queryset = queryset.filter(carpeta_id=carpeta_id)
+        if estado_id:
+            queryset = queryset.filter(estado_id=estado_id)
+            try:
+                filtros_aplicados['estado'] = EstadoMovimiento.objects.get(pk=estado_id).nombre
+            except Exception:
+                pass
+        if tipo_id:
+            queryset = queryset.filter(tipo_id=tipo_id)
+            try:
+                filtros_aplicados['tipo'] = TipoMovimiento.objects.get(pk=tipo_id).nombre
+            except Exception:
+                pass
+        if vencido is not None:
+            queryset = queryset.filter(vencido=(vencido.lower() == 'true'))
+            filtros_aplicados['vencido'] = 'Sí' if vencido.lower() == 'true' else 'No'
+        if search:
+            queryset = queryset.filter(Q(titulo__icontains=search) | Q(descripcion__icontains=search))
+            filtros_aplicados['busqueda'] = search
+
+        now_local = timezone.localtime(now)
+        if filtro == 'vencidos_hoy':
+            inicio = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            fin = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+            queryset = queryset.filter(fecha_vencimiento__gte=inicio, fecha_vencimiento__lte=fin)
+            filtros_aplicados['filtro'] = 'Vencen hoy'
+        elif filtro == 'proximos':
+            en7 = now + timezone.timedelta(days=7)
+            queryset = queryset.filter(vencido=False, fecha_vencimiento__gte=now, fecha_vencimiento__lte=en7)
+            filtros_aplicados['filtro'] = 'Próximos 7 días'
+        elif filtro == 'vencidos':
+            queryset = queryset.filter(vencido=True)
+            filtros_aplicados['filtro'] = 'Vencidos'
+        elif filtro == 'pendientes':
+            queryset = queryset.filter(estado__nombre__iexact='pendiente')
+            filtros_aplicados['filtro'] = 'Pendientes'
+
+        total = queryset.count()
+        serializer = self.get_serializer(queryset[:500], many=True)
+        return Response({
+            'movimientos': serializer.data,
+            'total': total,
+            'generado_en': now.isoformat(),
+            'filtros_aplicados': filtros_aplicados,
+        })
+
+    @action(detail=False, methods=['get'], url_path='resumen')
+    def resumen(self, request):
+        from django.db.models import OuterRef, Subquery, F
+        user = request.user
+
+        if user.is_superuser:
+            carpetas_accesibles = Carpeta.objects.filter(
+                activo=True
+            ).values_list('id', flat=True)
+        else:
+            carpetas_accesibles = Carpeta.objects.filter(
+                Q(propietario=user) | Q(compartida_con=user) | Q(es_publico=True),
+                activo=True,
+            ).values_list('id', flat=True)
+
+        # Para cada carpeta: el movimiento más reciente por fecha_creacion (una sola query)
+        latest_in_carpeta = Movimiento.objects.filter(
+            carpeta_id=OuterRef('carpeta_id'),
+            activo=True,
+        ).order_by('-fecha_creacion').values('id')[:1]
+
+        qs_con_carpeta = list(
+            Movimiento.objects.filter(
+                carpeta_id__in=carpetas_accesibles,
+                activo=True,
+            ).annotate(
+                _latest_id=Subquery(latest_in_carpeta)
+            ).filter(
+                id=F('_latest_id')
+            ).select_related('carpeta', 'tipo', 'estado', 'creado_por', 'responsable')
+        )
+
+        # El movimiento más reciente sin carpeta creado por este usuario
+        mov_sin_carpeta = (
+            Movimiento.objects.filter(
+                carpeta__isnull=True,
+                creado_por=user,
+                activo=True,
+            ).order_by('-fecha_creacion')
+            .select_related('tipo', 'estado', 'creado_por', 'responsable')
+            .first()
+        )
+
+        result = sorted(
+            qs_con_carpeta + ([mov_sin_carpeta] if mov_sin_carpeta else []),
+            key=lambda m: (m.carpeta.nombre.lower() if m.carpeta else ''),
+        )
+
+        serializer = self.get_serializer(result, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['patch'], url_path='cambiar_estado')
     def cambiar_estado(self, request, pk=None):
         movimiento = self.get_object()
@@ -406,25 +517,27 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         movimiento.save(update_fields=['estado', 'fecha_cambio_estado'])
 
         carpeta = movimiento.carpeta
+        actor = request.user
+        actor_nombre = actor.get_full_name() or actor.username
         if movimiento.responsable_id and carpeta:
-            if carpeta.propietario_id != request.user.pk:
-                # El responsable (u otro) cambió el estado → notificar al owner
+            if carpeta.propietario_id != actor.pk:
                 NotificacionSistema.objects.create(
                     usuario=carpeta.propietario,
+                    actor=actor,
                     tipo='cambio_estado',
                     movimiento=movimiento,
-                    mensaje=f"El movimiento '{movimiento.titulo}' cambió al estado '{estado.nombre}'",
+                    mensaje=f"{actor_nombre} cambió '{movimiento.titulo}' al estado '{estado.nombre}'",
                 )
-            elif movimiento.responsable_id != request.user.pk:
-                # El owner cambió el estado → notificar al responsable
+            elif movimiento.responsable_id != actor.pk:
                 from django.contrib.auth import get_user_model
-                User = get_user_model()
-                responsable = User.objects.get(pk=movimiento.responsable_id)
+                _User = get_user_model()
+                responsable = _User.objects.get(pk=movimiento.responsable_id)
                 NotificacionSistema.objects.create(
                     usuario=responsable,
+                    actor=actor,
                     tipo='cambio_estado',
                     movimiento=movimiento,
-                    mensaje=f"El movimiento '{movimiento.titulo}' fue actualizado al estado '{estado.nombre}'",
+                    mensaje=f"{actor_nombre} cambió '{movimiento.titulo}' al estado '{estado.nombre}'",
                 )
 
         serializer = self.get_serializer(movimiento)
@@ -460,11 +573,14 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         movimiento.responsable = usuario
         movimiento.save(update_fields=['responsable'])
 
+        actor = request.user
+        actor_nombre = actor.get_full_name() or actor.username
         NotificacionSistema.objects.create(
             usuario=usuario,
+            actor=actor,
             tipo='asignacion',
             movimiento=movimiento,
-            mensaje=f"Te asignaron el movimiento '{movimiento.titulo}' en la carpeta '{carpeta.nombre}'",
+            mensaje=f"{actor_nombre} te asignó el movimiento '{movimiento.titulo}' en la carpeta '{carpeta.nombre}'",
         )
 
         serializer = self.get_serializer(movimiento)
@@ -515,10 +631,12 @@ class MovimientoViewSet(viewsets.ModelViewSet):
 class NotificacionSistemaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificacionSistemaSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None
+    pagination_class = StandardPagination
 
     def get_queryset(self):
-        return NotificacionSistema.objects.filter(usuario=self.request.user)
+        return NotificacionSistema.objects.filter(
+            usuario=self.request.user
+        ).select_related('actor', 'movimiento', 'movimiento__carpeta')
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -528,6 +646,22 @@ class NotificacionSistemaViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response({'count': count, 'results': serializer.data})
 
+    @action(detail=False, methods=['get'], url_path='todas')
+    def todas(self, request):
+        queryset = self.get_queryset()
+        tipo = request.query_params.get('tipo')
+        leida = request.query_params.get('leida')
+        if tipo:
+            queryset = queryset.filter(tipo=tipo)
+        if leida is not None:
+            queryset = queryset.filter(leida=(leida.lower() == 'true'))
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['patch'], url_path='marcar_leida')
     def marcar_leida(self, request, pk=None):
         notif = self.get_object()
@@ -535,9 +669,27 @@ class NotificacionSistemaViewSet(viewsets.ReadOnlyModelViewSet):
         notif.save(update_fields=['leida'])
         return Response({'ok': True})
 
+    @action(detail=True, methods=['patch'], url_path='marcar_no_leida')
+    def marcar_no_leida(self, request, pk=None):
+        notif = self.get_object()
+        notif.leida = False
+        notif.save(update_fields=['leida'])
+        return Response({'ok': True})
+
     @action(detail=False, methods=['patch'], url_path='marcar_todas_leidas')
     def marcar_todas_leidas(self, request):
         self.get_queryset().filter(leida=False).update(leida=True)
+        return Response({'ok': True})
+
+    @action(detail=True, methods=['delete'], url_path='eliminar')
+    def eliminar(self, request, pk=None):
+        notif = self.get_object()
+        notif.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['delete'], url_path='eliminar_todas')
+    def eliminar_todas(self, request):
+        self.get_queryset().filter(leida=True).delete()
         return Response({'ok': True})
 
 

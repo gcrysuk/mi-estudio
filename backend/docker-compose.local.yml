@@ -71,6 +71,24 @@ services:
     networks:
       - mi_estudio_network
     command: celery -A config worker -l info
+  celery-beat:
+    build: .
+    container_name: mi_estudio_celery_beat_local
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./media:/app/media
+      - ./apps:/app/apps
+      - ./config:/app/config
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - mi_estudio_network
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
   nginx:
     image: nginx:alpine
     container_name: mi_estudio_nginx_local

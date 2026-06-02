@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck } from 'lucide-react';
+import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck, Printer } from 'lucide-react';
+import ReporteMinuta from '../../components/print/ReporteMinuta';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import MovimientoConfig from './MovimientoConfig';
@@ -10,13 +11,14 @@ import AsignarResponsableModal from '../../components/movimientos/AsignarRespons
 import useSpeechRecognition from '../../hooks/useSpeechRecognition';
 import useAuthStore from '../../stores/authStore';
 
-const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento, onClose, onSave }) => {
+const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento, onClose, onSave, estadoInicial, fechaMovimientoInicial, fechaVencimientoInicial }) => {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [tiposMovimiento, setTiposMovimiento] = useState([]);
   const [estadosMovimiento, setEstadosMovimiento] = useState([]);
   const [showConfig, setShowConfig] = useState(false);
   const [showCarpetaForm, setShowCarpetaForm] = useState(false);
+  const [showMinuta, setShowMinuta] = useState(false);
   const [showAsignarModal, setShowAsignarModal] = useState(false);
   const [movimientoActual, setMovimientoActual] = useState(movimiento || null);
   const [carpetaSeleccionada, setCarpetaSeleccionada] = useState(null);
@@ -65,9 +67,9 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
     titulo: '',
     descripcion: '',
     tipo: '',
-    estado: '',
-    fecha_movimiento: getCurrentDateTime(),
-    fecha_vencimiento: '',
+    estado: estadoInicial ?? '',
+    fecha_movimiento: fechaMovimientoInicial || getCurrentDateTime(),
+    fecha_vencimiento: fechaVencimientoInicial || '',
     tiempo_trabajo: '',
     carpeta: initialCarpetaId || ''
   });
@@ -222,6 +224,16 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               {movimiento ? 'EDITAR MOVIMIENTO' : 'NUEVO MOVIMIENTO'}
             </h2>
             <div className="flex items-center gap-1">
+              {movimiento && formData.descripcion && (
+                <button
+                  type="button"
+                  onClick={() => setShowMinuta(true)}
+                  className="p-1 hover:text-accent rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  title="Imprimir minuta"
+                >
+                  <Printer size={16} />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowConfig(true)}
@@ -292,7 +304,8 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
                 <select
                   value={formData.estado}
                   onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
-                  className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                  disabled={!!estadoInicial}
+                  className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   <option value="">SELECCIONAR</option>
                   {estadosMovimiento.map(estado => (
@@ -501,6 +514,14 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
           nombreInicial={nombreInicial}
           onClose={() => setShowCarpetaForm(false)}
           onSave={handleCarpetaCreada}
+        />,
+        document.body
+      )}
+
+      {showMinuta && movimiento && createPortal(
+        <ReporteMinuta
+          movimiento={{ ...movimiento, ...formData, carpeta_nombre: carpetaSeleccionada?.nombre }}
+          onClose={() => setShowMinuta(false)}
         />,
         document.body
       )}

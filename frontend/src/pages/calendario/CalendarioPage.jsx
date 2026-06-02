@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ChevronLeft, ChevronRight, Calendar, RefreshCw,
-  Link2, Unlink2, AlertCircle, ExternalLink, Edit2, X, Save,
+  Link2, Unlink2, AlertCircle, ExternalLink, Edit2, X, Save, Plus, Printer,
 } from 'lucide-react';
+import MovimientoForm from '../movimientos/MovimientoForm';
+import ImprimirLista from '../../components/print/ImprimirLista';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, format, isSameMonth, isSameDay,
@@ -13,7 +15,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar';
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 const GCAL_API = 'https://www.googleapis.com/calendar/v3';
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -47,6 +49,19 @@ const CalendarioPage = () => {
   const [editingEvent, setEditingEvent] = useState(null); // {id, titulo, carpeta, fechaActual}
   const [editingFecha, setEditingFecha] = useState('');
   const [savingFecha, setSavingFecha] = useState(false);
+  const [nuevoMovModal, setNuevoMovModal] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
+
+  const fmtDatetimeLocal = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const h = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${d}T${h}:${min}`;
+  };
+
+  const abrirNuevoMov = () => setNuevoMovModal(true);
 
   const tokenClientRef = useRef(null);
   const accessTokenRef = useRef(null);
@@ -265,6 +280,12 @@ const CalendarioPage = () => {
         </h1>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowPrint(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-surface hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <Printer size={13} /> Imprimir
+          </button>
           {!GOOGLE_CLIENT_ID ? (
             <span className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400">
               <AlertCircle size={14} />
@@ -393,13 +414,35 @@ const CalendarioPage = () => {
 
         {/* Side panel */}
         <div className="w-full lg:w-72 bg-white dark:bg-dark-surface rounded-lg shadow flex flex-col">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <p className="font-semibold text-sm">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
+            <p className="font-semibold text-sm truncate">
               {selectedDay
                 ? format(selectedDay, "EEEE d 'de' MMMM", { locale: es })
                 : 'Seleccioná un día'}
             </p>
+            {selectedDay && (
+              <button
+                onClick={abrirNuevoMov}
+                title="Nuevo movimiento en este día"
+                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded bg-accent text-white hover:bg-accent-hover transition-colors"
+              >
+                <Plus size={13} />
+              </button>
+            )}
           </div>
+
+          {/* Botón nuevo movimiento */}
+          {selectedDay && (
+            <div className="px-3 pt-2.5 pb-1">
+              <button
+                onClick={abrirNuevoMov}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg border border-dashed border-accent/50 text-accent hover:border-accent hover:bg-accent/5 transition-colors"
+              >
+                <Plus size={13} />
+                Nuevo movimiento
+              </button>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[480px]">
             {!selectedDay ? (
@@ -463,6 +506,31 @@ const CalendarioPage = () => {
           </div>
         </div>
       </div>
+
+      {showPrint && (
+        <ImprimirLista
+          titulo={`Calendario — ${format(currentDate, 'MMMM yyyy', { locale: es })}`}
+          headers={['Fecha', 'Evento', 'Carpeta', 'Tipo']}
+          items={allEvents.sort((a, b) => a.date - b.date)}
+          getRow={ev => [
+            format(ev.date, 'dd/MM/yyyy HH:mm'),
+            ev.title,
+            ev.carpeta || '—',
+            ev.type === 'google' ? 'Google Calendar' : ev.type.replace('vencimiento_', 'Vencimiento '),
+          ]}
+          onClose={() => setShowPrint(false)}
+        />
+      )}
+
+      {/* Modal: nuevo movimiento desde el calendario */}
+      {nuevoMovModal && selectedDay && (
+        <MovimientoForm
+          fechaMovimientoInicial={fmtDatetimeLocal(new Date())}
+          fechaVencimientoInicial={`${format(selectedDay, 'yyyy-MM-dd')}T23:59`}
+          onClose={() => setNuevoMovModal(false)}
+          onSave={() => { setNuevoMovModal(false); fetchAppEvents(); }}
+        />
+      )}
 
       {/* Mini-modal: editar fecha de vencimiento */}
       {editingEvent && (

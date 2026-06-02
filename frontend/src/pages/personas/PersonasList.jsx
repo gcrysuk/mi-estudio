@@ -9,8 +9,10 @@ import {
   X,
   Users,
   RefreshCw,
-  Eye
+  Eye,
+  Printer,
 } from 'lucide-react';
+import ImprimirLista from '../../components/print/ImprimirLista';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../stores/authStore';
 import api from '../../services/api';
@@ -52,7 +54,8 @@ const PROVINCIAS = [
 
 const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   const [detalleModalOpen, setDetalleModalOpen] = useState(false);
-  const [personaParaDetalle, setPersonaParaDetalle] = useState(null);  
+  const [personaParaDetalle, setPersonaParaDetalle] = useState(null);
+  const [showPrint, setShowPrint] = useState(false);
   const [personas, setPersonas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -630,6 +633,12 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
             </button>
           )}
           <button
+            onClick={() => setShowPrint(true)}
+            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center gap-1.5 uppercase text-xs transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <Printer size={14} /> Imprimir
+          </button>
+          <button
             onClick={() => {
               resetForm();
               setModalOpen(true);
@@ -951,6 +960,28 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
         <DetallePersonaModal
           persona={personaParaDetalle}
           onClose={() => setDetalleModalOpen(false)}
+        />
+      )}
+
+      {showPrint && (
+        <ImprimirLista
+          titulo="Listado de Personas"
+          filtros={[
+            searchTerm && `Búsqueda: "${searchTerm}"`,
+            filters.tipo_persona && `Tipo: ${getTipoPersonaNombre(filters.tipo_persona)}`,
+          ].filter(Boolean).join(' | ') || undefined}
+          headers={['Apellido / Razón Social', 'Nombre', 'Tipo', 'Documento', 'Email', 'Teléfono', 'Ciudad']}
+          items={filteredPersonas}
+          getRow={p => [
+            p.tipo_persona === 'juridica' ? (p.razon_social || '—') : (p.apellido || '—'),
+            p.tipo_persona === 'juridica' ? '—' : (p.nombre || '—'),
+            getTipoPersonaNombre(p.tipo_persona),
+            formatDocumento(p.tipo_documento, p.numero_documento) || '—',
+            p.email || '—',
+            p.telefono || '—',
+            p.localidad || '—',
+          ]}
+          onClose={() => setShowPrint(false)}
         />
       )}
     </div>

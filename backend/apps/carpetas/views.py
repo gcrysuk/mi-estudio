@@ -218,6 +218,19 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             usuario=usuario,
             defaults={'puede_editar': puede_editar},
         )
+
+        if created:
+            from apps.movimientos.models import NotificacionSistema
+            actor = request.user
+            acceso = 'edición' if puede_editar else 'solo lectura'
+            NotificacionSistema.objects.create(
+                usuario=usuario,
+                actor=actor,
+                tipo='carpeta_compartida',
+                movimiento=None,
+                mensaje=f"{actor.get_full_name() or actor.username} te compartió la carpeta '{carpeta.nombre}' con acceso de {acceso}.",
+            )
+
         return Response({'ok': True, 'created': created})
 
     @action(detail=True, methods=['post'], url_path='dejar_compartir')
@@ -280,6 +293,110 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
         return Response({'ok': True})
 
+    @action(detail=True, methods=['get'], url_path='reporte')
+    def reporte(self, request, pk=None):
+        from apps.movimientos.models import Movimiento
+        from apps.movimientos.serializers import MovimientoSerializer
+
+        carpeta = self.get_object()
+        qs = Movimiento.objects.filter(
+            carpeta=carpeta, activo=True
+        ).select_related('tipo', 'estado', 'creado_por', 'responsable').order_by('-fecha_movimiento')
+
+        filtros_aplicados = {}
+
+        estado_id = request.query_params.get('estado')
+        tipo_id = request.query_params.get('tipo')
+        vencido = request.query_params.get('vencido')
+        search = request.query_params.get('search', '').strip()
+        filtro = request.query_params.get('filtro', '')
+
+        if estado_id:
+            qs = qs.filter(estado_id=estado_id)
+            try:
+                from apps.movimientos.models import EstadoMovimiento
+                filtros_aplicados['estado'] = EstadoMovimiento.objects.get(pk=estado_id).nombre
+            except Exception:
+                pass
+
+        if tipo_id:
+            qs = qs.filter(tipo_id=tipo_id)
+            try:
+                from apps.movimientos.models import TipoMovimiento
+                filtros_aplicados['tipo'] = TipoMovimiento.objects.get(pk=tipo_id).nombre
+            except Exception:
+                pass
+
+        if vencido is not None:
+            qs = qs.filter(vencido=(vencido.lower() == 'true'))
+            filtros_aplicados['vencido'] = 'Sí' if vencido.lower() == 'true' else 'No'
+
+        if filtro == 'proximos':
+            en7 = timezone.now() + timezone.timedelta(days=7)
+            qs = qs.filter(vencido=False, fecha_vencimiento__isnull=False, fecha_vencimiento__lte=en7)
+            filtros_aplicados['filtro'] = 'Próximos 7 días'
+        elif filtro == 'vencidos':
+            qs = qs.filter(vencido=True)
+            filtros_aplicados['filtro'] = 'Vencidos'
+
+        if search:
+            qs = qs.filter(Q(titulo__icontains=search) | Q(descripcion__icontains=search))
+            filtros_aplicados['busqueda'] = search
+
+        carpeta_serializer = self.get_serializer(carpeta)
+        mov_serializer = MovimientoSerializer(qs[:500], many=True, context={'request': request})
+
+        return Response({
+            'carpeta': carpeta_serializer.data,
+            'movimientos': mov_serializer.data,
+            'total': qs.count(),
+            'generado_en': timezone.now().isoformat(),
+            'filtros_aplicados': filtros_aplicados,
+        })
+
+    @action(detail=True, methods=['post'], url_path='sync_mev')
+    def sync_mev(self, request, pk=None):
+        carpeta = self.get_object()
+        if not _user_puede_editar_carpeta(request.user, carpeta):
+            return Response({'error': 'Sin permiso de edición'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not carpeta.mev_url:
+            return Response({'error': 'Esta carpeta no tiene URL MEV configurada'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar credenciales MEV del usuario
+        try:
+            perfil = request.user.perfil
+        except Exception:
+            return Response({'error': 'Perfil de usuario no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not perfil.mev_usuario or not perfil.mev_clave:
+            return Response({'error': 'Configurá tus credenciales MEV en el perfil'}, status=status.HTTP_400_BAD_REQUEST)
+
+        key = getattr(__import__('django.conf', fromlist=['settings']).settings, 'MEV_ENCRYPTION_KEY', '')
+        if not key:
+            return Response({'error': 'MEV_ENCRYPTION_KEY no configurada en el servidor'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        try:
+            from cryptography.fernet import Fernet
+            fernet = Fernet(key.encode() if isinstance(key, str) else key)
+            clave_descifrada = fernet.decrypt(perfil.mev_clave.encode()).decode()
+        except Exception:
+            return Response({'error': 'Error al descifrar las credenciales MEV'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            from apps.carpetas.tasks import sync_mev_carpeta_task
+            sync_mev_carpeta_task.apply_async(args=[carpeta.id])
+            return Response({'encolado': True, 'mensaje': 'Sincronización encolada'})
+        except Exception:
+            # Celery no disponible — ejecutar sincrónicamente
+            from apps.carpetas.mev_scraper import mev_sync_carpeta
+            resultado = mev_sync_carpeta(carpeta, perfil.mev_usuario, clave_descifrada, perfil.mev_depto)
+            return Response({
+                'nuevos': resultado['nuevos'],
+                'error': resultado['error'],
+                'ultimo_sync': carpeta.mev_ultimo_sync,
+            })
+
     @action(detail=False, methods=['post'], url_path='compartir_multiples')
     def compartir_multiples(self, request):
         carpetas_ids = request.data.get('carpetas', [])
@@ -294,14 +411,26 @@ class CarpetaViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
+        from apps.movimientos.models import NotificacionSistema
+        actor = request.user
+        acceso = 'edición' if puede_editar else 'solo lectura'
+
         for carpeta_id in carpetas_ids:
             try:
                 carpeta = Carpeta.objects.get(pk=carpeta_id, propietario=request.user)
-                CompartirCarpeta.objects.update_or_create(
+                obj, created = CompartirCarpeta.objects.update_or_create(
                     carpeta=carpeta,
                     usuario=usuario,
                     defaults={'puede_editar': puede_editar},
                 )
+                if created:
+                    NotificacionSistema.objects.create(
+                        usuario=usuario,
+                        actor=actor,
+                        tipo='carpeta_compartida',
+                        movimiento=None,
+                        mensaje=f"{actor.get_full_name() or actor.username} te compartió la carpeta '{carpeta.nombre}' con acceso de {acceso}.",
+                    )
             except Carpeta.DoesNotExist:
                 pass
 

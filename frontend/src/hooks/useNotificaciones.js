@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 
-const POLL_MS = 60 * 1000; // 60 segundos
+const POLL_MS = 10 * 1000;
 
 export function useNotificaciones() {
   const [notificaciones, setNotificaciones] = useState([]);

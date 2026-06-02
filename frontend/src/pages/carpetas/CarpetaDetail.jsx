@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom'
 import {
   ArrowLeft, FolderOpen, Hash, User, Building2, Scale,
   FileText, Calendar, Clock, AlertCircle, Edit,
-  Plus, Users, Share2,
+  Plus, Users, Share2, RefreshCw, FileDown,
 } from 'lucide-react'
+import ReporteCarpeta from '../../components/print/ReporteCarpeta'
 import toast from 'react-hot-toast'
 import api from '../../services/api'
 import MovimientoForm from '../movimientos/MovimientoForm'
@@ -42,6 +43,8 @@ const CarpetaDetail = () => {
   const [showCarpetaForm, setShowCarpetaForm] = useState(false)
   const [showCompartir, setShowCompartir]     = useState(false)
   const [refreshKey, setRefreshKey]           = useState(0)
+  const [syncingMev, setSyncingMev]           = useState(false)
+  const [showReporte, setShowReporte]         = useState(false)
 
   useEffect(() => { fetchCarpeta() }, [id])
 
@@ -54,6 +57,27 @@ const CarpetaDetail = () => {
       toast.error('Error al cargar la carpeta')
     } finally {
       setLoadingCarpeta(false)
+    }
+  }
+
+  const handleSyncMev = async () => {
+    setSyncingMev(true)
+    try {
+      const res = await api.post(`/carpetas/${id}/sync_mev/`)
+      const { encolado, nuevos, error } = res.data
+      if (encolado) {
+        toast.success('Sincronización encolada — los movimientos aparecerán en breve')
+      } else if (error) {
+        toast.error(`MEV: ${error}`)
+      } else {
+        toast.success(nuevos > 0 ? `${nuevos} nuevo${nuevos !== 1 ? 's' : ''} movimiento${nuevos !== 1 ? 's' : ''} importado${nuevos !== 1 ? 's' : ''}` : 'Sin novedades en la MEV')
+        if (nuevos > 0) setRefreshKey(k => k + 1)
+        fetchCarpeta()
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error al sincronizar con la MEV')
+    } finally {
+      setSyncingMev(false)
     }
   }
 
@@ -126,6 +150,14 @@ const CarpetaDetail = () => {
             )}
           </div>
 
+          {carpeta.mev_estado && (
+            <div className="mt-1">
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium">
+                MEV: {carpeta.mev_estado}
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
             {carpeta.numero_expediente && (
               <span className="flex items-center gap-1">
@@ -155,7 +187,24 @@ const CarpetaDetail = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {carpeta.mev_url && (
+            <button
+              onClick={handleSyncMev}
+              disabled={syncingMev}
+              title={carpeta.mev_ultimo_sync ? `Último sync: ${new Date(carpeta.mev_ultimo_sync).toLocaleString('es-AR')}` : 'Sin sincronización previa'}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 uppercase"
+            >
+              <RefreshCw size={13} className={syncingMev ? 'animate-spin' : ''} />
+              {syncingMev ? 'Sincronizando...' : 'Sincronizar MEV'}
+            </button>
+          )}
+          <button
+            onClick={() => setShowReporte(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
+          >
+            <FileDown size={13} /> Exportar PDF
+          </button>
           <button
             onClick={() => setShowCompartir(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors uppercase"
@@ -256,6 +305,14 @@ const CarpetaDetail = () => {
           onClose={() => setShowCompartir(false)}
           carpeta={carpeta}
           onSave={() => { setShowCompartir(false); fetchCarpeta() }}
+        />
+      )}
+
+      {showReporte && (
+        <ReporteCarpeta
+          carpetaId={id}
+          filtros={filtro !== 'todos' ? { filtro } : {}}
+          onClose={() => setShowReporte(false)}
         />
       )}
     </div>

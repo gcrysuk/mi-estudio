@@ -8,7 +8,7 @@ import useAuthStore from '../../stores/authStore'
  * Al completar el flujo llama al backend /auth/google/ y autentica al usuario.
  * onSuccess(data) recibe los datos del response si hay que hacer algo adicional.
  */
-const GoogleAuthButton = ({ onSuccess, disabled }) => {
+const GoogleAuthButton = ({ onSuccess, onRequiereUsername, disabled }) => {
   const login = useAuthStore(state => state.login)
 
   const handleCredential = async (credentialResponse) => {
@@ -19,12 +19,18 @@ const GoogleAuthButton = ({ onSuccess, disabled }) => {
     }
     try {
       const res = await api.post('/auth/google/', { token: idToken })
+
+      // Email nuevo → pedir username antes de crear la cuenta
+      if (res.data.requiere_username) {
+        if (onRequiereUsername) onRequiereUsername(res.data)
+        return
+      }
+
       const { access, refresh, user_id, username, email, is_superuser, is_staff, nombre, apellido, plan } = res.data
 
       localStorage.setItem('access_token', access)
       localStorage.setItem('refresh_token', refresh)
 
-      // Actualizar el store directamente (sin llamar a api.post('/auth/login/'))
       useAuthStore.setState({
         token: access,
         refreshToken: refresh,

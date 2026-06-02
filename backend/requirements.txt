@@ -19,3 +19,6 @@ django-extensions==4.1
 anthropic>=0.40.0
 google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+django-celery-beat>=2.5.0

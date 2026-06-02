@@ -1,0 +1,323 @@
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Bell, UserCheck, RefreshCw, Folder, Scale, CheckCheck, Trash2,
+  ExternalLink, Circle, CheckCircle, ChevronDown,
+} from 'lucide-react';
+import { formatDistanceToNow, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import toast from 'react-hot-toast';
+import api from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
+
+const FILTROS = [
+  { key: 'todas',              label: 'Todas' },
+  { key: 'no_leidas',          label: 'No leídas' },
+  { key: 'asignacion',         label: 'Asignaciones' },
+  { key: 'cambio_estado',      label: 'Cambios de estado' },
+  { key: 'carpeta_compartida', label: 'Carpetas compartidas' },
+  { key: 'mev_nuevo_movimiento', label: 'MEV' },
+  { key: 'mev_cambio_estado',   label: 'MEV estado' },
+];
+
+const TIPO_META = {
+  asignacion:           { icon: UserCheck, color: 'text-accent',     bg: 'bg-accent/10',     badge: 'bg-accent/10 text-accent',          label: 'Asignación' },
+  cambio_estado:        { icon: RefreshCw, color: 'text-blue-500',   bg: 'bg-blue-500/10',   badge: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400', label: 'Cambio de estado' },
+  carpeta_compartida:   { icon: Folder,    color: 'text-orange-500', bg: 'bg-orange-500/10', badge: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400', label: 'Carpeta compartida' },
+  mev_nuevo_movimiento: { icon: Scale, color: 'text-indigo-500', bg: 'bg-indigo-500/10', badge: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', label: 'MEV' },
+  mev_cambio_estado:    { icon: Scale, color: 'text-indigo-500', bg: 'bg-indigo-500/10', badge: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', label: 'MEV estado' },
+};
+
+const relativo = (fecha) => {
+  try { return formatDistanceToNow(parseISO(fecha), { addSuffix: true, locale: es }); }
+  catch { return fecha; }
+};
+
+function Avatar({ nombre }) {
+  const inicial = (nombre || '?')[0].toUpperCase();
+  return (
+    <div className="flex-shrink-0 w-9 h-9 rounded-full bg-accent/20 flex items-center justify-center text-sm font-bold text-accent select-none">
+      {inicial}
+    </div>
+  );
+}
+
+export default function NotificacionesPage() {
+  const { dark } = useTheme();
+  const [filtro, setFiltro] = useState('todas');
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [nextUrl, setNextUrl] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchNotificaciones = useCallback(async (url = null) => {
+    if (!url) setLoading(true);
+    else setLoadingMore(true);
+
+    try {
+      const params = {};
+      if (filtro === 'no_leidas') params.leida = 'false';
+      else if (filtro !== 'todas') params.tipo = filtro;
+
+      const res = url
+        ? await api.get(url, { params: {} })
+        : await api.get('/movimientos/notificaciones_sistema/todas/', { params });
+
+      const data = res.data;
+      const results = data.results ?? data;
+      if (url) {
+        setNotificaciones(prev => [...prev, ...results]);
+      } else {
+        setNotificaciones(results);
+      }
+      setNextUrl(data.next ?? null);
+    } catch {
+      toast.error('Error al cargar notificaciones');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [filtro]);
+
+  useEffect(() => {
+    fetchNotificaciones();
+  }, [fetchNotificaciones]);
+
+  const handleMarcarLeida = async (id) => {
+    try {
+      await api.patch(`/movimientos/notificaciones_sistema/${id}/marcar_leida/`);
+      setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
+    } catch {
+      toast.error('Error al marcar');
+    }
+  };
+
+  const handleMarcarNoLeida = async (id) => {
+    try {
+      await api.patch(`/movimientos/notificaciones_sistema/${id}/marcar_no_leida/`);
+      setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: false } : n));
+    } catch {
+      toast.error('Error al marcar');
+    }
+  };
+
+  const handleEliminar = async (id) => {
+    try {
+      await api.delete(`/movimientos/notificaciones_sistema/${id}/eliminar/`);
+      setNotificaciones(prev => prev.filter(n => n.id !== id));
+    } catch {
+      toast.error('Error al eliminar');
+    }
+  };
+
+  const handleMarcarTodas = async () => {
+    try {
+      await api.patch('/movimientos/notificaciones_sistema/marcar_todas_leidas/');
+      setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
+      toast.success('Todas marcadas como leídas');
+    } catch {
+      toast.error('Error');
+    }
+  };
+
+  const handleEliminarLeidas = async () => {
+    try {
+      await api.delete('/movimientos/notificaciones_sistema/eliminar_todas/');
+      setNotificaciones(prev => prev.filter(n => !n.leida));
+      toast.success('Notificaciones leídas eliminadas');
+    } catch {
+      toast.error('Error al eliminar');
+    }
+  };
+
+  const noLeidas = notificaciones.filter(n => !n.leida).length;
+  const leidas = notificaciones.filter(n => n.leida).length;
+
+  return (
+    <div className={`min-h-full ${dark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+      <div className="max-w-3xl mx-auto px-4 py-6">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <Bell size={20} className="text-accent" />
+            <h1 className={`text-xl font-bold uppercase ${dark ? 'text-white' : 'text-gray-800'}`}>
+              Notificaciones
+            </h1>
+            {noLeidas > 0 && (
+              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {noLeidas}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {noLeidas > 0 && (
+              <button
+                onClick={handleMarcarTodas}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs uppercase font-medium transition-colors ${
+                  dark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-white text-gray-600 hover:bg-gray-200 border border-gray-200'
+                }`}
+              >
+                <CheckCheck size={13} /> Marcar todas leídas
+              </button>
+            )}
+            {leidas > 0 && (
+              <button
+                onClick={handleEliminarLeidas}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs uppercase font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+              >
+                <Trash2 size={13} /> Eliminar leídas
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filtros */}
+        <div className={`flex flex-wrap gap-2 mb-5 p-3 rounded-xl ${dark ? 'bg-gray-800' : 'bg-white'} shadow`}>
+          {FILTROS.map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFiltro(key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium uppercase transition-colors ${
+                filtro === key
+                  ? 'bg-accent text-white'
+                  : dark
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Lista */}
+        <div className={`rounded-xl shadow overflow-hidden ${dark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+          {loading ? (
+            <div className={`flex items-center justify-center py-16 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <div className="text-sm">Cargando...</div>
+            </div>
+          ) : notificaciones.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <Bell size={36} strokeWidth={1} className={dark ? 'text-gray-600' : 'text-gray-300'} />
+              <p className={`text-sm ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                No tenés notificaciones
+              </p>
+            </div>
+          ) : (
+            <ul className={`divide-y ${dark ? 'divide-gray-700' : 'divide-gray-100'}`}>
+              {notificaciones.map((notif) => {
+                const meta = TIPO_META[notif.tipo] ?? TIPO_META.asignacion;
+                const IconComp = meta.icon;
+                const actorNombre = notif.actor_detalle?.nombre_completo || notif.actor_detalle?.username || '';
+
+                return (
+                  <li
+                    key={notif.id}
+                    className={`px-5 py-4 transition-colors ${
+                      !notif.leida
+                        ? dark ? 'bg-blue-900/10' : 'bg-blue-50/50'
+                        : dark ? 'hover:bg-gray-750' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {/* Indicador no leída */}
+                      <div className="flex-shrink-0 mt-1">
+                        {!notif.leida
+                          ? <Circle size={7} className="text-blue-500 fill-blue-500" />
+                          : <div className="w-[7px]" />
+                        }
+                      </div>
+
+                      {/* Avatar actor */}
+                      {actorNombre ? (
+                        <Avatar nombre={actorNombre} />
+                      ) : (
+                        <div className={`flex-shrink-0 w-9 h-9 rounded-full ${meta.bg} flex items-center justify-center ${meta.color}`}>
+                          <IconComp size={16} />
+                        </div>
+                      )}
+
+                      {/* Contenido */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={`text-sm leading-snug ${dark ? 'text-gray-100' : 'text-gray-800'} ${!notif.leida ? 'font-medium' : ''}`}>
+                            {notif.mensaje}
+                          </p>
+                          {/* Badge tipo */}
+                          <span className={`flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full uppercase ${meta.badge}`}>
+                            {meta.label}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className={`text-[11px] ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                            {relativo(notif.fecha_creacion)}
+                          </span>
+                          {notif.carpeta_nombre && (
+                            <span className={`text-[11px] truncate max-w-[140px] ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {notif.carpeta_nombre}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Acciones */}
+                        <div className="flex items-center gap-3 mt-2">
+                          {notif.leida ? (
+                            <button
+                              onClick={() => handleMarcarNoLeida(notif.id)}
+                              className={`flex items-center gap-1 text-[11px] uppercase transition-colors ${dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}
+                            >
+                              <Circle size={11} /> No leída
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleMarcarLeida(notif.id)}
+                              className={`flex items-center gap-1 text-[11px] uppercase transition-colors ${dark ? 'text-gray-500 hover:text-accent' : 'text-gray-400 hover:text-accent'}`}
+                            >
+                              <CheckCircle size={11} /> Leída
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleEliminar(notif.id)}
+                            className="flex items-center gap-1 text-[11px] uppercase text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={11} /> Eliminar
+                          </button>
+                          {notif.carpeta_id && (
+                            <Link
+                              to={`/carpetas/${notif.carpeta_id}`}
+                              className="flex items-center gap-1 text-[11px] uppercase text-accent hover:text-accent-hover transition-colors"
+                            >
+                              <ExternalLink size={11} /> Ver carpeta
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {/* Cargar más */}
+          {nextUrl && (
+            <div className={`px-5 py-3 border-t ${dark ? 'border-gray-700' : 'border-gray-100'}`}>
+              <button
+                onClick={() => fetchNotificaciones(nextUrl)}
+                disabled={loadingMore}
+                className={`w-full flex items-center justify-center gap-2 py-2 text-xs uppercase font-medium rounded-lg transition-colors ${
+                  dark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                } disabled:opacity-50`}
+              >
+                <ChevronDown size={14} />
+                {loadingMore ? 'Cargando...' : 'Cargar más'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

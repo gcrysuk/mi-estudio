@@ -23,6 +23,8 @@ import CalendarioPage from "./pages/calendario/CalendarioPage";
 import PapeleraPage from "./pages/papelera/PapeleraPage";
 import KanbanPage from "./pages/kanban/KanbanPage";
 import KanbanConfigPage from "./pages/kanban/KanbanConfigPage";
+import NotificacionesPage from "./pages/notificaciones/NotificacionesPage";
+import ResumenPage from "./pages/resumen/ResumenPage";
 import useAuthStore from "./stores/authStore";
 import ModalGlobal from './components/modals/ModalGlobal';
 
@@ -88,6 +90,8 @@ function App() {
               <Route path="/papelera" element={<PapeleraPage />} />
               <Route path="/kanban" element={<KanbanPage />} />
               <Route path="/kanban/config" element={<KanbanConfigPage />} />
+              <Route path="/notificaciones" element={<NotificacionesPage />} />
+              <Route path="/resumen" element={<ResumenPage />} />
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
 

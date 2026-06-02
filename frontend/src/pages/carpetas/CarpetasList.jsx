@@ -11,8 +11,10 @@ import {
   X,
   FolderOpen,
   RefreshCw,
-  Eye
+  Eye,
+  Printer,
 } from 'lucide-react';
+import ImprimirLista from '../../components/print/ImprimirLista';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../stores/authStore';
 import api from '../../services/api';
@@ -62,6 +64,9 @@ const CarpetasList = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [detalleModalOpen, setDetalleModalOpen] = useState(false);
   const [carpetaParaDetalle, setCarpetaParaDetalle] = useState(null);
+  const [showPrint, setShowPrint] = useState(false);
+  const [printData, setPrintData] = useState([]);
+  const [loadingPrint, setLoadingPrint] = useState(false);
 
   // Estado para columnas visibles
   const [visibleColumns, setVisibleColumns] = useState({
@@ -393,6 +398,24 @@ const CarpetasList = () => {
     setDetalleModalOpen(true);
   };
 
+  const handleOpenPrint = async () => {
+    setLoadingPrint(true);
+    try {
+      const params = { page_size: 500 };
+      if (search)            params.search = search;
+      if (filters.estado)    params.estado = filters.estado;
+      if (filters.tipo)      params.tipo   = filters.tipo;
+      if (diasSinMovimiento) params.dias_sin_movimiento = diasSinMovimiento;
+      const res = await api.get('/carpetas/', { params });
+      setPrintData(res.data.results ?? []);
+      setShowPrint(true);
+    } catch {
+      toast.error('Error al cargar datos para impresión');
+    } finally {
+      setLoadingPrint(false);
+    }
+  };
+
   const getEstadoBadge = (estadoId) => {
     const estado = estados.find(e => e.id === estadoId);
     if (!estado) return null;
@@ -440,6 +463,13 @@ const CarpetasList = () => {
               </button>
             </>
           )}
+          <button
+            onClick={handleOpenPrint}
+            disabled={loadingPrint}
+            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center gap-1.5 uppercase text-xs transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+          >
+            <Printer size={14} /> {loadingPrint ? '...' : 'Imprimir'}
+          </button>
           <button
             onClick={() => {
               setEditingCarpeta(null);
@@ -759,6 +789,30 @@ const CarpetasList = () => {
         <DetalleCarpetaModal
           carpeta={carpetaParaDetalle}
           onClose={() => setDetalleModalOpen(false)}
+        />
+      )}
+
+      {showPrint && (
+        <ImprimirLista
+          titulo="Listado de Carpetas"
+          filtros={[
+            search && `Búsqueda: "${search}"`,
+            filters.estado && `Estado: ${estados.find(e => String(e.id) === filters.estado)?.nombre}`,
+            filters.tipo && `Tipo: ${tipos.find(t => String(t.id) === filters.tipo)?.nombre}`,
+            diasSinMovimiento && `Sin mov. > ${diasSinMovimiento} días`,
+          ].filter(Boolean).join(' | ') || undefined}
+          headers={['Nombre', 'N° Expediente', 'Estado', 'Tipo', 'Propietario', 'Organismo', 'Fecha inicio']}
+          items={printData}
+          getRow={c => [
+            c.nombre,
+            c.numero_expediente || '—',
+            c.estado_nombre || '—',
+            c.tipo_nombre || '—',
+            c.propietario_nombre || '—',
+            c.organismo_nombre || '—',
+            c.fecha_inicio ? new Date(c.fecha_inicio).toLocaleDateString('es-AR') : '—',
+          ]}
+          onClose={() => setShowPrint(false)}
         />
       )}
 

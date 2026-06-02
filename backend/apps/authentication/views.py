@@ -367,38 +367,14 @@ class GoogleAuthView(APIView):
         try:
             user = User.objects.get(email__iexact=email)
         except User.DoesNotExist:
-            # Generar username único basado en el email
-            base = email.split('@')[0]
-            username = base
-            counter = 1
-            while User.objects.filter(username__iexact=username).exists():
-                username = f"{base}{counter}"
-                counter += 1
-
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                first_name=nombre,
-                last_name=apellido,
-                is_active=True,
-            )
-            user.set_unusable_password()
-            user.save(update_fields=['password'])
-
-            # Actualizar perfil creado por el signal
-            try:
-                perfil = user.perfil
-                perfil.nombre = nombre
-                perfil.apellido = apellido
-                perfil.username_display = username
-                perfil.email_verificado = True
-                perfil.activo = True
-                perfil.save()
-            except PerfilUsuario.DoesNotExist:
-                PerfilUsuario.objects.create(
-                    usuario=user, nombre=nombre, apellido=apellido,
-                    username_display=username, email_verificado=True, activo=True,
-                )
+            # Email nuevo → pedir username antes de crear la cuenta
+            return Response({
+                'requiere_username': True,
+                'google_email': email,
+                'google_nombre': nombre,
+                'google_apellido': apellido,
+                'google_token': token,
+            })
 
         # Verificar que la cuenta esté activa
         try:
@@ -445,3 +421,99 @@ class GoogleAuthView(APIView):
             'apellido': apellido_r,
             'plan': plan,
         })
+
+
+# ── Google: completar registro con username elegido ───────────────────────────
+
+class GoogleCompletarRegistroView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        google_token = request.data.get('google_token', '').strip()
+        username = request.data.get('username', '').strip()
+
+        if not google_token or not username:
+            return Response({'error': 'Datos incompletos.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not getattr(settings, 'GOOGLE_CLIENT_ID', ''):
+            return Response({'error': 'Google OAuth no configurado.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        try:
+            from google.oauth2 import id_token as google_id_token
+            from google.auth.transport import requests as google_requests
+            idinfo = google_id_token.verify_oauth2_token(
+                google_token,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+        except ValueError as exc:
+            return Response({'error': f'Token de Google inválido: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = idinfo.get('email', '').lower()
+        nombre = idinfo.get('given_name', '')
+        apellido = idinfo.get('family_name', '')
+
+        if not email:
+            return Response({'error': 'No se pudo obtener el email de Google.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email__iexact=email).exists():
+            return Response({'error': 'El email ya está registrado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(username) < 3:
+            return Response({'username': 'El nombre de usuario debe tener al menos 3 caracteres.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if (User.objects.filter(username__iexact=username).exists() or
+                PerfilUsuario.objects.filter(username_display__iexact=username).exists()):
+            return Response({'username': 'Este nombre de usuario ya está en uso.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            first_name=nombre,
+            last_name=apellido,
+            is_active=True,
+        )
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
+
+        try:
+            perfil = user.perfil
+            perfil.nombre = nombre
+            perfil.apellido = apellido
+            perfil.username_display = username
+            perfil.email_verificado = True
+            perfil.activo = True
+            perfil.save()
+        except PerfilUsuario.DoesNotExist:
+            PerfilUsuario.objects.create(
+                usuario=user, nombre=nombre, apellido=apellido,
+                username_display=username, email_verificado=True, activo=True,
+            )
+
+        try:
+            user.perfil.ultimo_acceso = timezone.now()
+            user.perfil.save(update_fields=['ultimo_acceso'])
+        except PerfilUsuario.DoesNotExist:
+            pass
+
+        refresh = RefreshToken.for_user(user)
+        nombre_r = apellido_r = plan = ''
+        try:
+            nombre_r = user.perfil.nombre
+            apellido_r = user.perfil.apellido
+            plan = user.perfil.plan
+        except PerfilUsuario.DoesNotExist:
+            nombre_r, apellido_r = user.first_name, user.last_name
+
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'username': user.username,
+            'email': user.email,
+            'user_id': user.id,
+            'is_superuser': user.is_superuser,
+            'is_staff': user.is_staff,
+            'nombre': nombre_r,
+            'apellido': apellido_r,
+            'plan': plan,
+        }, status=status.HTTP_201_CREATED)

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Search, RefreshCw, ShieldCheck, KeyRound, UserX, UserCheck } from 'lucide-react'
+import { Search, RefreshCw, ShieldCheck, KeyRound, UserX, UserCheck, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../services/api'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -22,8 +22,10 @@ export default function AdminUsuariosPage() {
   const [filtroPlan, setFiltroPlan] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [page, setPage] = useState(1)
-  const [resetModal, setResetModal] = useState(null) // usuario
+  const [resetModal, setResetModal] = useState(null)
   const [tempPwd, setTempPwd] = useState('')
+  const [desactivarModal, setDesactivarModal] = useState(null) // usuario a desactivar
+  const [desactivandoId, setDesactivandoId] = useState(null)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -41,12 +43,33 @@ export default function AdminUsuariosPage() {
 
   useEffect(() => { cargar() }, [cargar])
 
-  const toggleActivo = async (u) => {
+  const reactivar = async (u) => {
     try {
-      await api.patch(`/usuarios/admin/${u.id}/`, { activo: !u.activo })
-      toast.success(u.activo ? 'Usuario desactivado' : 'Usuario activado')
+      await api.patch(`/usuarios/admin/${u.id}/`, { activo: true })
+      toast.success('Usuario activado')
       cargar()
-    } catch { toast.error('Error al modificar usuario') }
+    } catch { toast.error('Error al activar usuario') }
+  }
+
+  const confirmarDesactivar = async () => {
+    if (!desactivarModal) return
+    setDesactivandoId(desactivarModal.id)
+    try {
+      const res = await api.delete(`/usuarios/admin/${desactivarModal.id}/`)
+      const { carpetas_desactivadas, carpetas_transferidas, movimientos_desactivados } = res.data
+      const partes = []
+      if (carpetas_desactivadas > 0) partes.push(`${carpetas_desactivadas} carpeta${carpetas_desactivadas !== 1 ? 's' : ''} desactivada${carpetas_desactivadas !== 1 ? 's' : ''}`)
+      if (carpetas_transferidas > 0) partes.push(`${carpetas_transferidas} transferida${carpetas_transferidas !== 1 ? 's' : ''}`)
+      if (movimientos_desactivados > 0) partes.push(`${movimientos_desactivados} movimiento${movimientos_desactivados !== 1 ? 's' : ''}`)
+      const resumen = partes.length ? partes.join(', ') + ' movidos a papelera.' : ''
+      toast.success(`Usuario desactivado. ${resumen}`)
+      setDesactivarModal(null)
+      cargar()
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error al desactivar usuario')
+    } finally {
+      setDesactivandoId(null)
+    }
   }
 
   const cambiarPlan = async (u, plan) => {
@@ -129,7 +152,7 @@ export default function AdminUsuariosPage() {
               ) : usuarios.length === 0 ? (
                 <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">Sin resultados</td></tr>
               ) : usuarios.map(u => (
-                <tr key={u.id} className={dark ? 'hover:bg-gray-750' : 'hover:bg-gray-50'}>
+                <tr key={u.id} className={`${dark ? 'hover:bg-gray-750' : 'hover:bg-gray-50'} ${!u.activo ? (dark ? 'opacity-60' : 'opacity-70') : ''}`}>
                   <td className={td}>
                     <span className="font-medium">{u.apellido}, {u.nombre}</span>
                     {u.is_superuser && <span className="ml-1 text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded">admin</span>}
@@ -140,7 +163,8 @@ export default function AdminUsuariosPage() {
                     <select
                       value={u.plan}
                       onChange={e => cambiarPlan(u, e.target.value)}
-                      className={`text-xs px-1.5 py-0.5 rounded ${PLAN_COLORS[u.plan] || PLAN_COLORS.free} border-0 cursor-pointer`}
+                      disabled={!u.activo}
+                      className={`text-xs px-1.5 py-0.5 rounded ${PLAN_COLORS[u.plan] || PLAN_COLORS.free} border-0 cursor-pointer disabled:cursor-not-allowed`}
                     >
                       <option value="free">Free</option>
                       <option value="pro">Pro</option>
@@ -149,7 +173,7 @@ export default function AdminUsuariosPage() {
                   </td>
                   <td className={td}>
                     <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                      !u.activo ? 'bg-red-100 text-red-600' :
+                      !u.activo ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
                       !u.email_verificado ? 'bg-yellow-100 text-yellow-700' :
                       'bg-green-100 text-green-700'
                     }`}>
@@ -159,13 +183,23 @@ export default function AdminUsuariosPage() {
                   <td className={`${td} text-xs`}>{fmt(u.ultimo_acceso)}</td>
                   <td className={`${td} text-right`}>
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => toggleActivo(u)}
-                        title={u.activo ? 'Desactivar' : 'Activar'}
-                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                      >
-                        {u.activo ? <UserX size={14} className="text-red-500" /> : <UserCheck size={14} className="text-green-500" />}
-                      </button>
+                      {u.activo ? (
+                        <button
+                          onClick={() => setDesactivarModal(u)}
+                          title="Desactivar usuario"
+                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
+                          <UserX size={14} className="text-red-500" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => reactivar(u)}
+                          title="Reactivar usuario"
+                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
+                          <UserCheck size={14} className="text-green-500" />
+                        </button>
+                      )}
                       <button
                         onClick={() => resetPassword(u)}
                         title="Resetear contraseña"
@@ -215,6 +249,43 @@ export default function AdminUsuariosPage() {
             >
               Cerrar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmación desactivar */}
+      {desactivarModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className={`rounded-xl shadow-xl p-6 max-w-sm w-full ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={18} className="text-red-500" />
+              </div>
+              <h3 className="font-bold text-base">¿Desactivar usuario?</h3>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+              ¿Estás seguro que querés desactivar a{' '}
+              <strong>{desactivarModal.nombre} {desactivarModal.apellido}</strong>?
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
+              Se moverán a la papelera todas sus carpetas y movimientos que no estén compartidos con otros usuarios. Las carpetas compartidas se transferirán al colaborador más antiguo.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDesactivarModal(null)}
+                disabled={!!desactivandoId}
+                className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${dark ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100'} disabled:opacity-50`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarDesactivar}
+                disabled={!!desactivandoId}
+                className="flex-1 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {desactivandoId ? 'Desactivando...' : 'Desactivar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

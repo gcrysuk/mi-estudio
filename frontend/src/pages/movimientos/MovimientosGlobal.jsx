@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ClipboardList, Plus, X } from 'lucide-react';
+import { ClipboardList, Plus, X, Printer } from 'lucide-react';
 import MovimientoForm from './MovimientoForm';
+import ReporteMovimientos from '../../components/print/ReporteMovimientos';
 import MovimientosTable from '../../components/movimientos/MovimientosTable';
 
 const FILTROS = [
@@ -23,6 +24,7 @@ const MovimientosGlobal = () => {
 
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [refreshKey, setRefreshKey]     = useState(0);
+  const [showReporte, setShowReporte]   = useState(false);
 
   const activeFiltro = FILTROS.find(f => f.key === filtro) ?? FILTROS[0];
 
@@ -43,12 +45,20 @@ const MovimientosGlobal = () => {
           <ClipboardList className="text-accent" size={22} />
           <h1 className="text-xl font-bold uppercase">Movimientos</h1>
         </div>
-        <button
-          onClick={() => setNewModalOpen(true)}
-          className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 uppercase text-xs"
-        >
-          <Plus size={16} /> NUEVO MOVIMIENTO
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowReporte(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 uppercase transition-colors"
+          >
+            <Printer size={14} /> Imprimir lista
+          </button>
+          <button
+            onClick={() => setNewModalOpen(true)}
+            className="bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 uppercase text-xs"
+          >
+            <Plus size={16} /> NUEVO MOVIMIENTO
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -100,6 +110,14 @@ const MovimientosGlobal = () => {
         <MovimientoForm
           onClose={() => setNewModalOpen(false)}
           onSave={() => { setNewModalOpen(false); setRefreshKey((k) => k + 1); }}
+        />
+      )}
+
+      {showReporte && (
+        <ReporteMovimientos
+          filtros={filtro !== 'todos' ? { filtro } : {}}
+          filtroLabel={activeFiltro.label}
+          onClose={() => setShowReporte(false)}
         />
       )}
     </div>

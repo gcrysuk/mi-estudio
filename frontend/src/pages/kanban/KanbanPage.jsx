@@ -14,9 +14,10 @@ import {
 } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
-import { Settings, RefreshCw, Calendar, Folder, Tag, UserCheck } from 'lucide-react'
+import { Settings, RefreshCw, Calendar, Folder, Tag, UserCheck, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getKanbanBoard, cambiarEstadoMovimiento } from '../../services/kanbanService'
+import MovimientoForm from '../movimientos/MovimientoForm'
 import { useTheme } from '../../contexts/ThemeContext'
 
 function formatFecha(fechaStr) {
@@ -110,16 +111,15 @@ function DraggableCard({ movimiento }) {
   )
 }
 
-function KanbanColumn({ columna }) {
+function KanbanColumn({ columna, onNuevoMovimiento }) {
   const { dark } = useTheme()
   const { setNodeRef, isOver } = useDroppable({ id: String(columna.estado.id) })
   const { estado, movimientos, total } = columna
   const esFinal = estado.es_final
-  const titulo = esFinal ? `${estado.nombre} (${total})` : estado.nombre
 
   return (
     <div
-      className={`flex-shrink-0 w-72 flex flex-col rounded-xl border transition-colors ${
+      className={`flex-shrink-0 w-56 flex flex-col rounded-xl border transition-colors ${
         isOver
           ? dark ? 'border-blue-500 bg-gray-750' : 'border-blue-400 bg-blue-50'
           : dark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
@@ -127,22 +127,37 @@ function KanbanColumn({ columna }) {
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-current border-opacity-10">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <span
             className="w-3 h-3 rounded-full flex-shrink-0"
             style={{ backgroundColor: estado.color }}
           />
-          <span className={`font-semibold text-sm ${dark ? 'text-gray-200' : 'text-gray-700'}`}>
-            {titulo}
+          <span className={`font-semibold text-sm truncate ${dark ? 'text-gray-200' : 'text-gray-700'}`}>
+            {estado.nombre}
           </span>
         </div>
-        <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${dark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'}`}>
-          {movimientos.length}
-        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${dark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'}`}>
+            {esFinal ? total : movimientos.length}
+          </span>
+          <button
+            onClick={() => onNuevoMovimiento(estado.id)}
+            className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${
+              dark ? 'text-gray-400 hover:text-white hover:bg-gray-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'
+            }`}
+            title={`Nuevo movimiento en ${estado.nombre}`}
+          >
+            <Plus size={13} />
+          </button>
+        </div>
       </div>
 
       {/* Cards */}
-      <div ref={setNodeRef} className="flex-1 p-2 overflow-y-auto min-h-[120px] max-h-[calc(100vh-220px)]">
+      <div
+        ref={setNodeRef}
+        className={`flex-1 p-2 min-h-[120px] ${esFinal ? '' : 'overflow-y-auto'}`}
+        style={esFinal ? {} : { maxHeight: 'calc(100vh - 220px)' }}
+      >
         <SortableContext
           items={movimientos.map((m) => String(m.id))}
           strategy={verticalListSortingStrategy}
@@ -156,12 +171,14 @@ function KanbanColumn({ columna }) {
             Sin movimientos
           </div>
         )}
-        {esFinal && total > movimientos.length && (
-          <p className={`text-center text-xs mt-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
-            +{total - movimientos.length} más
-          </p>
-        )}
       </div>
+
+      {/* Footer solo en columnas finales cuando hay más que los mostrados */}
+      {esFinal && total > movimientos.length && (
+        <div className={`px-3 py-1.5 border-t text-center text-xs ${dark ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
+          Mostrando {movimientos.length} de {total}
+        </div>
+      )}
     </div>
   )
 }
@@ -172,6 +189,7 @@ export default function KanbanPage() {
   const [columnas, setColumnas] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeMovimiento, setActiveMovimiento] = useState(null)
+  const [nuevoMovEstado, setNuevoMovEstado] = useState(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -295,7 +313,7 @@ export default function KanbanPage() {
           >
             <div className="flex gap-4 h-full items-start">
               {columnas.map((col) => (
-                <KanbanColumn key={col.estado.id} columna={col} />
+                <KanbanColumn key={col.estado.id} columna={col} onNuevoMovimiento={setNuevoMovEstado} />
               ))}
               {columnas.length === 0 && (
                 <div className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -309,7 +327,7 @@ export default function KanbanPage() {
 
             <DragOverlay>
               {activeMovimiento && (
-                <div className="w-72">
+                <div className="w-56">
                   <KanbanCard movimiento={activeMovimiento} isDragging />
                 </div>
               )}
@@ -317,6 +335,14 @@ export default function KanbanPage() {
           </DndContext>
         )}
       </div>
+
+      {nuevoMovEstado !== null && (
+        <MovimientoForm
+          estadoInicial={nuevoMovEstado}
+          onClose={() => setNuevoMovEstado(null)}
+          onSave={() => { setNuevoMovEstado(null); cargarBoard() }}
+        />
+      )}
     </div>
   )
 }

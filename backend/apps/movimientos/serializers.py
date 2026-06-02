@@ -1,5 +1,8 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import Movimiento, TipoMovimiento, EstadoMovimiento, NotificacionMovimiento, KanbanConfig, NotificacionSistema
+
+User = get_user_model()
 
 
 class TipoMovimientoSerializer(serializers.ModelSerializer):
@@ -39,6 +42,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
     carpeta_nombre = serializers.ReadOnlyField(source='carpeta.nombre')
     carpeta_propietario_id = serializers.ReadOnlyField(source='carpeta.propietario_id')
     tipo_nombre = serializers.ReadOnlyField(source='tipo.nombre')
+    tipo_color = serializers.ReadOnlyField(source='tipo.color')
     estado_nombre = serializers.ReadOnlyField(source='estado.nombre')
     estado_color = serializers.ReadOnlyField(source='estado.color')
     creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
@@ -87,12 +91,38 @@ class NotificacionSerializer(serializers.ModelSerializer):
         fields = ['id', 'movimiento', 'movimiento_titulo', 'carpeta_nombre', 'carpeta_id', 'fecha', 'leida']
 
 
+class _ActorSerializer(serializers.ModelSerializer):
+    nombre_completo = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'nombre_completo']
+
+    def get_nombre_completo(self, obj):
+        return obj.get_full_name() or obj.username
+
+
 class NotificacionSistemaSerializer(serializers.ModelSerializer):
-    movimiento_titulo = serializers.ReadOnlyField(source='movimiento.titulo')
-    carpeta_nombre = serializers.ReadOnlyField(source='movimiento.carpeta.nombre')
-    carpeta_id = serializers.ReadOnlyField(source='movimiento.carpeta_id')
+    actor_detalle = _ActorSerializer(source='actor', read_only=True)
+    movimiento_titulo = serializers.SerializerMethodField()
+    carpeta_nombre = serializers.SerializerMethodField()
+    carpeta_id = serializers.SerializerMethodField()
 
     class Meta:
         model = NotificacionSistema
-        fields = ['id', 'tipo', 'mensaje', 'leida', 'fecha_creacion',
-                  'movimiento', 'movimiento_titulo', 'carpeta_nombre', 'carpeta_id']
+        fields = [
+            'id', 'tipo', 'mensaje', 'leida', 'fecha_creacion',
+            'movimiento', 'movimiento_titulo', 'carpeta_nombre', 'carpeta_id',
+            'actor', 'actor_detalle',
+        ]
+
+    def get_movimiento_titulo(self, obj):
+        return obj.movimiento.titulo if obj.movimiento_id else None
+
+    def get_carpeta_nombre(self, obj):
+        if obj.movimiento_id and obj.movimiento.carpeta_id:
+            return obj.movimiento.carpeta.nombre
+        return None
+
+    def get_carpeta_id(self, obj):
+        return obj.movimiento.carpeta_id if obj.movimiento_id else None

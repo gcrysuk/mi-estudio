@@ -8,7 +8,9 @@ import {
   ChevronDown,
   Building2,
   RefreshCw,
+  Printer,
 } from 'lucide-react';
+import ImprimirLista from '../../components/print/ImprimirLista';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -26,6 +28,7 @@ const OrganismosList = () => {
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
 
   const { pushUndo, undoLast } = useUndo();
 
@@ -177,6 +180,12 @@ const OrganismosList = () => {
               ELIMINAR ({selectedItems.length})
             </button>
           )}
+          <button
+            onClick={() => setShowPrint(true)}
+            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center gap-1.5 uppercase text-xs transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <Printer size={14} /> Imprimir
+          </button>
           <button
             onClick={() => { setEditingOrganismo(null); setModalOpen(true); }}
             className="flex-1 sm:flex-none bg-accent hover:bg-accent-hover text-white px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 uppercase text-xs transition-colors"
@@ -337,6 +346,24 @@ const OrganismosList = () => {
         onConfirm={handleBulkDelete}
         onCancel={() => setBulkDeleteConfirm(false)}
       />
+
+      {showPrint && (
+        <ImprimirLista
+          titulo="Listado de Organismos"
+          filtros={searchTerm ? `Búsqueda: "${searchTerm}"` : undefined}
+          headers={['Nombre', 'Jurisdicción', 'Materia', 'Dirección', 'Localidad', 'Provincia']}
+          items={filtered}
+          getRow={o => [
+            o.nombre,
+            o.jurisdiccion || '—',
+            o.materia_nombre || '—',
+            o.direccion || '—',
+            o.localidad || '—',
+            o.provincia || '—',
+          ]}
+          onClose={() => setShowPrint(false)}
+        />
+      )}
     </div>
   );
 };

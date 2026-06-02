@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import api from '../../services/api'
 import useAuthStore from '../../stores/authStore'
 import GoogleAuthButton from '../../components/auth/GoogleAuthButton'
+import GoogleUsernameModal from '../../components/auth/GoogleUsernameModal'
 
 const Login = () => {
   const [username, setUsername] = useState('')
@@ -12,6 +13,7 @@ const Login = () => {
   const [reenvioEmail, setReenvioEmail] = useState('')
   const [reenvioMsg, setReenvioMsg] = useState('')
   const [reenvioLoading, setReenvioLoading] = useState(false)
+  const [googlePendiente, setGooglePendiente] = useState(null)
   const login = useAuthStore(state => state.login)
   const navigate = useNavigate()
 
@@ -118,8 +120,19 @@ const Login = () => {
 
       {/* Google */}
       <div className="flex justify-center">
-        <GoogleAuthButton onSuccess={() => navigate('/dashboard', { replace: true })} />
+        <GoogleAuthButton
+          onSuccess={() => navigate('/dashboard', { replace: true })}
+          onRequiereUsername={setGooglePendiente}
+        />
       </div>
+
+      {googlePendiente && (
+        <GoogleUsernameModal
+          googleData={googlePendiente}
+          onClose={() => setGooglePendiente(null)}
+          onSuccess={() => navigate('/dashboard', { replace: true })}
+        />
+      )}
 
       <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-5">
         ¿No tenés cuenta?{' '}

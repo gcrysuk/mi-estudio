@@ -77,7 +77,7 @@ class CarpetaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Carpeta
         fields = '__all__'
-        read_only_fields = ['fecha_inicio', 'ultima_actualizacion', 'propietario']
+        read_only_fields = ['fecha_inicio', 'ultima_actualizacion', 'propietario', 'mev_ultimo_sync', 'mev_estado']
     
     def get_compartida_con_count(self, obj):
         return obj.compartidos.count()

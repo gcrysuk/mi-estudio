@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'django_extensions',
+    'django_celery_beat',
     
     # Local apps - EN ESTE ORDEN
     'apps.authentication',
@@ -153,6 +154,18 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Celery
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+CELERY_TIMEZONE = 'America/Argentina/Buenos_Aires'
+
+from celery.schedules import crontab  # noqa: E402
+CELERY_BEAT_SCHEDULE = {
+    'encolar-sync-mev-cada-hora': {
+        'task': 'apps.carpetas.tasks.encolar_sync_mev',
+        'schedule': crontab(minute=0),
+    },
+}
+
+# MEV (Mesa de Entradas Virtual - SCBA)
+MEV_ENCRYPTION_KEY = os.getenv('MEV_ENCRYPTION_KEY', '')
 
 # Email — usa SMTP si EMAIL_HOST_USER está configurado, consola como fallback
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Mi Estudio <noreply@miestudio.com>')
