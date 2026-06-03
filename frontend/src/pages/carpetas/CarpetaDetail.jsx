@@ -136,7 +136,7 @@ const CarpetaDetail = () => {
     <div className="space-y-4">
 
       {/* ── Header ── */}
-      <div className="flex items-start gap-3">
+      <div className="flex flex-col sm:flex-row items-start gap-3">
         <button
           onClick={handleVolver}
           className="mt-0.5 p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
@@ -205,7 +205,7 @@ const CarpetaDetail = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-2 overflow-x-auto flex-nowrap sm:flex-wrap sm:justify-end pb-1 sm:pb-0 flex-shrink-0 w-full sm:w-auto">
           {carpeta.mev_url && (
             <button
               onClick={handleSyncMev}

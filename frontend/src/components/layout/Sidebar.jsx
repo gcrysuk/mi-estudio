@@ -32,7 +32,7 @@ const navItems = [
   { to: '/papelera',    icon: Trash2,          label: 'Papelera'     },
 ]
 
-const Sidebar = () => {
+const Sidebar = ({ mobileOpen = false, onClose }) => {
   const { logout, user } = useAuthStore()
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
@@ -40,7 +40,7 @@ const Sidebar = () => {
     () => localStorage.getItem('sidebar_pinned') === 'true'
   )
 
-  const isExpanded = pinned || hovered
+  const isExpanded = mobileOpen || pinned || hovered
 
   const handleLogout = async () => {
     await logout()
@@ -57,9 +57,11 @@ const Sidebar = () => {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className={`flex-shrink-0 bg-gray-900 text-white flex flex-col h-full overflow-hidden transition-all duration-200 ${
-        isExpanded ? 'w-60' : 'w-16'
-      }`}
+      className={`bg-gray-900 text-white flex flex-col overflow-hidden transition-all duration-200
+        fixed inset-y-0 left-0 z-40 h-full
+        md:relative md:z-auto md:flex-shrink-0
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ${isExpanded ? 'w-60' : 'w-16'}`}
     >
       {/* Header / Logo */}
       <div className="flex items-center justify-between px-3 border-b border-gray-800 h-[57px]">
@@ -72,13 +74,24 @@ const Sidebar = () => {
           )}
         </div>
         {isExpanded && (
-          <button
-            onClick={togglePin}
-            title={pinned ? 'Desanclar sidebar' : 'Anclar sidebar'}
-            className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors flex-shrink-0 ml-1"
-          >
-            {pinned ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
-          </button>
+          <>
+            <button
+              onClick={togglePin}
+              title={pinned ? 'Desanclar sidebar' : 'Anclar sidebar'}
+              className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors flex-shrink-0 ml-1 hidden md:block"
+            >
+              {pinned ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+            </button>
+            {/* Close button on mobile */}
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors flex-shrink-0 ml-1 md:hidden"
+              >
+                <PanelLeftClose size={15} />
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -89,6 +102,7 @@ const Sidebar = () => {
             key={to}
             to={to}
             title={!isExpanded ? label : undefined}
+            onClick={() => onClose?.()}
             className={({ isActive }) =>
               `flex items-center gap-3 py-2.5 mx-2 rounded-lg transition-colors text-sm ${
                 isExpanded ? 'px-3' : 'px-0 justify-center'

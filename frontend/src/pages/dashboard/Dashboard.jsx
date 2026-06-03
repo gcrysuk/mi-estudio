@@ -95,7 +95,7 @@ const Dashboard = () => {
       <h1 className="text-2xl font-bold uppercase">Dashboard</h1>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-4 sm:gap-6">
         {CARDS.map(({ key, label, sub, icon: Icon, gradient, to }) => (
           loadingStats ? (
             <SkeletonCard key={key} />
@@ -103,12 +103,12 @@ const Dashboard = () => {
             <button
               key={key}
               onClick={() => navigate(to)}
-              className={`bg-gradient-to-br ${gradient} rounded-2xl shadow-lg p-6 text-white text-left cursor-pointer hover:scale-105 transition-transform duration-200 focus:outline-none`}
+              className={`bg-gradient-to-br ${gradient} rounded-2xl shadow-lg p-4 sm:p-6 text-white text-left cursor-pointer hover:scale-105 transition-transform duration-200 focus:outline-none`}
             >
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
                   <p className="text-xs font-bold uppercase tracking-widest opacity-90">{label}</p>
-                  <p className="text-5xl font-bold leading-none">{stats?.[key] ?? 0}</p>
+                  <p className="text-3xl sm:text-5xl font-bold leading-none">{stats?.[key] ?? 0}</p>
                   <p className="text-sm opacity-80">{sub}</p>
                 </div>
                 <Icon size={40} className="opacity-20 flex-shrink-0" />

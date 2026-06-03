@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
@@ -5,12 +6,20 @@ import { useInactivityLogout } from '../../hooks/useInactivityLogout';
 
 const Layout = () => {
   useInactivityLogout();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Topbar />
+      {/* Overlay for mobile sidebar */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <Topbar onMobileMenuToggle={() => setMobileOpen(prev => !prev)} />
         <main className="flex-1 overflow-y-auto">
           <div className="flex justify-center">
             <div className="w-full max-w-[95%] lg:max-w-[90%] p-2 sm:p-4">

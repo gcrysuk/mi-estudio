@@ -1,12 +1,12 @@
 import { useRef, useState, useCallback } from 'react'
-import { Bell, Moon, Sun, Plus } from 'lucide-react'
+import { Bell, Moon, Sun, Plus, Menu } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useNotificaciones } from '../../hooks/useNotificaciones'
 import PanelNotificaciones from '../notificaciones/PanelNotificaciones'
 import useClickOutside from '../../hooks/useClickOutside'
 import MovimientoForm from '../../pages/movimientos/MovimientoForm'
 
-const Topbar = () => {
+const Topbar = ({ onMobileMenuToggle }) => {
   const { theme, toggleTheme } = useTheme()
   const { notificaciones, notificacionesSistema, count, marcarLeida, marcarLeidaSistema, marcarTodasLeidas } = useNotificaciones()
   const [panelOpen, setPanelOpen] = useState(false)
@@ -22,8 +22,16 @@ const Topbar = () => {
 
   return (
     <>
-    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-      <div className="flex items-center justify-end">
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 md:px-6 md:py-4">
+      <div className="flex items-center justify-between md:justify-end gap-3">
+        {/* Hamburger — only on mobile */}
+        <button
+          onClick={onMobileMenuToggle}
+          className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          aria-label="Menú"
+        >
+          <Menu size={20} />
+        </button>
         <div className="flex items-center gap-4">
 
           {/* Nuevo Movimiento */}

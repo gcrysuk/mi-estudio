@@ -224,7 +224,7 @@ export default function NotificacionesPage() {
                 return (
                   <li
                     key={notif.id}
-                    className={`px-5 py-4 transition-colors ${
+                    className={`px-3 sm:px-5 py-3 sm:py-4 transition-colors ${
                       !notif.leida
                         ? dark ? 'bg-blue-900/10' : 'bg-blue-50/50'
                         : dark ? 'hover:bg-gray-750' : 'hover:bg-gray-50'
