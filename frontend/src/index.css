@@ -3,12 +3,16 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-size: 13px;
+  }
+
   * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
   }
-  
+
   body {
     font-family: 'Inter', sans-serif;
     @apply antialiased;

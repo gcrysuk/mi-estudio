@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck, Printer } from 'lucide-react';
+import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck, Printer, ChevronDown } from 'lucide-react';
 import ReporteMinuta from '../../components/print/ReporteMinuta';
+import ReporteTranscripcion from '../../components/print/ReporteTranscripcion';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import MovimientoConfig from './MovimientoConfig';
@@ -27,6 +28,13 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
   const [toDelete, setToDelete] = useState([]);             // ids to DELETE on save
   const [nuevaFecha, setNuevaFecha] = useState('');
   const [generandoMinuta, setGenerandoMinuta] = useState(false);
+  const [transcripcionLocal, setTranscripcionLocal] = useState(movimiento?.transcripcion || '');
+  const [responsableSeleccionado, setResponsableSeleccionado] = useState(null);
+  const [busquedaResponsable, setBusquedaResponsable] = useState('');
+  const [usuariosBusqueda, setUsuariosBusqueda] = useState([]);
+  const [cargandoResponsable, setCargandoResponsable] = useState(false);
+  const [showTranscripcion, setShowTranscripcion] = useState(false);
+  const [showPrintTranscripcion, setShowPrintTranscripcion] = useState(false);
 
   const { isListening, start, stop } = useSpeechRecognition({
     onResult: (transcript) => {
@@ -39,11 +47,15 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
 
   const generarMinuta = async () => {
     setGenerandoMinuta(true);
+    const textoOriginal = formData.descripcion;
     try {
-      const res = await api.post('/movimientos/generar_minuta/', { texto: formData.descripcion });
+      const payload = { texto: textoOriginal };
+      if (movimientoActual?.id) payload.movimiento_id = movimientoActual.id;
+      const res = await api.post('/movimientos/generar_minuta/', payload);
       const minuta = res.data.minuta;
       if (minuta) {
         setFormData(prev => ({ ...prev, descripcion: minuta }));
+        setTranscripcionLocal(textoOriginal);
         toast.success('Minuta generada');
       }
     } catch {
@@ -122,6 +134,25 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
+  useEffect(() => {
+    if (!busquedaResponsable || busquedaResponsable.length < 2) {
+      setUsuariosBusqueda([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setCargandoResponsable(true);
+      try {
+        const params = { search: busquedaResponsable };
+        if (carpetaSeleccionada?.id) params.carpeta_id = carpetaSeleccionada.id;
+        const res = await api.get('/usuarios/', { params });
+        setUsuariosBusqueda(res.data.results || res.data);
+      } finally {
+        setCargandoResponsable(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [busquedaResponsable, carpetaSeleccionada?.id]);
+
   const fetchTiposMovimiento = async () => {
     try {
       const response = await api.get('/movimientos/tipos/');
@@ -148,12 +179,18 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
       return;
     }
 
+    if (!movimiento && !formData.carpeta) {
+      toast.error('La carpeta es obligatoria');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const dataToSend = {
         ...formData,
         carpeta: formData.carpeta || null,
+        responsable: !movimiento ? (responsableSeleccionado?.id || null) : undefined,
         fecha_movimiento: new Date(formData.fecha_movimiento).toISOString(),
         fecha_notificacion: null,
         fecha_vencimiento: formData.fecha_vencimiento ?
@@ -257,7 +294,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
             <div>
               <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
                 <FolderOpen size={12} />
-                CARPETA
+                CARPETA{!movimiento && ' *'}
               </label>
               <BuscadorCarpeta
                 value={carpetaSeleccionada}
@@ -442,6 +479,58 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               />
             </div>
 
+            {/* Responsable — solo al crear */}
+            {!movimiento && (
+              <div>
+                <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
+                  <UserCheck size={12} />
+                  RESPONSABLE (OPCIONAL)
+                </label>
+                {responsableSeleccionado ? (
+                  <div className="flex items-center justify-between px-2 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-dark-elevated">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent flex-shrink-0">
+                        {(responsableSeleccionado.nombre_completo || responsableSeleccionado.username)[0].toUpperCase()}
+                      </div>
+                      <span className="text-xs">{responsableSeleccionado.nombre_completo || responsableSeleccionado.username}</span>
+                    </div>
+                    <button type="button" onClick={() => setResponsableSeleccionado(null)} className="text-gray-400 hover:text-red-500 transition-colors">
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={busquedaResponsable}
+                      onChange={(e) => setBusquedaResponsable(e.target.value)}
+                      placeholder="Buscar usuario..."
+                      className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                    />
+                    {(cargandoResponsable || usuariosBusqueda.length > 0) && (
+                      <div className="absolute z-20 w-full mt-0.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-surface shadow-lg overflow-hidden">
+                        {cargandoResponsable ? (
+                          <div className="px-3 py-2 text-xs text-gray-400">Buscando...</div>
+                        ) : usuariosBusqueda.map(u => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => { setResponsableSeleccionado(u); setBusquedaResponsable(''); setUsuariosBusqueda([]); }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
+                          >
+                            <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent flex-shrink-0">
+                              {(u.nombre_completo || u.username)[0].toUpperCase()}
+                            </div>
+                            <span className="text-xs">{u.nombre_completo || u.username}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Responsable — solo al editar y si el usuario es owner de la carpeta */}
             {movimientoActual && carpetaSeleccionada?.propietario === user?.id && (
               <div>
@@ -474,6 +563,56 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
                     <UserCheck size={13} />
                     Asignar responsable...
                   </button>
+                )}
+              </div>
+            )}
+
+            {/* Transcripción original */}
+            {(transcripcionLocal || movimiento?.transcripcion) && (
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTranscripcion(v => !v)}
+                  className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-accent w-full text-left uppercase font-medium"
+                >
+                  <ChevronDown size={13} className={`transition-transform ${showTranscripcion ? 'rotate-180' : ''}`} />
+                  Transcripción original
+                </button>
+                {showTranscripcion && (
+                  <div className="mt-1.5 space-y-1.5">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-dark-elevated rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                      {transcripcionLocal || movimiento?.transcripcion}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPrintTranscripcion(true)}
+                      className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <Printer size={11} /> Imprimir transcripción
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tracking — solo al editar */}
+            {movimiento?.id && (movimiento.creado_por_nombre || movimiento.modificado_por_nombre) && (
+              <div className="pt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 space-y-0.5">
+                {movimiento.creado_por_nombre && (
+                  <p>
+                    Creado por: <span className="font-medium">{movimiento.creado_por_nombre}</span>
+                    {movimiento.fecha_creacion && (
+                      <> &bull; {new Date(movimiento.fecha_creacion).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
+                    )}
+                  </p>
+                )}
+                {movimiento.modificado_por_nombre && (
+                  <p>
+                    Última modificación: <span className="font-medium">{movimiento.modificado_por_nombre}</span>
+                    {movimiento.ultima_actualizacion && (
+                      <> &bull; {new Date(movimiento.ultima_actualizacion).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</>
+                    )}
+                  </p>
                 )}
               </div>
             )}
@@ -522,6 +661,15 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
         <ReporteMinuta
           movimiento={{ ...movimiento, ...formData, carpeta_nombre: carpetaSeleccionada?.nombre }}
           onClose={() => setShowMinuta(false)}
+        />,
+        document.body
+      )}
+
+      {showPrintTranscripcion && createPortal(
+        <ReporteTranscripcion
+          movimiento={{ ...movimientoActual, carpeta_nombre: carpetaSeleccionada?.nombre }}
+          transcripcion={transcripcionLocal || movimiento?.transcripcion}
+          onClose={() => setShowPrintTranscripcion(false)}
         />,
         document.body
       )}

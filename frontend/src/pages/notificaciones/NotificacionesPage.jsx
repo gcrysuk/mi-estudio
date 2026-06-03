@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Bell, UserCheck, RefreshCw, Folder, Scale, CheckCheck, Trash2,
-  ExternalLink, Circle, CheckCircle, ChevronDown,
+  ExternalLink, Circle, CheckCircle, ChevronDown, AlertTriangle,
 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -18,15 +18,23 @@ const FILTROS = [
   { key: 'carpeta_compartida', label: 'Carpetas compartidas' },
   { key: 'mev_nuevo_movimiento', label: 'MEV' },
   { key: 'mev_cambio_estado',   label: 'MEV estado' },
+  { key: 'mev_error',           label: 'MEV error' },
 ];
 
 const TIPO_META = {
   asignacion:           { icon: UserCheck, color: 'text-accent',     bg: 'bg-accent/10',     badge: 'bg-accent/10 text-accent',          label: 'Asignación' },
   cambio_estado:        { icon: RefreshCw, color: 'text-blue-500',   bg: 'bg-blue-500/10',   badge: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400', label: 'Cambio de estado' },
   carpeta_compartida:   { icon: Folder,    color: 'text-orange-500', bg: 'bg-orange-500/10', badge: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400', label: 'Carpeta compartida' },
-  mev_nuevo_movimiento: { icon: Scale, color: 'text-indigo-500', bg: 'bg-indigo-500/10', badge: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', label: 'MEV' },
-  mev_cambio_estado:    { icon: Scale, color: 'text-indigo-500', bg: 'bg-indigo-500/10', badge: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', label: 'MEV estado' },
+  mev_nuevo_movimiento: { icon: Scale,         color: 'text-indigo-500', bg: 'bg-indigo-500/10', badge: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', label: 'MEV' },
+  mev_cambio_estado:    { icon: Scale,         color: 'text-indigo-500', bg: 'bg-indigo-500/10', badge: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', label: 'MEV estado' },
+  mev_error:            { icon: AlertTriangle, color: 'text-red-500',    bg: 'bg-red-500/10',    badge: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400',           label: 'MEV error' },
 };
+
+function buildDestino(notif) {
+  const carpetaId = notif.carpeta_id;
+  if (!carpetaId) return null;
+  return `/carpetas/${carpetaId}`;
+}
 
 const relativo = (fecha) => {
   try { return formatDistanceToNow(parseISO(fecha), { addSuffix: true, locale: es }); }
@@ -44,6 +52,7 @@ function Avatar({ nombre }) {
 
 export default function NotificacionesPage() {
   const { dark } = useTheme();
+  const navigate = useNavigate();
   const [filtro, setFiltro] = useState('todas');
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +219,7 @@ export default function NotificacionesPage() {
                 const meta = TIPO_META[notif.tipo] ?? TIPO_META.asignacion;
                 const IconComp = meta.icon;
                 const actorNombre = notif.actor_detalle?.nombre_completo || notif.actor_detalle?.username || '';
+                const destino = buildDestino(notif);
 
                 return (
                   <li
@@ -255,7 +265,7 @@ export default function NotificacionesPage() {
                             {relativo(notif.fecha_creacion)}
                           </span>
                           {notif.carpeta_nombre && (
-                            <span className={`text-[11px] truncate max-w-[140px] ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                            <span className={`text-[11px] truncate max-w-[140px] ${dark ? 'text-gray-500' : 'text-gray-400'}`} title={notif.carpeta_nombre}>
                               {notif.carpeta_nombre}
                             </span>
                           )}
@@ -284,13 +294,13 @@ export default function NotificacionesPage() {
                           >
                             <Trash2 size={11} /> Eliminar
                           </button>
-                          {notif.carpeta_id && (
-                            <Link
-                              to={`/carpetas/${notif.carpeta_id}`}
-                              className="flex items-center gap-1 text-[11px] uppercase text-accent hover:text-accent-hover transition-colors"
+                          {destino && (
+                            <button
+                              onClick={() => navigate(destino)}
+                              className="ml-auto flex items-center gap-1 text-[11px] uppercase font-medium text-accent hover:opacity-75 transition-opacity"
                             >
-                              <ExternalLink size={11} /> Ver carpeta
-                            </Link>
+                              Ver <ExternalLink size={11} />
+                            </button>
                           )}
                         </div>
                       </div>

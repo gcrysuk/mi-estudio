@@ -15,7 +15,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar';
 const GCAL_API = 'https://www.googleapis.com/calendar/v3';
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const TZ = 'America/Argentina/Buenos_Aires';
@@ -66,6 +66,16 @@ const CalendarioPage = () => {
   const tokenClientRef = useRef(null);
   const accessTokenRef = useRef(null);
 
+  // Restaurar token guardado al montar
+  useEffect(() => {
+    const savedToken = localStorage.getItem('gcal_token');
+    const savedExpiry = localStorage.getItem('gcal_token_expires');
+    if (savedToken && savedExpiry && Date.now() < parseInt(savedExpiry)) {
+      accessTokenRef.current = savedToken;
+      setGoogleConnected(true);
+    }
+  }, []);
+
   // ── Google Identity Services ──────────────────────────────────────────────
 
   useEffect(() => {
@@ -91,6 +101,10 @@ const CalendarioPage = () => {
           return;
         }
         accessTokenRef.current = resp.access_token;
+        localStorage.setItem('gcal_token', resp.access_token);
+        if (resp.expires_in) {
+          localStorage.setItem('gcal_token_expires', (Date.now() + resp.expires_in * 1000).toString());
+        }
         setGoogleConnected(true);
         toast.success('Google Calendar conectado');
       },
@@ -146,6 +160,8 @@ const CalendarioPage = () => {
     if (googleConnected) {
       window.google?.accounts.oauth2.revoke(accessTokenRef.current, () => {});
       accessTokenRef.current = null;
+      localStorage.removeItem('gcal_token');
+      localStorage.removeItem('gcal_token_expires');
       setGoogleConnected(false);
       setGoogleEvents([]);
       toast('Google Calendar desconectado');
@@ -162,8 +178,24 @@ const CalendarioPage = () => {
     if (!token) return;
     setSyncing(true);
     try {
+      // 1. Obtener IDs de eventos ya sincronizados
+      const existingRes = await fetch(
+        `${GCAL_API}/calendars/primary/events?privateExtendedProperty=source%3Dmiestudio&maxResults=2500`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const existingData = await existingRes.json();
+      const existingIds = new Set(
+        (existingData.items || [])
+          .map(e => e.extendedProperties?.private?.miestudio_id)
+          .filter(Boolean)
+      );
+
+      // 2. Crear solo los que no existen
       const vencimientos = appEvents.filter(e => e.type.startsWith('vencimiento'));
+      let creados = 0;
       for (const ev of vencimientos) {
+        const miestudio_id = `mov_${ev.movimientoId}`;
+        if (existingIds.has(miestudio_id)) continue;
         const body = {
           summary: `[MI ESTUDIO] ${ev.title}`,
           description: [ev.descripcion, ev.carpeta ? `Carpeta: ${ev.carpeta}` : '']
@@ -174,15 +206,21 @@ const CalendarioPage = () => {
             timeZone: TZ,
           },
           reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 60 }] },
-          extendedProperties: { private: { miEstudioId: ev.id } },
+          extendedProperties: { private: { miestudio_id, source: 'miestudio' } },
         };
         await fetch(`${GCAL_API}/calendars/primary/events`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
+        creados++;
       }
-      toast.success(`${vencimientos.length} vencimiento(s) enviados a Google Calendar`);
+      const omitidos = vencimientos.length - creados;
+      if (creados === 0 && omitidos > 0) {
+        toast.success('Todos los vencimientos ya estaban en Google Calendar');
+      } else {
+        toast.success(`${creados} vencimiento(s) enviados${omitidos > 0 ? ` (${omitidos} ya existían)` : ''}`);
+      }
       await fetchGoogleEvents();
     } catch {
       toast.error('Error al sincronizar');
@@ -200,8 +238,8 @@ const CalendarioPage = () => {
   const fetchAppEvents = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/movimientos/');
-      const movimientos = res.data.results || res.data;
+      const res = await api.get('/movimientos/calendario/');
+      const movimientos = res.data;
       const now = new Date();
       const in7 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       const events = [];

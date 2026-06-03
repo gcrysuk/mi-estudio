@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Clock, FolderOpen, ListTodo, ChevronRight, CalendarClock } from 'lucide-react';
+import { AlertCircle, Clock, FolderOpen, ListTodo, ChevronRight, CalendarClock, Search, X } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../../services/api';
+import MovimientoForm from '../movimientos/MovimientoForm';
 
 const SkeletonCard = () => (
   <div className="rounded-2xl shadow-lg p-6 bg-gray-200 dark:bg-gray-700 animate-pulse h-36" />
@@ -70,8 +71,12 @@ const Dashboard = () => {
   const [proximos, setProximos] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingProximos, setLoadingProximos] = useState(true);
+  const [editingMovimiento, setEditingMovimiento] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
 
-  useEffect(() => {
+  const cargarDatos = useCallback(() => {
+    setLoadingStats(true);
+    setLoadingProximos(true);
     api.get('/movimientos/dashboard_stats/')
       .then(res => setStats(res.data))
       .catch(() => {})
@@ -82,6 +87,8 @@ const Dashboard = () => {
       .catch(() => {})
       .finally(() => setLoadingProximos(false));
   }, []);
+
+  useEffect(() => { cargarDatos(); }, [cargarDatos]);
 
   return (
     <div className="space-y-8 p-4">
@@ -116,6 +123,23 @@ const Dashboard = () => {
         <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <CalendarClock size={18} className="text-accent" />
           <h2 className="text-sm font-bold uppercase tracking-wide">Próximos vencimientos</h2>
+          {!loadingProximos && proximos.length > 0 && (
+            <div className="relative flex items-center ml-auto">
+              <Search size={12} className="absolute left-2.5 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                placeholder="Buscar..."
+                className="pl-7 pr-6 py-1 rounded-lg text-xs border-none focus:outline-none focus:ring-1 focus:ring-accent bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 placeholder-gray-400 w-44"
+              />
+              {busqueda && (
+                <button onClick={() => setBusqueda('')} className="absolute right-2 text-gray-400 hover:text-gray-600">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -127,12 +151,24 @@ const Dashboard = () => {
             <p className="text-sm text-gray-400 text-center py-10">
               No hay vencimientos en los próximos 30 días
             </p>
-          ) : (
-            proximos.map(mov => (
+          ) : (() => {
+            const q = busqueda.toLowerCase();
+            const filtrados = q
+              ? proximos.filter(m =>
+                  m.titulo?.toLowerCase().includes(q) ||
+                  m.carpeta_nombre?.toLowerCase().includes(q)
+                )
+              : proximos;
+            if (filtrados.length === 0) return (
+              <p className="text-sm text-gray-400 text-center py-10">
+                Sin resultados para tu búsqueda
+              </p>
+            );
+            return filtrados.map(mov => (
               <button
                 key={mov.id}
-                onClick={() => navigate(`/carpetas/${mov.carpeta}`)}
-                className="w-full flex items-center gap-3 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
+                onClick={() => setEditingMovimiento(mov)}
+                className="w-full flex items-center gap-3 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left cursor-pointer"
               >
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${urgencyDotClass(mov.fecha_vencimiento)}`} />
                 <div className="flex-1 min-w-0">
@@ -146,10 +182,19 @@ const Dashboard = () => {
                 </span>
                 <ChevronRight size={14} className="text-gray-400 flex-shrink-0" />
               </button>
-            ))
-          )}
+            ));
+          })()}
         </div>
       </div>
+      {editingMovimiento && (
+        <MovimientoForm
+          movimiento={editingMovimiento}
+          carpetaId={editingMovimiento.carpeta}
+          carpetaNombre={editingMovimiento.carpeta_nombre}
+          onClose={() => setEditingMovimiento(null)}
+          onSave={() => { setEditingMovimiento(null); cargarDatos(); }}
+        />
+      )}
     </div>
   );
 };

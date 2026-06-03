@@ -93,11 +93,25 @@ class Movimiento(models.Model):
         related_name='movimientos_responsable',
     )
 
+    transcripcion = models.TextField(
+        blank=True,
+        default='',
+        verbose_name="Transcripción original",
+    )
+
     # Tracking
     creado_por = models.ForeignKey(
         User,
         on_delete=models.PROTECT,
         related_name='movimientos_creados'
+    )
+    modificado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimientos_modificados',
+        verbose_name="Último modificado por",
     )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
@@ -157,6 +171,7 @@ class NotificacionSistema(models.Model):
         ('carpeta_compartida', 'Carpeta compartida'),
         ('mev_nuevo_movimiento', 'Nuevo movimiento MEV'),
         ('mev_cambio_estado', 'Cambio de estado MEV'),
+        ('mev_error', 'Error de sincronización MEV'),
     ]
     usuario = models.ForeignKey(
         User,
@@ -173,6 +188,13 @@ class NotificacionSistema(models.Model):
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
     movimiento = models.ForeignKey(
         Movimiento,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notificaciones_sistema',
+    )
+    carpeta = models.ForeignKey(
+        'carpetas.Carpeta',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

@@ -369,6 +369,7 @@ class PerfilView(APIView):
             'domicilio_real': p.domicilio_real,
             'domicilio_electronico': p.domicilio_electronico,
             'notificaciones_email': p.notificaciones_email,
+            'tiene_password': user.has_usable_password(),
         })
 
     def patch(self, request):
@@ -441,7 +442,7 @@ class CambiarPasswordView(APIView):
         nueva = request.data.get('password_nueva', '')
         nueva2 = request.data.get('password_nueva2', '')
 
-        if not user.check_password(actual):
+        if user.has_usable_password() and not user.check_password(actual):
             return Response({'password_actual': 'Contraseña actual incorrecta.'}, status=400)
         if nueva != nueva2:
             return Response({'password_nueva2': 'Las contraseñas no coinciden.'}, status=400)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FolderOpen, Hash, User, Building2, Scale,
   FileText, Calendar, Clock, AlertCircle, Edit,
@@ -35,6 +35,12 @@ const InfoItem = ({ icon: Icon, label, value }) => {
 // ── main component ────────────────────────────────────────────────────────────
 const CarpetaDetail = () => {
   const { id } = useParams()
+  const navigate = useNavigate()
+
+  const handleVolver = () => {
+    if (window.history.length > 1) navigate(-1)
+    else navigate('/carpetas')
+  }
 
   const [carpeta, setCarpeta]               = useState(null)
   const [loadingCarpeta, setLoadingCarpeta] = useState(true)
@@ -78,7 +84,7 @@ const CarpetaDetail = () => {
       const res = await api.post(`/carpetas/${id}/sync_mev/`)
       const { encolado, nuevos, error } = res.data
       if (encolado) {
-        toast.success('Sincronización encolada — los movimientos aparecerán en breve')
+        toast.success('Sincronización iniciada — recibirás una notificación con el resultado')
       } else if (error) {
         toast.error(`MEV: ${error}`)
       } else {
@@ -131,16 +137,16 @@ const CarpetaDetail = () => {
 
       {/* ── Header ── */}
       <div className="flex items-start gap-3">
-        <Link
-          to="/carpetas"
+        <button
+          onClick={handleVolver}
           className="mt-0.5 p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >
           <ArrowLeft size={18} />
-        </Link>
+        </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold truncate">{carpeta.nombre}</h1>
+            <h1 className="text-xl font-bold truncate" title={carpeta.nombre}>{carpeta.nombre}</h1>
 
             {carpeta.estado_nombre && (
               <span

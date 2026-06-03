@@ -5,7 +5,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Max, Case, When, IntegerField, Value
 from django.utils import timezone
@@ -37,7 +37,9 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     serializer_class = MovimientoSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
-    filter_backends = [SearchFilter, DjangoFilterBackend]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
+    ordering_fields = ['titulo', 'fecha_movimiento', 'fecha_vencimiento', 'fecha_creacion', 'tiempo_trabajo', 'estado__nombre', 'tipo__nombre', 'carpeta__nombre', 'responsable__username', 'creado_por__username']
+    ordering = ['-fecha_movimiento']
     filterset_fields = ['carpeta', 'tipo', 'estado', 'vencido']
     search_fields = [
         'titulo',
@@ -66,7 +68,7 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             Q(carpeta__isnull=True, creado_por=user) |
             Q(responsable=user),
             activo=True,
-        ).select_related('carpeta', 'tipo', 'estado', 'creado_por', 'responsable')
+        ).select_related('carpeta', 'tipo', 'estado', 'creado_por', 'responsable', 'modificado_por')
 
         carpeta_id = self.request.query_params.get('carpeta')
         if carpeta_id:
@@ -78,12 +80,30 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         carpeta = serializer.validated_data.get('carpeta')
         if not _user_puede_editar_carpeta(self.request.user, carpeta):
             raise PermissionDenied('No tenés permiso de escritura en esta carpeta.')
-        serializer.save(creado_por=self.request.user)
+        movimiento = serializer.save(creado_por=self.request.user)
+
+        # Si se asignó responsable al crear, compartir carpeta y notificar
+        if movimiento.responsable_id and carpeta:
+            actor = self.request.user
+            actor_nombre = actor.get_full_name() or actor.username
+            CompartirCarpeta.objects.get_or_create(
+                carpeta=carpeta,
+                usuario=movimiento.responsable,
+                defaults={'puede_editar': False, 'compartido_por': actor},
+            )
+            if movimiento.responsable_id != actor.pk:
+                NotificacionSistema.objects.create(
+                    usuario=movimiento.responsable,
+                    actor=actor,
+                    tipo='asignacion',
+                    movimiento=movimiento,
+                    mensaje=f"{actor_nombre} te asignó el movimiento '{movimiento.titulo}' en '{carpeta.nombre}'",
+                )
 
     def perform_update(self, serializer):
         if not _user_puede_editar_movimiento(self.request.user, serializer.instance):
             raise PermissionDenied('No tenés permiso de escritura en este movimiento.')
-        serializer.save()
+        serializer.save(modificado_por=self.request.user)
 
     def perform_destroy(self, instance):
         if not _user_puede_editar_movimiento(self.request.user, instance):
@@ -297,7 +317,7 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             qs = base_qs.filter(estado=estado)
             total = qs.count()
             if estado.es_final:
-                movimientos = qs.order_by('-fecha_cambio_estado')[:10]
+                movimientos = qs.order_by('-fecha_cambio_estado', '-fecha_movimiento')
             else:
                 movimientos = qs.order_by('-fecha_movimiento')
             serializer = self.get_serializer(movimientos, many=True)
@@ -449,6 +469,15 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             'filtros_aplicados': filtros_aplicados,
         })
 
+    @action(detail=False, methods=['get'], url_path='calendario')
+    def calendario(self, request):
+        """Retorna todos los movimientos con fecha_vencimiento. Sin paginación."""
+        queryset = self.get_queryset().filter(
+            fecha_vencimiento__isnull=False
+        ).select_related('carpeta', 'tipo', 'estado')
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'], url_path='resumen')
     def resumen(self, request):
         from django.db.models import OuterRef, Subquery, F
@@ -514,7 +543,8 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Estado no encontrado'}, status=status.HTTP_404_NOT_FOUND)
         movimiento.estado = estado
         movimiento.fecha_cambio_estado = timezone.now()
-        movimiento.save(update_fields=['estado', 'fecha_cambio_estado'])
+        movimiento.modificado_por = request.user
+        movimiento.save(update_fields=['estado', 'fecha_cambio_estado', 'modificado_por'])
 
         carpeta = movimiento.carpeta
         actor = request.user
@@ -625,6 +655,15 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             data = json.loads(resp.read().decode('utf-8'))
 
         minuta = data.get('content', [{}])[0].get('text', '')
+
+        if movimiento_id := request.data.get('movimiento_id'):
+            try:
+                mov = Movimiento.objects.get(pk=movimiento_id)
+                mov.transcripcion = texto
+                mov.save(update_fields=['transcripcion'])
+            except Movimiento.DoesNotExist:
+                pass
+
         return Response({'minuta': minuta})
 
 

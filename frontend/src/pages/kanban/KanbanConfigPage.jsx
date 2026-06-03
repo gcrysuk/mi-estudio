@@ -85,6 +85,11 @@ function SortableEstado({ estado, visible, onToggle }) {
 export default function KanbanConfigPage() {
   const { dark } = useTheme()
   const navigate = useNavigate()
+
+  const handleVolver = () => {
+    if (window.history.length > 1) navigate(-1)
+    else navigate('/kanban')
+  }
   const [allEstados, setAllEstados] = useState([])
   const [visiblesIds, setVisiblesIds] = useState(new Set())
   const [orden, setOrden] = useState([])
@@ -165,7 +170,7 @@ export default function KanbanConfigPage() {
         orden_columnas: orden.map(Number),
       })
       toast.success('Configuración guardada')
-      navigate('/kanban')
+      handleVolver()
     } catch {
       toast.error('Error al guardar la configuración')
     } finally {
@@ -177,7 +182,7 @@ export default function KanbanConfigPage() {
     <div className={`min-h-full ${dark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className={`px-6 py-4 border-b flex items-center gap-3 ${dark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
         <button
-          onClick={() => navigate('/kanban')}
+          onClick={handleVolver}
           className={`p-1.5 rounded-lg transition-colors ${dark ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-500 hover:bg-gray-100'}`}
         >
           <ArrowLeft size={18} />

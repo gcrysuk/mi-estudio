@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import Pagination from '../../components/ui/Pagination';
+import { useResizableColumns } from '../../hooks/useResizableColumns';
+
+const CL_INITIAL_WIDTHS = {
+  nombre: 220, numero_expediente: 140, persona: 150,
+  estado: 120, tipo: 120, objeto: 120, organismo: 150, fecha_inicio: 120,
+};
 import {
   Search,
   Plus,
@@ -50,10 +56,19 @@ const CarpetasList = () => {
   });
   // Si hay ?estado_nombre en la URL, esperar a que se resuelva el ID antes del primer fetch
   const [filtersReady, setFiltersReady] = useState(!searchParams.get('estado_nombre'));
-  const [sortConfig, setSortConfig] = useState({
-    key: 'fecha_inicio',
-    direction: 'desc'
-  });
+  const [ordering, setOrdering] = useState('-fecha_inicio');
+
+  // Maps UI column key → backend ordering field name
+  const SORT_FIELD_MAP = {
+    nombre:            'nombre',
+    numero_expediente: 'numero_expediente',
+    persona:           'persona__apellido',
+    estado:            'estado__nombre',
+    tipo:              'tipo__nombre',
+    objeto:            'objeto__nombre',
+    organismo:         'organismo__nombre',
+    fecha_inicio:      'fecha_inicio',
+  };
   const [modalOpen, setModalOpen] = useState(false);
   const [compartirModalOpen, setCompartirModalOpen] = useState(false);
   const [selectedCarpeta, setSelectedCarpeta] = useState(null);
@@ -124,6 +139,7 @@ const CarpetasList = () => {
       if (filters.estado)     params.estado = filters.estado;
       if (filters.tipo)       params.tipo   = filters.tipo;
       if (diasSinMovimiento)  params.dias_sin_movimiento = diasSinMovimiento;
+      if (ordering)           params.ordering = ordering;
 
       const response = await api.get('/carpetas/', { params });
       const data = response.data;
@@ -138,7 +154,7 @@ const CarpetasList = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, search, diasSinMovimiento]); // eslint-disable-line
+  }, [filters, search, diasSinMovimiento, ordering]); // eslint-disable-line
 
   useEffect(() => {
     fetchPersonas();
@@ -163,7 +179,7 @@ const CarpetasList = () => {
     if (!filtersReady) return;
     setPage(1);
     fetchData(1, pageSize);
-  }, [filters, search, diasSinMovimiento, pageSize, filtersReady]); // eslint-disable-line
+  }, [filters, search, diasSinMovimiento, pageSize, filtersReady, ordering]); // eslint-disable-line
 
   // Fetch when page changes (user navigates)
   useEffect(() => {
@@ -252,11 +268,11 @@ const CarpetasList = () => {
     }
   };
 
-  const handleSort = (key) => {
-    setSortConfig({
-      key,
-      direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc'
-    });
+  const handleSort = (uiKey) => {
+    const campo = SORT_FIELD_MAP[uiKey] || uiKey;
+    if (ordering === campo) setOrdering(`-${campo}`);
+    else if (ordering === `-${campo}`) setOrdering(campo);
+    else setOrdering(campo);
   };
 
   const getPersonaNombre = (personaId) => {
@@ -307,41 +323,8 @@ const CarpetasList = () => {
     }
   };
 
-  // Sort within current page (client-side)
-  const filteredCarpetas = [...carpetas].sort((a, b) => {
-    let aVal = a[sortConfig.key];
-    let bVal = b[sortConfig.key];
-
-    if (sortConfig.key === 'persona') {
-      aVal = getPersonaNombre(a.persona);
-      bVal = getPersonaNombre(b.persona);
-    }
-    if (sortConfig.key === 'estado') {
-      aVal = getEstadoNombre(a.estado);
-      bVal = getEstadoNombre(b.estado);
-    }
-    if (sortConfig.key === 'tipo') {
-      aVal = getTipoNombre(a.tipo);
-      bVal = getTipoNombre(b.tipo);
-    }
-    if (sortConfig.key === 'objeto') {
-      aVal = getObjetoNombre(a.objeto);
-      bVal = getObjetoNombre(b.objeto);
-    }
-    if (sortConfig.key === 'organismo') {
-      aVal = getOrganismoNombre(a.organismo);
-      bVal = getOrganismoNombre(b.organismo);
-    }
-
-    if (typeof aVal === 'string') {
-      aVal = aVal.toLowerCase();
-      bVal = (bVal ?? '').toLowerCase();
-    }
-
-    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+  // Ordering is handled by the backend via the `ordering` param
+  const filteredCarpetas = carpetas;
 
   const handleDeleteClick = (carpeta) => {
     if (carpeta.compartida_con_count > 0) {
@@ -429,11 +412,20 @@ const CarpetasList = () => {
     );
   };
 
+  const { widths: colWidths, onMouseDown: onColMouseDown } = useResizableColumns(CL_INITIAL_WIDTHS, 'col-widths-carpetas');
+  const rh = (key) => (
+    <div
+      onMouseDown={(e) => { e.stopPropagation(); onColMouseDown(e, key) }}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 z-10 select-none"
+    />
+  );
+
   const SortIcon = ({ columnKey }) => {
-    if (sortConfig.key !== columnKey) return null;
-    return sortConfig.direction === 'asc' ? 
-      <ChevronUp size={14} className="inline ml-1" /> : 
-      <ChevronDown size={14} className="inline ml-1" />;
+    const campo = SORT_FIELD_MAP[columnKey] || columnKey;
+    if (ordering === campo) return <ChevronUp size={14} className="inline ml-1" />;
+    if (ordering === `-${campo}`) return <ChevronDown size={14} className="inline ml-1" />;
+    return null;
   };
 
   return (
@@ -595,42 +587,42 @@ const CarpetasList = () => {
                     className="rounded border-gray-300 text-accent focus:ring-accent"
                   />
                 </th>
-                <th onClick={() => handleSort('nombre')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                  NOMBRE <SortIcon columnKey="nombre" />
+                <th onClick={() => handleSort('nombre')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.nombre, minWidth: 60 }}>
+                  NOMBRE <SortIcon columnKey="nombre" />{rh('nombre')}
                 </th>
                 {visibleColumns.numero_expediente && (
-                  <th onClick={() => handleSort('numero_expediente')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                    N° EXPEDIENTE <SortIcon columnKey="numero_expediente" />
+                  <th onClick={() => handleSort('numero_expediente')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.numero_expediente, minWidth: 60 }}>
+                    N° EXPEDIENTE <SortIcon columnKey="numero_expediente" />{rh('numero_expediente')}
                   </th>
                 )}
                 {visibleColumns.cliente && (
-                  <th onClick={() => handleSort('persona')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                    CLIENTE <SortIcon columnKey="persona" />
+                  <th onClick={() => handleSort('persona')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.persona, minWidth: 60 }}>
+                    CLIENTE <SortIcon columnKey="persona" />{rh('persona')}
                   </th>
                 )}
                 {visibleColumns.estado && (
-                  <th onClick={() => handleSort('estado')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                    ESTADO <SortIcon columnKey="estado" />
+                  <th onClick={() => handleSort('estado')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.estado, minWidth: 60 }}>
+                    ESTADO <SortIcon columnKey="estado" />{rh('estado')}
                   </th>
                 )}
                 {visibleColumns.tipo && (
-                  <th onClick={() => handleSort('tipo')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                    TIPO <SortIcon columnKey="tipo" />
+                  <th onClick={() => handleSort('tipo')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.tipo, minWidth: 60 }}>
+                    TIPO <SortIcon columnKey="tipo" />{rh('tipo')}
                   </th>
                 )}
                 {visibleColumns.objeto && (
-                  <th onClick={() => handleSort('objeto')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                    OBJETO <SortIcon columnKey="objeto" />
+                  <th onClick={() => handleSort('objeto')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.objeto, minWidth: 60 }}>
+                    OBJETO <SortIcon columnKey="objeto" />{rh('objeto')}
                   </th>
                 )}
                 {visibleColumns.organismo && (
-                  <th onClick={() => handleSort('organismo')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                    ORGANISMO <SortIcon columnKey="organismo" />
+                  <th onClick={() => handleSort('organismo')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.organismo, minWidth: 60 }}>
+                    ORGANISMO <SortIcon columnKey="organismo" />{rh('organismo')}
                   </th>
                 )}
                 {visibleColumns.fecha && (
-                  <th onClick={() => handleSort('fecha_inicio')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                    FECHA <SortIcon columnKey="fecha_inicio" />
+                  <th onClick={() => handleSort('fecha_inicio')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.fecha_inicio, minWidth: 60 }}>
+                    FECHA <SortIcon columnKey="fecha_inicio" />{rh('fecha_inicio')}
                   </th>
                 )}
                 {visibleColumns.acciones && (
@@ -657,10 +649,11 @@ const CarpetasList = () => {
                       />
                     </td>
 
-                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium">
+                    <td className="px-2 py-2 text-sm font-medium" style={{ maxWidth: colWidths.nombre, overflow: 'hidden' }}>
                       <Link
                         to={`/carpetas/${carpeta.id}`}
-                        className="text-accent hover:text-accent-hover hover:underline"
+                        className="text-accent hover:text-accent-hover hover:underline truncate block"
+                        title={carpeta.nombre}
                       >
                         {carpeta.nombre}
                       </Link>

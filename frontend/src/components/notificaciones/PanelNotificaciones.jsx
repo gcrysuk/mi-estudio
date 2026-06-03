@@ -1,4 +1,4 @@
-import { Bell, Check, ExternalLink, CheckCheck, UserCheck, RefreshCw, Folder, Scale, ArrowRight } from 'lucide-react';
+import { Bell, Check, ExternalLink, CheckCheck, UserCheck, RefreshCw, Folder, Scale, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -17,8 +17,9 @@ const TIPO_META = {
   asignacion:          { icon: <UserCheck size={12} />, color: 'text-accent',     bg: 'bg-accent/10' },
   cambio_estado:       { icon: <RefreshCw size={12} />, color: 'text-blue-500',   bg: 'bg-blue-500/10' },
   carpeta_compartida:  { icon: <Folder size={12} />,    color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  mev_nuevo_movimiento:{ icon: <Scale size={12} />,     color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
-  mev_cambio_estado:   { icon: <Scale size={12} />,     color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+  mev_nuevo_movimiento:{ icon: <Scale size={12} />,         color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+  mev_cambio_estado:   { icon: <Scale size={12} />,         color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
+  mev_error:           { icon: <AlertTriangle size={12} />, color: 'text-red-500',    bg: 'bg-red-500/10'    },
 };
 
 function Avatar({ nombre }) {

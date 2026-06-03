@@ -48,6 +48,8 @@ class MovimientoSerializer(serializers.ModelSerializer):
     creado_por_username = serializers.ReadOnlyField(source='creado_por.username')
     responsable_username = serializers.ReadOnlyField(source='responsable.username')
     es_responsable = serializers.SerializerMethodField()
+    creado_por_nombre = serializers.SerializerMethodField()
+    modificado_por_nombre = serializers.SerializerMethodField()
 
     tiempo_trabajo_formateado = serializers.SerializerMethodField()
     proxima_notificacion = serializers.SerializerMethodField()
@@ -62,6 +64,18 @@ class MovimientoSerializer(serializers.ModelSerializer):
         if request and obj.responsable_id:
             return obj.responsable_id == request.user.pk
         return False
+
+    def get_creado_por_nombre(self, obj):
+        if obj.creado_por_id:
+            nombre = f"{obj.creado_por.first_name} {obj.creado_por.last_name}".strip()
+            return nombre or obj.creado_por.username
+        return None
+
+    def get_modificado_por_nombre(self, obj):
+        if obj.modificado_por_id:
+            nombre = f"{obj.modificado_por.first_name} {obj.modificado_por.last_name}".strip()
+            return nombre or obj.modificado_por.username
+        return None
 
     def get_tiempo_trabajo_formateado(self, obj):
         if obj.tiempo_trabajo:
@@ -120,9 +134,15 @@ class NotificacionSistemaSerializer(serializers.ModelSerializer):
         return obj.movimiento.titulo if obj.movimiento_id else None
 
     def get_carpeta_nombre(self, obj):
+        if obj.carpeta_id:
+            return obj.carpeta.nombre
         if obj.movimiento_id and obj.movimiento.carpeta_id:
             return obj.movimiento.carpeta.nombre
         return None
 
     def get_carpeta_id(self, obj):
-        return obj.movimiento.carpeta_id if obj.movimiento_id else None
+        if obj.carpeta_id:
+            return obj.carpeta_id
+        if obj.movimiento_id:
+            return obj.movimiento.carpeta_id
+        return None

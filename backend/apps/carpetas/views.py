@@ -3,7 +3,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
-from rest_framework.filters import SearchFilter
+from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Max
 from django.contrib.auth import get_user_model
@@ -36,7 +36,9 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     serializer_class = CarpetaSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
-    filter_backends = [SearchFilter, DjangoFilterBackend]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
+    ordering_fields = ['nombre', 'numero_expediente', 'fecha_inicio', 'estado__nombre', 'tipo__nombre', 'objeto__nombre', 'organismo__nombre', 'persona__apellido']
+    ordering = ['-fecha_inicio']
     filterset_fields = ['estado', 'tipo', 'objeto']
     search_fields = [
         'nombre',
@@ -391,9 +393,10 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             # Celery no disponible — ejecutar sincrónicamente
             from apps.carpetas.mev_scraper import mev_sync_carpeta
             resultado = mev_sync_carpeta(carpeta, perfil.mev_usuario, clave_descifrada, perfil.mev_depto)
+            if resultado.get('error'):
+                return Response({'ok': False, 'error': resultado['error']}, status=status.HTTP_400_BAD_REQUEST)
             return Response({
                 'nuevos': resultado['nuevos'],
-                'error': resultado['error'],
                 'ultimo_sync': carpeta.mev_ultimo_sync,
             })
 

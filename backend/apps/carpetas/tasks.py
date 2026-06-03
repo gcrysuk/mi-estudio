@@ -28,6 +28,17 @@ def sync_mev_carpeta_task(self, carpeta_id):
 
         resultado = mev_sync_carpeta(carpeta, perfil.mev_usuario, clave, perfil.mev_depto or 'aa')
         logger.info('MEV sync carpeta %s: %s', carpeta_id, resultado)
+
+        if resultado.get('error'):
+            from apps.movimientos.models import NotificacionSistema
+            NotificacionSistema.objects.create(
+                usuario=carpeta.propietario,
+                tipo='mev_error',
+                movimiento=None,
+                carpeta=carpeta,
+                mensaje=f"Error al sincronizar MEV en '{carpeta.nombre}': {resultado['error']}",
+            )
+
         return resultado
 
     except Exception as exc:

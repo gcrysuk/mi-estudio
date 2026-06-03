@@ -1,11 +1,20 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutList, RefreshCw, Search, ExternalLink, Printer } from 'lucide-react'
+import {
+  LayoutList, RefreshCw, Search, ExternalLink, Printer,
+  ChevronUp, ChevronDown, Clock, AlertCircle, X,
+} from 'lucide-react'
 import ImprimirLista from '../../components/print/ImprimirLista'
 import { format, parseISO, isBefore, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
 import { useTheme } from '../../contexts/ThemeContext'
 import { getResumen } from '../../services/movimientosService'
+import { useResizableColumns } from '../../hooks/useResizableColumns'
+
+const RS_INITIAL_WIDTHS = {
+  carpeta: 160, movimiento: 220, tipo: 110, estado: 120,
+  responsable: 120, fecha: 130, vencimiento: 130,
+};
 
 const fmt = (iso) => {
   if (!iso) return '—'
@@ -30,10 +39,27 @@ const VENC_TEXT = {
 }
 
 const ROW_BG = {
-  vencido: { light: 'bg-red-50 hover:bg-red-100', dark: 'bg-red-900/15 hover:bg-red-900/25' },
+  vencido: { light: 'bg-red-50 hover:bg-red-100',     dark: 'bg-red-900/15 hover:bg-red-900/25' },
   proximo: { light: 'bg-yellow-50 hover:bg-yellow-100', dark: 'bg-yellow-900/15 hover:bg-yellow-900/25' },
-  ok:      { light: 'hover:bg-gray-50', dark: 'hover:bg-gray-700' },
-  null:    { light: 'hover:bg-gray-50', dark: 'hover:bg-gray-700' },
+  ok:      { light: 'hover:bg-gray-50',               dark: 'hover:bg-gray-700' },
+  null:    { light: 'hover:bg-gray-50',               dark: 'hover:bg-gray-700' },
+}
+
+const VENC_BTNS = [
+  { key: 'todos',    label: 'Todos' },
+  { key: 'vencidos', label: 'Vencidos',     icon: AlertCircle },
+  { key: 'proximos', label: 'Próx. 7 días', icon: Clock },
+  { key: 'vigentes', label: 'Vigentes' },
+]
+
+const SORT_GETVAL = {
+  carpeta:     m => m.carpeta_nombre || '',
+  movimiento:  m => m.titulo || '',
+  tipo:        m => m.tipo_nombre || '',
+  estado:      m => m.estado_nombre || '',
+  responsable: m => m.responsable_username || '',
+  fecha:       m => m.fecha_creacion || '',
+  vencimiento: m => m.fecha_vencimiento || '',
 }
 
 export default function ResumenPage() {
@@ -43,6 +69,11 @@ export default function ResumenPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showPrint, setShowPrint] = useState(false)
+  const [filtroEstado, setFiltroEstado] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+  const [filtroVenc, setFiltroVenc] = useState('todos')
+  const [sortCol, setSortCol] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -58,17 +89,97 @@ export default function ResumenPage() {
 
   useEffect(() => { cargar() }, [cargar])
 
-  const filtrados = movimientos.filter(m => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (m.carpeta_nombre || '').toLowerCase().includes(q) ||
-           m.titulo.toLowerCase().includes(q)
-  })
+  const estados = useMemo(() =>
+    [...new Set(movimientos.map(m => m.estado_nombre).filter(Boolean))].sort(),
+    [movimientos]
+  )
+  const tipos = useMemo(() =>
+    [...new Set(movimientos.map(m => m.tipo_nombre).filter(Boolean))].sort(),
+    [movimientos]
+  )
 
-  const th = `px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap ${
+  const handleSort = (col) => {
+    if (sortCol !== col) {
+      setSortCol(col)
+      setSortDir('asc')
+    } else if (sortDir === 'asc') {
+      setSortDir('desc')
+    } else {
+      setSortCol(null)
+      setSortDir('asc')
+    }
+  }
+
+  const filtrados = useMemo(() => {
+    let result = movimientos.filter(m => {
+      if (search) {
+        const q = search.toLowerCase()
+        if (
+          !(m.carpeta_nombre || '').toLowerCase().includes(q) &&
+          !m.titulo.toLowerCase().includes(q)
+        ) return false
+      }
+      if (filtroEstado && m.estado_nombre !== filtroEstado) return false
+      if (filtroTipo && m.tipo_nombre !== filtroTipo) return false
+      if (filtroVenc !== 'todos') {
+        const vs = vencState(m.fecha_vencimiento, m.vencido)
+        if (filtroVenc === 'vencidos' && vs !== 'vencido') return false
+        if (filtroVenc === 'proximos' && vs !== 'proximo') return false
+        if (filtroVenc === 'vigentes' && vs !== 'ok') return false
+      }
+      return true
+    })
+
+    if (sortCol && SORT_GETVAL[sortCol]) {
+      const getVal = SORT_GETVAL[sortCol]
+      result = [...result].sort((a, b) => {
+        const cmp = getVal(a).localeCompare(getVal(b), undefined, { sensitivity: 'base' })
+        return sortDir === 'asc' ? cmp : -cmp
+      })
+    }
+
+    return result
+  }, [movimientos, search, filtroEstado, filtroTipo, filtroVenc, sortCol, sortDir])
+
+  const hasActiveFilters = filtroEstado || filtroTipo || filtroVenc !== 'todos'
+
+  const limpiarFiltros = () => {
+    setFiltroEstado('')
+    setFiltroTipo('')
+    setFiltroVenc('todos')
+  }
+
+  const filtrosTexto = [
+    search && `Búsqueda: "${search}"`,
+    filtroEstado && `Estado: ${filtroEstado}`,
+    filtroTipo && `Tipo: ${filtroTipo}`,
+    filtroVenc !== 'todos' && `Vencimiento: ${filtroVenc}`,
+  ].filter(Boolean).join(' | ') || undefined
+
+  const { widths: colWidths, onMouseDown: onColMouseDown } = useResizableColumns(RS_INITIAL_WIDTHS, 'col-widths-resumen')
+  const rh = (key) => (
+    <div
+      onMouseDown={(e) => { e.stopPropagation(); onColMouseDown(e, key) }}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 z-10 select-none"
+    />
+  )
+
+  const thBase = `px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-accent transition-colors relative ${
     dark ? 'text-gray-400' : 'text-gray-500'
   }`
   const td = `px-3 py-2.5 text-sm`
+
+  const sortIcon = (col) => {
+    if (sortCol !== col) return <ChevronUp size={12} className="ml-1 inline opacity-20" />
+    return sortDir === 'asc'
+      ? <ChevronUp size={12} className="ml-1 inline" />
+      : <ChevronDown size={12} className="ml-1 inline" />
+  }
+
+  const dropSel = `appearance-none pl-3 pr-8 py-1.5 rounded-lg border-none focus:outline-none focus:ring-1 focus:ring-accent text-xs uppercase ${
+    dark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'
+  }`
 
   const handleRowClick = (mov) => {
     if (mov.carpeta) navigate(`/movimientos?carpeta=${mov.carpeta}`)
@@ -117,7 +228,7 @@ export default function ResumenPage() {
       {showPrint && (
         <ImprimirLista
           titulo="Resumen de Carpetas"
-          filtros={search ? `Búsqueda: "${search}"` : undefined}
+          filtros={filtrosTexto}
           headers={['Carpeta', 'Último movimiento', 'Tipo', 'Estado', 'Responsable', 'Fecha', 'Vencimiento']}
           items={filtrados}
           getRow={m => [
@@ -148,10 +259,65 @@ export default function ResumenPage() {
           }`}
         />
         {search && (
-          <button onClick={() => setSearch('')} className="text-xs text-gray-400 hover:text-gray-600">
-            ✕
+          <button onClick={() => setSearch('')} className="text-gray-400 hover:text-gray-600">
+            <X size={13} />
           </button>
         )}
+      </div>
+
+      {/* Filtros */}
+      <div className={`rounded-lg shadow p-3 ${dark ? 'bg-gray-800' : 'bg-white border border-gray-200'}`}>
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Estado */}
+          <div className="relative">
+            <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className={dropSel}>
+              <option value="">Todos los estados</option>
+              {estados.map(e => <option key={e} value={e}>{e}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+
+          {/* Tipo */}
+          <div className="relative">
+            <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)} className={dropSel}>
+              <option value="">Todos los tipos</option>
+              {tipos.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+
+          {/* Vencimiento */}
+          <div className="flex gap-1">
+            {VENC_BTNS.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setFiltroVenc(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs uppercase flex items-center gap-1 transition-colors ${
+                  filtroVenc === key
+                    ? key === 'vencidos' ? 'bg-red-500 text-white' : 'bg-accent text-white'
+                    : dark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
+              >
+                {Icon && <Icon size={12} />}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Limpiar */}
+          {hasActiveFilters && (
+            <button
+              onClick={limpiarFiltros}
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border transition-colors ml-auto ${
+                dark
+                  ? 'text-gray-400 hover:text-gray-200 border-gray-600'
+                  : 'text-gray-500 hover:text-gray-700 border-gray-300'
+              }`}
+            >
+              <X size={12} /> Limpiar
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabla */}
@@ -160,14 +326,28 @@ export default function ResumenPage() {
           <table className="w-full">
             <thead className={dark ? 'bg-gray-900' : 'bg-gray-50'}>
               <tr>
-                <th className={th}>Carpeta</th>
-                <th className={th}>Último movimiento</th>
-                <th className={th}>Tipo</th>
-                <th className={th}>Estado</th>
-                <th className={th}>Responsable</th>
-                <th className={th}>Fecha</th>
-                <th className={th}>Vencimiento</th>
-                <th className={`${th} pr-4`} />
+                <th className={thBase} onClick={() => handleSort('carpeta')} style={{ width: colWidths.carpeta, minWidth: 60 }}>
+                  Carpeta{sortIcon('carpeta')}{rh('carpeta')}
+                </th>
+                <th className={thBase} onClick={() => handleSort('movimiento')} style={{ width: colWidths.movimiento, minWidth: 60 }}>
+                  Último movimiento{sortIcon('movimiento')}{rh('movimiento')}
+                </th>
+                <th className={thBase} onClick={() => handleSort('tipo')} style={{ width: colWidths.tipo, minWidth: 60 }}>
+                  Tipo{sortIcon('tipo')}{rh('tipo')}
+                </th>
+                <th className={thBase} onClick={() => handleSort('estado')} style={{ width: colWidths.estado, minWidth: 60 }}>
+                  Estado{sortIcon('estado')}{rh('estado')}
+                </th>
+                <th className={thBase} onClick={() => handleSort('responsable')} style={{ width: colWidths.responsable, minWidth: 60 }}>
+                  Responsable{sortIcon('responsable')}{rh('responsable')}
+                </th>
+                <th className={thBase} onClick={() => handleSort('fecha')} style={{ width: colWidths.fecha, minWidth: 60 }}>
+                  Fecha{sortIcon('fecha')}{rh('fecha')}
+                </th>
+                <th className={thBase} onClick={() => handleSort('vencimiento')} style={{ width: colWidths.vencimiento, minWidth: 60 }}>
+                  Vencimiento{sortIcon('vencimiento')}{rh('vencimiento')}
+                </th>
+                <th className={`px-3 py-2.5 pr-4 ${dark ? 'text-gray-400' : 'text-gray-500'}`} />
               </tr>
             </thead>
             <tbody className={`divide-y ${dark ? 'divide-gray-700' : 'divide-gray-100'}`}>
@@ -183,7 +363,9 @@ export default function ResumenPage() {
                     <div className="flex flex-col items-center gap-2">
                       <LayoutList size={28} strokeWidth={1} className={dark ? 'text-gray-600' : 'text-gray-300'} />
                       <p className="text-sm text-gray-400">
-                        {search ? 'Sin resultados para tu búsqueda' : 'No hay movimientos disponibles'}
+                        {search || hasActiveFilters
+                          ? 'Sin resultados para los filtros activos'
+                          : 'No hay movimientos disponibles'}
                       </p>
                     </div>
                   </td>
@@ -201,15 +383,15 @@ export default function ResumenPage() {
                       className={`cursor-pointer transition-colors ${bg}`}
                     >
                       {/* Carpeta */}
-                      <td className={`${td} font-medium max-w-[160px] ${dark ? 'text-gray-200' : 'text-gray-800'}`}>
-                        <span className="block truncate">
+                      <td className={`${td} font-medium ${dark ? 'text-gray-200' : 'text-gray-800'}`} style={{ maxWidth: colWidths.carpeta, overflow: 'hidden' }}>
+                        <span className="block truncate" title={mov.carpeta_nombre || 'Sin carpeta'}>
                           {mov.carpeta_nombre || 'Sin carpeta'}
                         </span>
                       </td>
 
                       {/* Último movimiento */}
-                      <td className={`${td} max-w-[220px] ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
-                        <span className="block truncate">{mov.titulo}</span>
+                      <td className={`${td} ${dark ? 'text-gray-300' : 'text-gray-700'}`} style={{ maxWidth: colWidths.movimiento, overflow: 'hidden' }}>
+                        <span className="block truncate" title={mov.titulo}>{mov.titulo}</span>
                       </td>
 
                       {/* Tipo */}

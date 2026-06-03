@@ -54,7 +54,12 @@ def _get_session(usuario: str, clave: str, depto: str):
                 location = location.decode(ENCODING)
             if not location.startswith('http'):
                 location = f'{MEV_BASE}/{location.lstrip("/")}'
+            # Login fallido si redirige al formulario de login
             if 'loguin' in location.lower() and 'pos' not in location.lower():
+                return None
+            # Login fallido si redirige a página de error de credenciales
+            if 'aviso' in location.lower() or 'error' in location.lower():
+                logger.warning('MEV credenciales incorrectas, redirect a: %s', location)
                 return None
             # Seguir redirect manualmente
             try:
@@ -227,6 +232,7 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
             usuario=carpeta.propietario,
             tipo='mev_cambio_estado',
             movimiento=None,
+            carpeta=carpeta,
             mensaje=f"La carpeta '{carpeta.nombre}' cambió de estado en la MEV: {estado_anterior} → {estado_mev_actual}",
         )
 
@@ -307,6 +313,7 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
             usuario=carpeta.propietario,
             tipo='mev_nuevo_movimiento',
             movimiento=None,
+            carpeta=carpeta,
             mensaje=f"MEV: {nuevos} {mov_label} nuevo{'s' if nuevos != 1 else ''} en '{carpeta.nombre}'",
         )
 

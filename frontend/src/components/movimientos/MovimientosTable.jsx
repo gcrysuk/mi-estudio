@@ -13,6 +13,13 @@ import ConfirmDialog from '../ui/ConfirmDialog';
 import ColumnSelector from '../common/ColumnSelector';
 import Pagination from '../ui/Pagination';
 import useClickOutside from '../../hooks/useClickOutside';
+import { useResizableColumns } from '../../hooks/useResizableColumns';
+
+const MT_INITIAL_WIDTHS = {
+  titulo: 240, carpeta_nombre: 150, tipo_nombre: 110, estado_nombre: 130,
+  fecha_movimiento: 130, fecha_vencimiento: 130, fecha_notificacion: 130,
+  tiempo_trabajo: 90, descripcion: 180, creado_por: 140, modificado_por: 140,
+};
 
 // ── EstadoSelector ────────────────────────────────────────────────────────────
 
@@ -209,11 +216,14 @@ const COLUMN_CONFIG = [
   { key: 'fecha_notif', label: 'Notificación', fixed: false },
   { key: 'tiempo',      label: 'Tiempo',      fixed: false },
   { key: 'descripcion', label: 'Descripción', fixed: false },
+  { key: 'creado_por',     label: 'Creado por',     fixed: false },
+  { key: 'modificado_por', label: 'Modificado por', fixed: false },
 ];
 
 const DEFAULT_COLUMNS = {
   carpeta: true, tipo: true, estado: true, fecha: true,
   vencimiento: true, fecha_notif: true, tiempo: true, descripcion: true,
+  creado_por: false, modificado_por: false,
 };
 
 const STORAGE_KEY = 'movimientos_columnas';
@@ -237,7 +247,28 @@ const MovimientosTable = ({
   const [confirmDelete, setConfirmDelete]     = useState(null);
   const [detalleMovId, setDetalleMovId]       = useState(null);
 
-  const [sortConfig, setSortConfig]           = useState({ key: 'fecha_movimiento', direction: 'desc' });
+  const [ordering, setOrdering]               = useState('-fecha_movimiento');
+  const { widths: colWidths, onMouseDown: onColMouseDown } = useResizableColumns(MT_INITIAL_WIDTHS, 'col-widths-movimientos');
+  const rh = (key) => (
+    <div
+      onMouseDown={(e) => { e.stopPropagation(); onColMouseDown(e, key) }}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 z-10 select-none"
+    />
+  );
+
+  // Maps UI column key → backend ordering field name
+  const SORT_FIELD_MAP = {
+    titulo:            'titulo',
+    carpeta_nombre:    'carpeta__nombre',
+    tipo_nombre:       'tipo__nombre',
+    estado_nombre:     'estado__nombre',
+    fecha_movimiento:  'fecha_movimiento',
+    fecha_vencimiento: 'fecha_vencimiento',
+    tiempo_trabajo:    'tiempo_trabajo',
+    responsable_username: 'responsable__username',
+    // fecha_notificacion: computed field, not sortable by backend
+  };
   const [visibleColumns, setVisibleColumns]   = useState(() => {
     try { return { ...DEFAULT_COLUMNS, ...(JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}) }; }
     catch { return DEFAULT_COLUMNS; }
@@ -278,6 +309,7 @@ const MovimientosTable = ({
       if (filters.tipo)       params.tipo    = filters.tipo;
       if (filters.estado)     params.estado  = filters.estado;
       if (filters.vencido !== '') params.vencido = filters.vencido;
+      if (ordering)           params.ordering = ordering;
 
       const res = await api.get(baseFetchUrl, { params });
       const data = res.data;
@@ -298,7 +330,7 @@ const MovimientosTable = ({
     } finally {
       setLoading(false);
     }
-  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.vencido]); // eslint-disable-line
+  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.vencido, ordering]); // eslint-disable-line
 
   // Reset to page 1 and fetch when URL/params/search/filters/refreshKey change
   useEffect(() => {
@@ -326,12 +358,13 @@ const MovimientosTable = ({
     }
   };
 
-  // ── Sort (client-side within current page) ────────────────────────────────
+  // ── Sort (backend ordering via query param) ───────────────────────────────
 
-  const handleSort = (key) => setSortConfig((prev) => ({
-    key,
-    direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
-  }));
+  const handleSort = (uiKey) => {
+    const campo = SORT_FIELD_MAP[uiKey];
+    if (!campo) return; // computed/unsortable column
+    setOrdering((prev) => prev === campo ? `-${campo}` : campo);
+  };
 
   const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
 
@@ -358,18 +391,21 @@ const MovimientosTable = ({
   };
 
   const SortIcon = ({ columnKey }) => {
-    if (sortConfig.key !== columnKey) return null;
-    return sortConfig.direction === 'asc'
-      ? <ChevronUp size={14} className="inline ml-1" />
-      : <ChevronDown size={14} className="inline ml-1" />;
+    const campo = SORT_FIELD_MAP[columnKey];
+    if (!campo) return null;
+    if (ordering === campo) return <ChevronUp size={14} className="inline ml-1" />;
+    if (ordering === `-${campo}`) return <ChevronDown size={14} className="inline ml-1" />;
+    return null;
   };
 
   const TH = ({ columnKey, children, className = '' }) => (
     <th
       onClick={() => handleSort(columnKey)}
-      className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-pointer hover:text-accent select-none ${className}`}
+      className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-pointer hover:text-accent select-none relative ${className}`}
+      style={{ width: colWidths[columnKey], minWidth: 60 }}
     >
       {children}<SortIcon columnKey={columnKey} />
+      {rh(columnKey)}
     </th>
   );
 
@@ -377,28 +413,8 @@ const MovimientosTable = ({
     ? COLUMN_CONFIG
     : COLUMN_CONFIG.filter((c) => c.key !== 'carpeta');
 
-  // Client-side: sort within current page
-  const displayed = movimientos
-    .slice()
-    .sort((a, b) => {
-      const dir = sortConfig.direction === 'asc' ? 1 : -1;
-      let aVal, bVal;
-      switch (sortConfig.key) {
-        case 'titulo':             aVal = a.titulo ?? '';             bVal = b.titulo ?? '';             break;
-        case 'carpeta_nombre':     aVal = a.carpeta_nombre ?? '';     bVal = b.carpeta_nombre ?? '';     break;
-        case 'tipo_nombre':        aVal = a.tipo_nombre ?? '';        bVal = b.tipo_nombre ?? '';        break;
-        case 'estado_nombre':      aVal = a.estado_nombre ?? '';      bVal = b.estado_nombre ?? '';      break;
-        case 'fecha_movimiento':   aVal = a.fecha_movimiento ?? '';   bVal = b.fecha_movimiento ?? '';   break;
-        case 'fecha_vencimiento':  aVal = a.fecha_vencimiento ?? '';  bVal = b.fecha_vencimiento ?? '';  break;
-        case 'fecha_notificacion': aVal = a.proxima_notificacion ?? ''; bVal = b.proxima_notificacion ?? ''; break;
-        case 'tiempo_trabajo':     aVal = a.tiempo_trabajo ?? 0;      bVal = b.tiempo_trabajo ?? 0;      break;
-        default:                   aVal = ''; bVal = '';
-      }
-      if (typeof aVal === 'string') { aVal = aVal.toLowerCase(); bVal = bVal.toLowerCase(); }
-      if (aVal < bVal) return -1 * dir;
-      if (aVal > bVal) return  1 * dir;
-      return 0;
-    });
+  // Ordering is handled by the backend via the `ordering` param
+  const displayed = movimientos;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -523,7 +539,13 @@ const MovimientosTable = ({
                 {visibleColumns.fecha_notif && <TH columnKey="fecha_notificacion" className="hidden lg:table-cell">Notificación</TH>}
                 {visibleColumns.tiempo      && <TH columnKey="tiempo_trabajo"     className="hidden xl:table-cell">Tiempo</TH>}
                 {visibleColumns.descripcion && (
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell">Descripción</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell relative" style={{ width: colWidths.descripcion, minWidth: 60 }}>Descripción{rh('descripcion')}</th>
+                )}
+                {visibleColumns.creado_por && (
+                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell relative" style={{ width: colWidths.creado_por, minWidth: 60 }}>Creado por{rh('creado_por')}</th>
+                )}
+                {visibleColumns.modificado_por && (
+                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell relative" style={{ width: colWidths.modificado_por, minWidth: 60 }}>Modificado por{rh('modificado_por')}</th>
                 )}
                 <th className="px-4 py-2.5 w-20"></th>
               </tr>
@@ -534,10 +556,11 @@ const MovimientosTable = ({
                   key={mov.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                 >
-                  <td className="px-4 py-2.5 max-w-[220px]">
+                  <td className="px-4 py-2.5" style={{ maxWidth: colWidths.titulo, overflow: 'hidden' }}>
                     <button
                       onClick={() => setDetalleMovId(mov.id)}
                       className="font-medium truncate block text-left w-full hover:text-accent hover:underline transition-colors"
+                      title={mov.titulo}
                     >
                       {mov.titulo}
                     </button>
@@ -556,11 +579,12 @@ const MovimientosTable = ({
                   </td>
 
                   {showCarpetaColumn && visibleColumns.carpeta && (
-                    <td className="px-4 py-2.5 hidden sm:table-cell">
+                    <td className="px-4 py-2.5 hidden sm:table-cell" style={{ maxWidth: colWidths.carpeta_nombre, overflow: 'hidden' }}>
                       {mov.carpeta ? (
                         <Link
                           to={`/carpetas/${mov.carpeta}`}
                           className="flex items-center gap-1 text-xs text-accent hover:underline truncate max-w-[140px]"
+                          title={mov.carpeta_nombre}
                           onClick={(e) => e.stopPropagation()}
                         >
                           <FolderOpen size={13} className="flex-shrink-0" />
@@ -638,12 +662,28 @@ const MovimientosTable = ({
                   {visibleColumns.descripcion && (
                     <td className="px-4 py-2.5 max-w-[200px] hidden xl:table-cell">
                       {mov.descripcion ? (
-                        <span className="text-xs text-gray-600 dark:text-gray-400 truncate block">
+                        <span className="text-xs text-gray-600 dark:text-gray-400 truncate block" title={mov.descripcion}>
                           {mov.descripcion}
                         </span>
                       ) : (
                         <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
                       )}
+                    </td>
+                  )}
+
+                  {visibleColumns.creado_por && (
+                    <td className="px-4 py-2.5 hidden xl:table-cell">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {mov.creado_por_nombre || mov.creado_por_username || '—'}
+                      </span>
+                    </td>
+                  )}
+
+                  {visibleColumns.modificado_por && (
+                    <td className="px-4 py-2.5 hidden xl:table-cell">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {mov.modificado_por_nombre || '—'}
+                      </span>
                     </td>
                   )}
 

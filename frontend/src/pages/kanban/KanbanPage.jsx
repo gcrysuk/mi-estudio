@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
-import { Settings, RefreshCw, Calendar, Folder, Tag, UserCheck, Plus } from 'lucide-react'
+import { Settings, RefreshCw, Calendar, Folder, Tag, UserCheck, Plus, Edit2, Search, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getKanbanBoard, cambiarEstadoMovimiento } from '../../services/kanbanService'
 import MovimientoForm from '../movimientos/MovimientoForm'
@@ -37,7 +37,7 @@ function vencimientoClase(fechaStr, dark) {
   return dark ? 'text-green-400' : 'text-green-600'
 }
 
-function KanbanCard({ movimiento, isDragging }) {
+function KanbanCard({ movimiento, isDragging, onEdit }) {
   const { dark } = useTheme()
   const bg = isDragging
     ? dark ? 'bg-gray-600 shadow-xl' : 'bg-blue-50 shadow-xl'
@@ -45,23 +45,35 @@ function KanbanCard({ movimiento, isDragging }) {
 
   return (
     <div
-      className={`rounded-lg p-3 mb-2 border ${
+      className={`group relative rounded-lg p-3 mb-2 border ${
         dark ? 'border-gray-600' : 'border-gray-200'
       } ${bg} transition-colors cursor-grab active:cursor-grabbing select-none`}
     >
-      <p className={`text-sm font-medium mb-1.5 leading-snug ${dark ? 'text-gray-100' : 'text-gray-800'}`}>
+      {!isDragging && onEdit && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(movimiento) }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className={`absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-0.5 rounded transition-all ${
+            dark ? 'text-gray-400 hover:text-white hover:bg-gray-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'
+          }`}
+          title="Editar movimiento"
+        >
+          <Edit2 size={13} />
+        </button>
+      )}
+      <p className={`text-sm font-medium mb-1.5 leading-snug pr-5 ${dark ? 'text-gray-100' : 'text-gray-800'}`} title={movimiento.titulo}>
         {movimiento.titulo}
       </p>
 
       <div className="flex flex-wrap gap-1.5 mt-1">
         {movimiento.carpeta_nombre && (
-          <span className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${dark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+          <span title={movimiento.carpeta_nombre} className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${dark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
             <Folder size={10} />
             {movimiento.carpeta_nombre}
           </span>
         )}
         {movimiento.tipo_nombre && (
-          <span className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${dark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+          <span title={movimiento.tipo_nombre} className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${dark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
             <Tag size={10} />
             {movimiento.tipo_nombre}
           </span>
@@ -98,7 +110,7 @@ function KanbanCard({ movimiento, isDragging }) {
   )
 }
 
-function DraggableCard({ movimiento }) {
+function DraggableCard({ movimiento, onEdit }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: String(movimiento.id),
     data: { movimiento },
@@ -106,16 +118,24 @@ function DraggableCard({ movimiento }) {
 
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} style={{ opacity: isDragging ? 0.4 : 1 }}>
-      <KanbanCard movimiento={movimiento} isDragging={false} />
+      <KanbanCard movimiento={movimiento} isDragging={false} onEdit={onEdit} />
     </div>
   )
 }
 
-function KanbanColumn({ columna, onNuevoMovimiento }) {
+function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, busqueda }) {
   const { dark } = useTheme()
   const { setNodeRef, isOver } = useDroppable({ id: String(columna.estado.id) })
-  const { estado, movimientos, total } = columna
-  const esFinal = estado.es_final
+  const { estado, movimientos } = columna
+
+  const q = busqueda?.toLowerCase() || ''
+  const visibles = q
+    ? movimientos.filter(m =>
+        m.titulo?.toLowerCase().includes(q) ||
+        m.carpeta_nombre?.toLowerCase().includes(q) ||
+        m.responsable_username?.toLowerCase().includes(q)
+      )
+    : movimientos
 
   return (
     <div
@@ -138,7 +158,7 @@ function KanbanColumn({ columna, onNuevoMovimiento }) {
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${dark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'}`}>
-            {esFinal ? total : movimientos.length}
+            {visibles.length}
           </span>
           <button
             onClick={() => onNuevoMovimiento(estado.id)}
@@ -155,30 +175,24 @@ function KanbanColumn({ columna, onNuevoMovimiento }) {
       {/* Cards */}
       <div
         ref={setNodeRef}
-        className={`flex-1 p-2 min-h-[120px] ${esFinal ? '' : 'overflow-y-auto'}`}
-        style={esFinal ? {} : { maxHeight: 'calc(100vh - 220px)' }}
+        className="flex-1 p-2 min-h-[120px] overflow-y-auto"
+        style={{ maxHeight: 'calc(100vh - 220px)' }}
       >
         <SortableContext
           items={movimientos.map((m) => String(m.id))}
           strategy={verticalListSortingStrategy}
         >
-          {movimientos.map((m) => (
-            <DraggableCard key={m.id} movimiento={m} />
+          {visibles.map((m) => (
+            <DraggableCard key={m.id} movimiento={m} onEdit={onEditMovimiento} />
           ))}
         </SortableContext>
-        {movimientos.length === 0 && (
+        {visibles.length === 0 && (
           <div className={`flex items-center justify-center h-16 text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
-            Sin movimientos
+            {q ? 'Sin resultados' : 'Sin movimientos'}
           </div>
         )}
       </div>
 
-      {/* Footer solo en columnas finales cuando hay más que los mostrados */}
-      {esFinal && total > movimientos.length && (
-        <div className={`px-3 py-1.5 border-t text-center text-xs ${dark ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
-          Mostrando {movimientos.length} de {total}
-        </div>
-      )}
     </div>
   )
 }
@@ -190,6 +204,13 @@ export default function KanbanPage() {
   const [loading, setLoading] = useState(true)
   const [activeMovimiento, setActiveMovimiento] = useState(null)
   const [nuevoMovEstado, setNuevoMovEstado] = useState(null)
+  const [editingMovimiento, setEditingMovimiento] = useState(null)
+  const [busqueda, setBusqueda] = useState('')
+  const ZOOM_STEP = 0.1
+  const ZOOM_MIN = 0.5
+  const ZOOM_MAX = 1.5
+  const [zoom, setZoom] = useState(() => parseFloat(localStorage.getItem('kanban-zoom') || '1'))
+  useEffect(() => { localStorage.setItem('kanban-zoom', zoom.toString()) }, [zoom])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -252,9 +273,7 @@ export default function KanbanPage() {
           }
         }
         if (String(col.estado.id) === destinoEstadoId) {
-          const nuevos = col.estado.es_final
-            ? [movActualizado, ...col.movimientos].slice(0, 10)
-            : [movActualizado, ...col.movimientos]
+          const nuevos = [movActualizado, ...col.movimientos]
           return { ...col, movimientos: nuevos, total: col.total + 1 }
         }
         return col
@@ -274,11 +293,48 @@ export default function KanbanPage() {
   return (
     <div className={`flex flex-col h-full ${dark ? 'bg-gray-900' : 'bg-gray-100'}`}>
       {/* Topbar */}
-      <div className={`flex items-center justify-between px-6 py-3 border-b ${dark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
-        <h1 className={`text-lg font-bold ${dark ? 'text-white' : 'text-gray-800'}`}>
+      <div className={`flex items-center gap-3 px-6 py-3 border-b flex-wrap ${dark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+        <h1 className={`text-lg font-bold flex-shrink-0 ${dark ? 'text-white' : 'text-gray-800'}`}>
           Tablero Kanban
         </h1>
-        <div className="flex gap-2">
+
+        {/* Buscador */}
+        <div className={`relative flex items-center w-56 flex-shrink-0`}>
+          <Search size={13} className="absolute left-2.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Buscar movimientos..."
+            className={`w-full pl-7 pr-7 py-1.5 rounded-lg text-xs border-none focus:outline-none focus:ring-1 focus:ring-accent ${
+              dark ? 'bg-gray-700 text-gray-200 placeholder-gray-500' : 'bg-gray-100 text-gray-700 placeholder-gray-400'
+            }`}
+          />
+          {busqueda && (
+            <button
+              onClick={() => setBusqueda('')}
+              className="absolute right-2 text-gray-400 hover:text-gray-600"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        <div className="flex gap-2 ml-auto items-center">
+          {/* Zoom */}
+          <div className={`flex items-center gap-0.5 border rounded-lg px-1.5 py-1 ${dark ? 'border-gray-600 text-gray-300' : 'border-gray-200 text-gray-600'}`}>
+            <button onClick={() => setZoom(z => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(1)))} className="p-0.5 hover:text-accent transition-colors" title="Reducir">
+              <ZoomOut size={14} />
+            </button>
+            <span className="text-xs w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(1)))} className="p-0.5 hover:text-accent transition-colors" title="Ampliar">
+              <ZoomIn size={14} />
+            </button>
+            <button onClick={() => setZoom(1)} className="p-0.5 hover:text-accent transition-colors" title="Restablecer (100%)">
+              <RotateCcw size={13} />
+            </button>
+          </div>
+
           <button
             onClick={cargarBoard}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
@@ -311,9 +367,17 @@ export default function KanbanPage() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-4 h-full items-start">
+            <div
+              className="flex gap-4 h-full items-start"
+              style={{
+                transform: `scale(${zoom})`,
+                transformOrigin: 'top left',
+                width: `${100 / zoom}%`,
+                transition: 'transform 0.15s ease',
+              }}
+            >
               {columnas.map((col) => (
-                <KanbanColumn key={col.estado.id} columna={col} onNuevoMovimiento={setNuevoMovEstado} />
+                <KanbanColumn key={col.estado.id} columna={col} onNuevoMovimiento={setNuevoMovEstado} onEditMovimiento={setEditingMovimiento} busqueda={busqueda} />
               ))}
               {columnas.length === 0 && (
                 <div className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -341,6 +405,16 @@ export default function KanbanPage() {
           estadoInicial={nuevoMovEstado}
           onClose={() => setNuevoMovEstado(null)}
           onSave={() => { setNuevoMovEstado(null); cargarBoard() }}
+        />
+      )}
+
+      {editingMovimiento && (
+        <MovimientoForm
+          movimiento={editingMovimiento}
+          carpetaId={editingMovimiento.carpeta}
+          carpetaNombre={editingMovimiento.carpeta_nombre}
+          onClose={() => setEditingMovimiento(null)}
+          onSave={() => { setEditingMovimiento(null); cargarBoard() }}
         />
       )}
     </div>

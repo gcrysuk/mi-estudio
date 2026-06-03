@@ -13,6 +13,9 @@ import {
   Printer,
 } from 'lucide-react';
 import ImprimirLista from '../../components/print/ImprimirLista';
+import { useResizableColumns } from '../../hooks/useResizableColumns';
+
+const PL_INITIAL_WIDTHS = { denominacion: 260, documento: 130, tipo: 100 };
 import toast from 'react-hot-toast';
 import useAuthStore from '../../stores/authStore';
 import api from '../../services/api';
@@ -63,7 +66,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
     tipo_persona: ''
   });
   const [sortConfig, setSortConfig] = useState({
-    key: 'apellido',
+    key: 'denominacion',
     direction: 'asc'
   });
   const [modalOpen, setModalOpen] = useState(false);
@@ -327,6 +330,9 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
       if (sortConfig.key === 'tipo_persona') {
         aVal = getTipoPersonaNombre(a.tipo_persona);
         bVal = getTipoPersonaNombre(b.tipo_persona);
+      } else if (sortConfig.key === 'denominacion') {
+        aVal = getPersonaLabel(a);
+        bVal = getPersonaLabel(b);
       }
       
       if (typeof aVal === 'string') {
@@ -445,10 +451,19 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
     setModalOpen(true);
   };
 
+  const { widths: colWidths, onMouseDown: onColMouseDown } = useResizableColumns(PL_INITIAL_WIDTHS, 'col-widths-personas');
+  const rh = (key) => (
+    <div
+      onMouseDown={(e) => { e.stopPropagation(); onColMouseDown(e, key) }}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 z-10 select-none"
+    />
+  );
+
   const SortIcon = ({ columnKey }) => {
     if (sortConfig.key !== columnKey) return null;
-    return sortConfig.direction === 'asc' ? 
-      <ChevronUp size={14} className="inline ml-1" /> : 
+    return sortConfig.direction === 'asc' ?
+      <ChevronUp size={14} className="inline ml-1" /> :
       <ChevronDown size={14} className="inline ml-1" />;
   };
 
@@ -703,17 +718,14 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
                     className="rounded border-gray-300 text-accent focus:ring-accent"
                   />
                 </th>
-                <th onClick={() => handleSort('apellido')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                  APELLIDO <SortIcon columnKey="apellido" />
+                <th onClick={() => handleSort('denominacion')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.denominacion, minWidth: 60 }}>
+                  DENOMINACIÓN <SortIcon columnKey="denominacion" />{rh('denominacion')}
                 </th>
-                <th onClick={() => handleSort('nombre')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent">
-                  NOMBRE <SortIcon columnKey="nombre" />
+                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell relative" style={{ width: colWidths.documento, minWidth: 60 }}>
+                  DOCUMENTO{rh('documento')}
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell">
-                  DOCUMENTO
-                </th>
-                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell">
-                  TIPO
+                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell relative" style={{ width: colWidths.tipo, minWidth: 60 }}>
+                  TIPO{rh('tipo')}
                 </th>
                 <th className="px-2 py-2 text-right text-xs font-medium uppercase tracking-wider">
                   ACCIONES
@@ -722,9 +734,9 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
-                <tr><td colSpan="6" className="px-2 py-3 text-center text-xs">Cargando...</td></tr>
+                <tr><td colSpan="5" className="px-2 py-3 text-center text-xs">Cargando...</td></tr>
               ) : filteredPersonas.length === 0 ? (
-                <tr><td colSpan="6" className="px-2 py-6 text-center text-gray-500 text-xs">No hay personas</td></tr>
+                <tr><td colSpan="5" className="px-2 py-6 text-center text-gray-500 text-xs">No hay personas</td></tr>
               ) : (
                 filteredPersonas.map(persona => (
                   <tr key={persona.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -736,11 +748,10 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
                         className="rounded border-gray-300 text-accent focus:ring-accent"
                       />
                     </td>
-                    <td className="px-2 py-2 whitespace-nowrap text-sm">
-                      {persona.tipo_persona === 'juridica' ? (persona.razon_social || '—') : (persona.apellido || '')}
-                    </td>
-                    <td className="px-2 py-2 whitespace-nowrap text-sm">
-                      {persona.tipo_persona === 'juridica' ? '' : (persona.nombre || '')}
+                    <td className="px-2 py-2 text-sm" style={{ maxWidth: colWidths.denominacion, overflow: 'hidden' }}>
+                      <span className="truncate block" title={getPersonaLabel(persona)}>
+                        {getPersonaLabel(persona)}
+                      </span>
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap hidden md:table-cell font-mono text-xs">
                       {formatDocumento(persona.tipo_documento, persona.numero_documento)}
@@ -970,11 +981,10 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
             searchTerm && `Búsqueda: "${searchTerm}"`,
             filters.tipo_persona && `Tipo: ${getTipoPersonaNombre(filters.tipo_persona)}`,
           ].filter(Boolean).join(' | ') || undefined}
-          headers={['Apellido / Razón Social', 'Nombre', 'Tipo', 'Documento', 'Email', 'Teléfono', 'Ciudad']}
+          headers={['Denominación', 'Tipo', 'Documento', 'Email', 'Teléfono', 'Ciudad']}
           items={filteredPersonas}
           getRow={p => [
-            p.tipo_persona === 'juridica' ? (p.razon_social || '—') : (p.apellido || '—'),
-            p.tipo_persona === 'juridica' ? '—' : (p.nombre || '—'),
+            getPersonaLabel(p),
             getTipoPersonaNombre(p.tipo_persona),
             formatDocumento(p.tipo_documento, p.numero_documento) || '—',
             p.email || '—',

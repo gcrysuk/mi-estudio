@@ -1,0 +1,57 @@
+import PrintLayout from './PrintLayout'
+
+const fmtAR = (iso) => {
+  if (!iso) return '—'
+  try { return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }
+  catch { return '—' }
+}
+
+export default function ReporteTranscripcion({ movimiento, transcripcion, onClose }) {
+  const ahora = fmtAR(new Date().toISOString())
+
+  return (
+    <PrintLayout onClose={onClose} title={`Transcripción: ${movimiento.titulo}`}>
+      {/* Header */}
+      <div style={{ borderBottom: '2px solid #333', paddingBottom: '8px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>MI ESTUDIO</h1>
+            <p style={{ fontSize: '11px', color: '#555', margin: '2px 0 0' }}>Sistema de Gestión Jurídica</p>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: '11px', color: '#555' }}>
+            <p>Fecha: {ahora}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Datos del movimiento */}
+      <div style={{ marginBottom: '20px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '10px' }}>TRANSCRIPCIÓN ORIGINAL</h2>
+        <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '11px', marginBottom: '16px' }}>
+          <tbody>
+            <tr>
+              <td style={{ padding: '4px 8px', fontWeight: 'bold', width: '130px', border: '1px solid #ddd', backgroundColor: '#f8f8f8' }}>Título</td>
+              <td style={{ padding: '4px 8px', border: '1px solid #ddd' }} colSpan={3}>{movimiento.titulo}</td>
+            </tr>
+            <tr>
+              <td style={{ padding: '4px 8px', fontWeight: 'bold', border: '1px solid #ddd', backgroundColor: '#f8f8f8' }}>Carpeta</td>
+              <td style={{ padding: '4px 8px', border: '1px solid #ddd', width: '200px' }}>{movimiento.carpeta_nombre || '—'}</td>
+              <td style={{ padding: '4px 8px', fontWeight: 'bold', border: '1px solid #ddd', width: '80px', backgroundColor: '#f8f8f8' }}>Fecha</td>
+              <td style={{ padding: '4px 8px', border: '1px solid #ddd', width: '140px' }}>{fmtAR(movimiento.fecha_movimiento)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Cuerpo de la transcripción */}
+        <div style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '16px', minHeight: '200px', fontSize: '11px', lineHeight: '1.7', whiteSpace: 'pre-wrap', backgroundColor: '#fff' }}>
+          {transcripcion || '(Sin transcripción)'}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ marginTop: '32px', paddingTop: '8px', borderTop: '1px solid #ccc', fontSize: '10px', color: '#888', textAlign: 'center' }}>
+        Generado por Mi Estudio — {ahora}
+      </div>
+    </PrintLayout>
+  )
+}

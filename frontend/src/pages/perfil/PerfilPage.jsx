@@ -291,19 +291,26 @@ export default function PerfilPage() {
       {/* Cambiar contraseña */}
       <form onSubmit={handleCambiarPwd} className={`p-4 rounded-lg shadow space-y-3 ${dark ? 'bg-gray-800' : 'bg-white'}`}>
         <h2 className="text-sm font-bold uppercase mb-3 text-gray-500 flex items-center gap-2">
-          <Lock size={14} /> Cambiar contraseña
+          <Lock size={14} /> {perfil.tiene_password ? 'Cambiar contraseña' : 'Agregar contraseña'}
         </h2>
+        {!perfil.tiene_password && (
+          <p className="text-xs text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+            Tu cuenta usa Google para autenticarse. Podés agregar una contraseña adicional.
+          </p>
+        )}
         {errPwd.general && <p className="text-red-500 text-xs">{errPwd.general}</p>}
-        <div>
-          <label className={LABEL}>Contraseña actual</label>
-          <PasswordInput
-            value={pwd.password_actual}
-            onChange={e => setPwd(p => ({ ...p, password_actual: e.target.value }))}
-            required
-            autoComplete="current-password"
-          />
-          {errPwd.password_actual && <p className="text-red-500 text-xs mt-0.5">{errPwd.password_actual}</p>}
-        </div>
+        {perfil.tiene_password && (
+          <div>
+            <label className={LABEL}>Contraseña actual</label>
+            <PasswordInput
+              value={pwd.password_actual}
+              onChange={e => setPwd(p => ({ ...p, password_actual: e.target.value }))}
+              required
+              autoComplete="current-password"
+            />
+            {errPwd.password_actual && <p className="text-red-500 text-xs mt-0.5">{errPwd.password_actual}</p>}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={LABEL}>Nueva contraseña</label>
@@ -334,7 +341,7 @@ export default function PerfilPage() {
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium disabled:opacity-50"
           >
             <Lock size={13} />
-            {savingPwd ? 'Cambiando...' : 'Cambiar contraseña'}
+            {savingPwd ? 'Guardando...' : perfil.tiene_password ? 'Cambiar contraseña' : 'Agregar contraseña'}
           </button>
         </div>
       </form>

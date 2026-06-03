@@ -11,6 +11,9 @@ import {
   Printer,
 } from 'lucide-react';
 import ImprimirLista from '../../components/print/ImprimirLista';
+import { useResizableColumns } from '../../hooks/useResizableColumns';
+
+const OL_INITIAL_WIDTHS = { nombre: 200, direccion: 180, provincia: 130, localidad: 130, materia: 130 };
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
@@ -155,6 +158,15 @@ const OrganismosList = () => {
       return 0;
     });
 
+  const { widths: colWidths, onMouseDown: onColMouseDown } = useResizableColumns(OL_INITIAL_WIDTHS, 'col-widths-organismos');
+  const rh = (key) => (
+    <div
+      onMouseDown={(e) => { e.stopPropagation(); onColMouseDown(e, key) }}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-accent/40 z-10 select-none"
+    />
+  );
+
   const SortIcon = ({ columnKey }) => {
     if (sortConfig.key !== columnKey) return null;
     return sortConfig.direction === 'asc'
@@ -235,27 +247,30 @@ const OrganismosList = () => {
                 </th>
                 <th
                   onClick={() => handleSort('nombre')}
-                  className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent"
+                  className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative"
+                  style={{ width: colWidths.nombre, minWidth: 60 }}
                 >
-                  NOMBRE <SortIcon columnKey="nombre" />
+                  NOMBRE <SortIcon columnKey="nombre" />{rh('nombre')}
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell">
-                  DIRECCIÓN
+                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell relative" style={{ width: colWidths.direccion, minWidth: 60 }}>
+                  DIRECCIÓN{rh('direccion')}
                 </th>
                 <th
                   onClick={() => handleSort('provincia')}
-                  className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent hidden md:table-cell"
+                  className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent hidden md:table-cell relative"
+                  style={{ width: colWidths.provincia, minWidth: 60 }}
                 >
-                  PROVINCIA <SortIcon columnKey="provincia" />
+                  PROVINCIA <SortIcon columnKey="provincia" />{rh('provincia')}
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell">
-                  LOCALIDAD
+                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell relative" style={{ width: colWidths.localidad, minWidth: 60 }}>
+                  LOCALIDAD{rh('localidad')}
                 </th>
                 <th
                   onClick={() => handleSort('materia_nombre')}
-                  className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent hidden lg:table-cell"
+                  className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent hidden lg:table-cell relative"
+                  style={{ width: colWidths.materia, minWidth: 60 }}
                 >
-                  MATERIA <SortIcon columnKey="materia_nombre" />
+                  MATERIA <SortIcon columnKey="materia_nombre" />{rh('materia')}
                 </th>
                 <th className="px-2 py-2 w-16"></th>
               </tr>
@@ -282,8 +297,10 @@ const OrganismosList = () => {
                         className="rounded border-gray-300 text-accent focus:ring-accent"
                       />
                     </td>
-                    <td className="px-2 py-2 whitespace-nowrap text-sm font-medium">{org.nombre}</td>
-                    <td className="px-2 py-2 text-sm hidden md:table-cell max-w-[180px] truncate">
+                    <td className="px-2 py-2 text-sm font-medium" style={{ maxWidth: colWidths.nombre, overflow: 'hidden' }}>
+                      <span className="truncate block" title={org.nombre}>{org.nombre}</span>
+                    </td>
+                    <td className="px-2 py-2 text-sm hidden md:table-cell truncate" style={{ maxWidth: colWidths.direccion, overflow: 'hidden' }} title={org.direccion || undefined}>
                       {org.direccion || <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-2 py-2 whitespace-nowrap text-sm hidden md:table-cell">

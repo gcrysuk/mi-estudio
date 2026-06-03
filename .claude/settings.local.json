@@ -76,7 +76,8 @@
       "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -6\")",
       "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -4\")",
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/**)",
-      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/config/**)"
+      "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/config/**)",
+      "Bash(python manage.py migrate movimientos 0019)"
     ]
   }
 }
