@@ -77,7 +77,12 @@
       "PowerShell(wsl -d Ubuntu -e bash -c \"source ~/.nvm/nvm.sh && cd /home/focus/mi_estudio/frontend && npm run build 2>&1 | tail -4\")",
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/apps/**)",
       "Read(///wsl.localhost/Ubuntu/home/focus/mi_estudio/backend/config/**)",
-      "Bash(python manage.py migrate movimientos 0019)"
+      "Bash(python manage.py migrate movimientos 0019)",
+      "PowerShell(node --version 2>&1; python --version 2>&1)",
+      "Bash(python -c \"from PIL import Image, ImageDraw, ImageFont; print\\('pillow ok'\\)\")",
+      "Bash(node -e \"require\\('canvas'\\); console.log\\('canvas ok'\\)\")",
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")",
+      "Bash(node *)"
     ]
   }
 }
