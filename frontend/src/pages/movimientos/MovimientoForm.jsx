@@ -36,7 +36,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
   const [showTranscripcion, setShowTranscripcion] = useState(false);
   const [showPrintTranscripcion, setShowPrintTranscripcion] = useState(false);
 
-  const { isListening, start, stop } = useSpeechRecognition({
+  const { isListening, reconnecting, start, stop } = useSpeechRecognition({
     onResult: (transcript) => {
       setFormData(prev => ({
         ...prev,
@@ -44,6 +44,14 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
       }));
     }
   });
+
+  useEffect(() => {
+    if (!reconnecting) return;
+    const timer = setTimeout(() => {
+      if (reconnecting) toast('La grabación se interrumpió brevemente, reconectando...', { icon: '⚠️' });
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [reconnecting]);
 
   const generarMinuta = async () => {
     setGenerandoMinuta(true);
@@ -370,7 +378,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
             <div>
               <label className="block text-xs font-medium mb-1 uppercase flex items-center gap-1">
                 <Bell size={12} />
-                FECHAS DE NOTIFICACIÓN
+                FECHAS DE RECORDATORIO
               </label>
               <div className="flex gap-1">
                 <input
@@ -451,11 +459,17 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
                   <button
                     type="button"
                     onClick={isListening ? stop : start}
-                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                      reconnecting
+                        ? 'bg-yellow-500 text-white'
+                        : isListening
+                          ? 'bg-red-500 text-white animate-pulse'
+                          : 'border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
                     title={isListening ? 'Detener grabación' : 'Iniciar grabación de voz'}
                   >
                     <Mic size={12} />
-                    {isListening ? 'Grabando...' : 'Grabar'}
+                    {reconnecting ? 'Reconectando...' : isListening ? 'Grabando...' : 'Grabar'}
                   </button>
                   {formData.descripcion && !isListening && (
                     <button

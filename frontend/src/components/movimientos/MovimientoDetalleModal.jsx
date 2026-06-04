@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Edit, FolderOpen, Clock, Bell } from 'lucide-react';
 import api from '../../services/api';
 import MovimientoForm from '../../pages/movimientos/MovimientoForm';
@@ -52,7 +53,7 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
     );
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
 
@@ -64,14 +65,6 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
             <h2 className="text-base font-bold uppercase flex-1 leading-tight">{movimiento?.titulo}</h2>
           )}
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={() => setShowEdit(true)}
-              disabled={loading || !movimiento}
-              className="p-1.5 rounded-lg hover:text-accent hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
-              title="Editar movimiento"
-            >
-              <Edit size={15} />
-            </button>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg hover:text-accent hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -183,7 +176,8 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

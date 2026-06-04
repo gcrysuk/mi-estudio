@@ -203,6 +203,30 @@ def _parse_detalle(html: str) -> dict:
                 if valor:
                     detalle[key] = valor[:500]
 
+    # Extraer texto libre del proveído
+    lineas_texto = []
+    capturando = False
+    for linea in lineas:
+        if 'seleccione desde' in linea.lower():
+            capturando = True
+            continue
+        if 'seleccione hasta' in linea.lower():
+            break
+        if capturando and linea:
+            lineas_texto.append(linea)
+    if lineas_texto:
+        detalle['texto_proveido'] = ' '.join(lineas_texto)[:1000]
+
+    # Buscar links a proveídos relacionados (segundo nivel)
+    links_relacionados = []
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        if 'proveido.asp' in href.lower():
+            if not href.startswith('http'):
+                href = f'{MEV_BASE}/{href.lstrip("/")}'
+            links_relacionados.append(href)
+    detalle['links_relacionados'] = links_relacionados
+
     return detalle
 
 
@@ -287,6 +311,27 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
                     descripcion_parts.append(f"Notificado por: {detalle['notificado_por']}")
                 if detalle.get('nro_notificacion'):
                     descripcion_parts.append(f"Nro. Notificación: {detalle['nro_notificacion']}")
+                if detalle.get('texto_proveido'):
+                    descripcion_parts.append(f"Texto: {detalle['texto_proveido']}")
+
+                # Segundo nivel: proveídos relacionados
+                for link2 in detalle.get('links_relacionados', [])[:2]:
+                    try:
+                        time.sleep(0.3)
+                        html_detalle2 = _mev_get(cookie_jar, link2)
+                        detalle2 = _parse_detalle(html_detalle2)
+                        descripcion_parts.append('--- Movimiento relacionado ---')
+                        if detalle2.get('funcionario_firmante'):
+                            descripcion_parts.append(f"Firmante: {detalle2['funcionario_firmante']}")
+                        if detalle2.get('despachado_en'):
+                            descripcion_parts.append(f"Despachado en: {detalle2['despachado_en']}")
+                        if detalle2.get('tramite_despachado'):
+                            descripcion_parts.append(f"Trámite: {detalle2['tramite_despachado']}")
+                        if detalle2.get('texto_proveido'):
+                            descripcion_parts.append(f"Texto relacionado: {detalle2['texto_proveido']}")
+                    except Exception:
+                        pass
+
             except Exception as exc:
                 logger.warning('MEV detalle error: %s', exc)
 
@@ -318,3 +363,13 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
         )
 
     return {'nuevos': nuevos, 'error': None}
+
+def debug_proveido(url, usuario, clave, depto):
+    """Función de debug para ver el HTML crudo del proveído"""
+    cookie_jar = _get_session(usuario, clave, depto)
+    html = _mev_get(cookie_jar, url)
+    soup = BeautifulSoup(html, 'html.parser')
+    texto = soup.get_text(separator='\n')
+    lineas = [l.strip() for l in texto.split('\n') if l.strip()]
+    for i, l in enumerate(lineas):
+        print(f"{i}: {l[:100]}")

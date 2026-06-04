@@ -46,9 +46,9 @@ const MovimientoConfig = ({ onClose }) => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {activeTab === 'tipos' ? (
-            <TipoMovimientoManager onClose={() => {}} />
+            <TipoMovimientoManager onClose={onClose} />
           ) : (
-            <EstadoMovimientoManager onClose={() => {}} />
+            <EstadoMovimientoManager onClose={onClose} />
           )}
         </div>
       </div>

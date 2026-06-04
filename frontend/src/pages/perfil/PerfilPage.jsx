@@ -31,8 +31,8 @@ const MEV_DEPTOS = [
   { value: 'PAZ', label: 'Justicia de PAZ' },
 ]
 
-const INPUT = "w-full px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-60 disabled:cursor-not-allowed"
-const LABEL = "block text-xs font-medium mb-1 uppercase"
+const INPUT = "w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-60 disabled:cursor-not-allowed"
+const LABEL = "block text-xs font-medium mb-1 uppercase text-foreground"
 
 function PasswordInput({ value, onChange, placeholder, required, autoComplete }) {
   const [show, setShow] = useState(false)
@@ -137,7 +137,7 @@ export default function PerfilPage() {
       </h1>
 
       {/* Info de cuenta (readonly) */}
-      <div className={`p-4 rounded-lg shadow ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className={`p-4 rounded-lg shadow bg-white dark:bg-dark-surface`}>
         <h2 className="text-sm font-bold uppercase mb-3 text-gray-500">Cuenta</h2>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -160,7 +160,7 @@ export default function PerfilPage() {
       </div>
 
       {/* Datos personales */}
-      <form onSubmit={handleSave} className={`p-4 rounded-lg shadow space-y-3 ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+      <form onSubmit={handleSave} className={`p-4 rounded-lg shadow space-y-3 bg-white dark:bg-dark-surface`}>
         <h2 className="text-sm font-bold uppercase mb-3 text-gray-500">Datos personales</h2>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -231,7 +231,7 @@ export default function PerfilPage() {
       </form>
 
       {/* Credenciales MEV */}
-      <form onSubmit={handleSaveMev} className={`p-4 rounded-lg shadow space-y-3 ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+      <form onSubmit={handleSaveMev} className={`p-4 rounded-lg shadow space-y-3 bg-white dark:bg-dark-surface`}>
         <h2 className="text-sm font-bold uppercase mb-3 text-gray-500 flex items-center gap-2">
           <Scale size={14} /> Configuración MEV
         </h2>
@@ -262,19 +262,7 @@ export default function PerfilPage() {
               autoComplete="new-password"
             />
           </div>
-          <div className="col-span-2">
-            <label className={LABEL}>Departamento judicial</label>
-            <select
-              value={mev.mev_depto}
-              onChange={e => setMev(m => ({ ...m, mev_depto: e.target.value }))}
-              className={INPUT}
-            >
-              <option value="">Seleccioná un departamento</option>
-              {MEV_DEPTOS.map(d => (
-                <option key={d.value} value={d.value}>{d.label}</option>
-              ))}
-            </select>
-          </div>
+          {/* Departamento judicial — oculto de la vista */}
         </div>
         <div className="flex justify-end pt-1">
           <button
@@ -289,7 +277,7 @@ export default function PerfilPage() {
       </form>
 
       {/* Cambiar contraseña */}
-      <form onSubmit={handleCambiarPwd} className={`p-4 rounded-lg shadow space-y-3 ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+      <form onSubmit={handleCambiarPwd} className={`p-4 rounded-lg shadow space-y-3 bg-white dark:bg-dark-surface`}>
         <h2 className="text-sm font-bold uppercase mb-3 text-gray-500 flex items-center gap-2">
           <Lock size={14} /> {perfil.tiene_password ? 'Cambiar contraseña' : 'Agregar contraseña'}
         </h2>

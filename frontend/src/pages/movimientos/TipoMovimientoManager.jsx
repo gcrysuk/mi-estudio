@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import ConfigManager from '../../components/common/ConfigManager';
 
 const TipoMovimientoManager = ({ onClose, onSave }) => {

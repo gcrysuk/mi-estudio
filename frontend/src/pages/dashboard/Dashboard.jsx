@@ -4,7 +4,7 @@ import { AlertCircle, Clock, FolderOpen, ListTodo, ChevronRight, CalendarClock, 
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../../services/api';
-import MovimientoForm from '../movimientos/MovimientoForm';
+import MovimientoDetalleModal from '../../components/movimientos/MovimientoDetalleModal';
 
 const SkeletonCard = () => (
   <div className="rounded-2xl shadow-lg p-6 bg-gray-200 dark:bg-gray-700 animate-pulse h-36" />
@@ -71,7 +71,7 @@ const Dashboard = () => {
   const [proximos, setProximos] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
   const [loadingProximos, setLoadingProximos] = useState(true);
-  const [editingMovimiento, setEditingMovimiento] = useState(null);
+  const [detalleMovId, setDetalleMovId] = useState(null);
   const [busqueda, setBusqueda] = useState('');
 
   const cargarDatos = useCallback(() => {
@@ -167,7 +167,7 @@ const Dashboard = () => {
             return filtrados.map(mov => (
               <button
                 key={mov.id}
-                onClick={() => setEditingMovimiento(mov)}
+                onClick={() => setDetalleMovId(mov.id)}
                 className="w-full flex items-center gap-3 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left cursor-pointer"
               >
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${urgencyDotClass(mov.fecha_vencimiento)}`} />
@@ -186,13 +186,11 @@ const Dashboard = () => {
           })()}
         </div>
       </div>
-      {editingMovimiento && (
-        <MovimientoForm
-          movimiento={editingMovimiento}
-          carpetaId={editingMovimiento.carpeta}
-          carpetaNombre={editingMovimiento.carpeta_nombre}
-          onClose={() => setEditingMovimiento(null)}
-          onSave={() => { setEditingMovimiento(null); cargarDatos(); }}
+      {detalleMovId && (
+        <MovimientoDetalleModal
+          movimientoId={detalleMovId}
+          onClose={() => setDetalleMovId(null)}
+          onEdit={cargarDatos}
         />
       )}
     </div>

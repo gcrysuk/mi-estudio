@@ -26,60 +26,55 @@ function formatFecha(fechaStr) {
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
-function vencimientoClase(fechaStr, dark) {
+function vencimientoClase(fechaStr) {
   if (!fechaStr) return ''
   const now = new Date()
   const fecha = new Date(fechaStr)
   const diff = (fecha - now) / (1000 * 60 * 60 * 24)
-  if (diff < 0) return dark ? 'text-red-400' : 'text-red-600'
-  if (diff < 2) return dark ? 'text-orange-400' : 'text-orange-600'
-  if (diff < 5) return dark ? 'text-yellow-400' : 'text-yellow-600'
-  return dark ? 'text-green-400' : 'text-green-600'
+  if (diff < 0) return 'text-red-600 dark:text-red-400'
+  if (diff < 2) return 'text-orange-600 dark:text-orange-400'
+  if (diff < 5) return 'text-yellow-600 dark:text-yellow-400'
+  return 'text-green-600 dark:text-green-400'
 }
 
 function KanbanCard({ movimiento, isDragging, onEdit }) {
-  const { dark } = useTheme()
-  const bg = isDragging
-    ? dark ? 'bg-gray-600 shadow-xl' : 'bg-blue-50 shadow-xl'
-    : dark ? 'bg-gray-700 hover:bg-gray-650' : 'bg-white hover:bg-gray-50'
-
   return (
     <div
-      className={`group relative rounded-lg p-3 mb-2 border ${
-        dark ? 'border-gray-600' : 'border-gray-200'
-      } ${bg} transition-colors cursor-grab active:cursor-grabbing select-none`}
+      className={`group relative rounded-lg p-3 mb-2 border border-gray-200 dark:border-gray-600 transition-colors cursor-grab active:cursor-grabbing select-none ${
+        isDragging
+          ? 'bg-blue-50 dark:bg-gray-600 shadow-xl'
+          : 'bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
+      }`}
     >
       {!isDragging && onEdit && (
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(movimiento) }}
           onPointerDown={(e) => e.stopPropagation()}
-          className={`absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-0.5 rounded transition-all ${
-            dark ? 'text-gray-400 hover:text-white hover:bg-gray-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'
-          }`}
+          className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-0.5 rounded transition-all text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-500"
           title="Editar movimiento"
         >
           <Edit2 size={13} />
         </button>
       )}
-      <p className={`text-sm font-medium mb-1.5 leading-snug pr-5 ${dark ? 'text-gray-100' : 'text-gray-800'}`} title={movimiento.titulo}>
+      <p className="text-sm font-medium mb-1.5 leading-snug pr-5 text-gray-800 dark:text-gray-100" title={movimiento.titulo}>
         {movimiento.titulo}
       </p>
 
       <div className="flex flex-wrap gap-1.5 mt-1">
         {movimiento.carpeta_nombre && (
-          <span title={movimiento.carpeta_nombre} className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${dark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+          <span title={movimiento.carpeta_nombre} className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
             <Folder size={10} />
             {movimiento.carpeta_nombre}
           </span>
         )}
         {movimiento.tipo_nombre && (
-          <span title={movimiento.tipo_nombre} className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded ${dark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-600'}`}>
+          <span title={movimiento.tipo_nombre} className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
             <Tag size={10} />
             {movimiento.tipo_nombre}
           </span>
         )}
         {movimiento.fecha_vencimiento && (
-          <span className={`flex items-center gap-1 text-xs font-medium ${vencimientoClase(movimiento.fecha_vencimiento, dark)}`}>
+          <span className={`flex items-center gap-1 text-xs font-medium ${vencimientoClase(movimiento.fecha_vencimiento)}`}>
             <Calendar size={10} />
             {formatFecha(movimiento.fecha_vencimiento)}
           </span>
@@ -99,7 +94,7 @@ function KanbanCard({ movimiento, isDragging, onEdit }) {
           <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${
             movimiento.es_responsable
               ? 'bg-accent/15 text-accent'
-              : `${dark ? 'bg-gray-600 text-gray-300' : 'bg-gray-100 text-gray-500'}`
+              : 'bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300'
           }`}>
             <UserCheck size={9} />
             {movimiento.es_responsable ? 'Asignado a mí' : movimiento.responsable_username}
@@ -141,8 +136,8 @@ function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, busqueda }
     <div
       className={`flex-shrink-0 w-56 flex flex-col rounded-xl border transition-colors ${
         isOver
-          ? dark ? 'border-blue-500 bg-gray-750' : 'border-blue-400 bg-blue-50'
-          : dark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
+          ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-gray-700'
+          : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
       }`}
     >
       {/* Header */}
@@ -152,19 +147,17 @@ function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, busqueda }
             className="w-3 h-3 rounded-full flex-shrink-0"
             style={{ backgroundColor: estado.color }}
           />
-          <span className={`font-semibold text-sm truncate ${dark ? 'text-gray-200' : 'text-gray-700'}`}>
+          <span className="font-semibold text-sm truncate text-gray-700 dark:text-gray-200">
             {estado.nombre}
           </span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${dark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'}`}>
+          <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
             {visibles.length}
           </span>
           <button
             onClick={() => onNuevoMovimiento(estado.id)}
-            className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${
-              dark ? 'text-gray-400 hover:text-white hover:bg-gray-600' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'
-            }`}
+            className="w-5 h-5 flex items-center justify-center rounded transition-colors text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
             title={`Nuevo movimiento en ${estado.nombre}`}
           >
             <Plus size={13} />
@@ -187,7 +180,7 @@ function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, busqueda }
           ))}
         </SortableContext>
         {visibles.length === 0 && (
-          <div className={`flex items-center justify-center h-16 text-xs ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+          <div className="flex items-center justify-center h-16 text-xs text-gray-400 dark:text-gray-500">
             {q ? 'Sin resultados' : 'Sin movimientos'}
           </div>
         )}
@@ -291,9 +284,9 @@ export default function KanbanPage() {
   }
 
   return (
-    <div className={`flex flex-col h-full ${dark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+    <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900">
       {/* Topbar */}
-      <div className={`flex items-center gap-3 px-6 py-3 border-b flex-wrap ${dark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+      <div className="flex items-center gap-3 px-6 py-3 border-b flex-wrap border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
         <h1 className={`text-lg font-bold flex-shrink-0 ${dark ? 'text-white' : 'text-gray-800'}`}>
           Tablero Kanban
         </h1>

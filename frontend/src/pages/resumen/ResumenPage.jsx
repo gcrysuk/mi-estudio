@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   LayoutList, RefreshCw, Search, ExternalLink, Printer,
   ChevronUp, ChevronDown, Clock, AlertCircle, X,
@@ -7,14 +6,15 @@ import {
 import ImprimirLista from '../../components/print/ImprimirLista'
 import { format, parseISO, isBefore, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
-import { useTheme } from '../../contexts/ThemeContext'
 import { getResumen } from '../../services/movimientosService'
 import { useResizableColumns } from '../../hooks/useResizableColumns'
+import MovimientoForm from '../movimientos/MovimientoForm'
+import Pagination from '../../components/ui/Pagination'
 
 const RS_INITIAL_WIDTHS = {
   carpeta: 160, movimiento: 220, tipo: 110, estado: 120,
   responsable: 120, fecha: 130, vencimiento: 130,
-};
+}
 
 const fmt = (iso) => {
   if (!iso) return '—'
@@ -39,10 +39,10 @@ const VENC_TEXT = {
 }
 
 const ROW_BG = {
-  vencido: { light: 'bg-red-50 hover:bg-red-100',     dark: 'bg-red-900/15 hover:bg-red-900/25' },
-  proximo: { light: 'bg-yellow-50 hover:bg-yellow-100', dark: 'bg-yellow-900/15 hover:bg-yellow-900/25' },
-  ok:      { light: 'hover:bg-gray-50',               dark: 'hover:bg-gray-700' },
-  null:    { light: 'hover:bg-gray-50',               dark: 'hover:bg-gray-700' },
+  vencido: 'bg-red-50 dark:bg-red-900/15 hover:bg-red-100 dark:hover:bg-red-900/25',
+  proximo: 'bg-yellow-50 dark:bg-yellow-900/15 hover:bg-yellow-100 dark:hover:bg-yellow-900/25',
+  ok:      'hover:bg-gray-50 dark:hover:bg-gray-700',
+  null:    'hover:bg-gray-50 dark:hover:bg-gray-700',
 }
 
 const VENC_BTNS = [
@@ -63,8 +63,6 @@ const SORT_GETVAL = {
 }
 
 export default function ResumenPage() {
-  const { dark } = useTheme()
-  const navigate = useNavigate()
   const [movimientos, setMovimientos] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -74,6 +72,9 @@ export default function ResumenPage() {
   const [filtroVenc, setFiltroVenc] = useState('todos')
   const [sortCol, setSortCol] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
+  const [movimientoSeleccionado, setMovimientoSeleccionado] = useState(null)
+  const [pagina, setPagina] = useState(1)
+  const [porPagina, setPorPagina] = useState(20)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -141,6 +142,13 @@ export default function ResumenPage() {
     return result
   }, [movimientos, search, filtroEstado, filtroTipo, filtroVenc, sortCol, sortDir])
 
+  // Resetear a página 1 cuando cambian los filtros o búsqueda
+  useEffect(() => { setPagina(1) }, [search, filtroEstado, filtroTipo, filtroVenc, sortCol, sortDir])
+
+  const totalItems = filtrados.length
+  const totalPaginas = Math.max(1, Math.ceil(totalItems / porPagina))
+  const datosPaginados = filtrados.slice((pagina - 1) * porPagina, pagina * porPagina)
+
   const hasActiveFilters = filtroEstado || filtroTipo || filtroVenc !== 'todos'
 
   const limpiarFiltros = () => {
@@ -165,10 +173,8 @@ export default function ResumenPage() {
     />
   )
 
-  const thBase = `px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-accent transition-colors relative ${
-    dark ? 'text-gray-400' : 'text-gray-500'
-  }`
-  const td = `px-3 py-2.5 text-sm`
+  const thBase = 'px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-accent transition-colors relative text-gray-500 dark:text-gray-400'
+  const td = 'px-3 py-2.5 text-sm'
 
   const sortIcon = (col) => {
     if (sortCol !== col) return <ChevronUp size={12} className="ml-1 inline opacity-20" />
@@ -177,13 +183,10 @@ export default function ResumenPage() {
       : <ChevronDown size={12} className="ml-1 inline" />
   }
 
-  const dropSel = `appearance-none pl-3 pr-8 py-1.5 rounded-lg border-none focus:outline-none focus:ring-1 focus:ring-accent text-xs uppercase ${
-    dark ? 'bg-gray-700 text-gray-200' : 'bg-gray-100 text-gray-700'
-  }`
+  const dropSel = 'appearance-none pl-3 pr-8 py-1.5 rounded-lg border-none focus:outline-none focus:ring-1 focus:ring-accent text-xs uppercase bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
 
   const handleRowClick = (mov) => {
-    if (mov.carpeta) navigate(`/movimientos?carpeta=${mov.carpeta}`)
-    else navigate('/movimientos')
+    setMovimientoSeleccionado(mov)
   }
 
   return (
@@ -192,13 +195,11 @@ export default function ResumenPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <LayoutList size={22} className="text-accent" />
-          <h1 className={`text-xl font-bold uppercase ${dark ? 'text-white' : 'text-gray-800'}`}>
+          <h1 className="text-xl font-bold uppercase text-gray-800 dark:text-white">
             Resumen
           </h1>
           {!loading && (
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              dark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-500'
-            }`}>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300">
               {filtrados.length} carpeta{filtrados.length !== 1 ? 's' : ''}
             </span>
           )}
@@ -206,20 +207,14 @@ export default function ResumenPage() {
         <button
           onClick={cargar}
           disabled={loading}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50 ${
-            dark
-              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
-          }`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50 bg-white dark:bg-gray-700 border border-gray-200 dark:border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
         >
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           Actualizar
         </button>
         <button
           onClick={() => setShowPrint(true)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${
-            dark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
-          }`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors bg-white dark:bg-gray-700 border border-gray-200 dark:border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
         >
           <Printer size={13} /> Imprimir
         </button>
@@ -245,18 +240,14 @@ export default function ResumenPage() {
       )}
 
       {/* Buscador */}
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg shadow ${
-        dark ? 'bg-gray-800' : 'bg-white border border-gray-200'
-      }`}>
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg shadow bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent">
         <Search size={14} className="text-gray-400 flex-shrink-0" />
         <input
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar por carpeta o movimiento..."
-          className={`flex-1 text-sm bg-transparent outline-none placeholder-gray-400 ${
-            dark ? 'text-gray-200' : 'text-gray-700'
-          }`}
+          className="flex-1 text-sm bg-transparent outline-none placeholder-gray-400 text-gray-700 dark:text-gray-200"
         />
         {search && (
           <button onClick={() => setSearch('')} className="text-gray-400 hover:text-gray-600">
@@ -266,7 +257,7 @@ export default function ResumenPage() {
       </div>
 
       {/* Filtros */}
-      <div className={`rounded-lg shadow p-3 ${dark ? 'bg-gray-800' : 'bg-white border border-gray-200'}`}>
+      <div className="rounded-lg shadow p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent">
         <div className="flex flex-wrap gap-2 items-center">
           {/* Estado */}
           <div className="relative">
@@ -295,7 +286,7 @@ export default function ResumenPage() {
                 className={`px-3 py-1.5 rounded-lg text-xs uppercase flex items-center gap-1 transition-colors ${
                   filtroVenc === key
                     ? key === 'vencidos' ? 'bg-red-500 text-white' : 'bg-accent text-white'
-                    : dark ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                    : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 {Icon && <Icon size={12} />}
@@ -308,11 +299,7 @@ export default function ResumenPage() {
           {hasActiveFilters && (
             <button
               onClick={limpiarFiltros}
-              className={`flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border transition-colors ml-auto ${
-                dark
-                  ? 'text-gray-400 hover:text-gray-200 border-gray-600'
-                  : 'text-gray-500 hover:text-gray-700 border-gray-300'
-              }`}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border transition-colors ml-auto text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-gray-300 dark:border-gray-600"
             >
               <X size={12} /> Limpiar
             </button>
@@ -321,10 +308,10 @@ export default function ResumenPage() {
       </div>
 
       {/* Tabla */}
-      <div className={`rounded-lg shadow overflow-hidden ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className="rounded-lg shadow overflow-hidden bg-white dark:bg-gray-800">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className={dark ? 'bg-gray-900' : 'bg-gray-50'}>
+            <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th className={thBase} onClick={() => handleSort('carpeta')} style={{ width: colWidths.carpeta, minWidth: 60 }}>
                   Carpeta{sortIcon('carpeta')}{rh('carpeta')}
@@ -347,10 +334,10 @@ export default function ResumenPage() {
                 <th className={thBase} onClick={() => handleSort('vencimiento')} style={{ width: colWidths.vencimiento, minWidth: 60 }}>
                   Vencimiento{sortIcon('vencimiento')}{rh('vencimiento')}
                 </th>
-                <th className={`px-3 py-2.5 pr-4 ${dark ? 'text-gray-400' : 'text-gray-500'}`} />
+                <th className="px-3 py-2.5 pr-4 text-gray-500 dark:text-gray-400" />
               </tr>
             </thead>
-            <tbody className={`divide-y ${dark ? 'divide-gray-700' : 'divide-gray-100'}`}>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {loading ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-sm text-gray-400">
@@ -361,7 +348,7 @@ export default function ResumenPage() {
                 <tr>
                   <td colSpan={8} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
-                      <LayoutList size={28} strokeWidth={1} className={dark ? 'text-gray-600' : 'text-gray-300'} />
+                      <LayoutList size={28} strokeWidth={1} className="text-gray-300 dark:text-gray-600" />
                       <p className="text-sm text-gray-400">
                         {search || hasActiveFilters
                           ? 'Sin resultados para los filtros activos'
@@ -371,10 +358,10 @@ export default function ResumenPage() {
                   </td>
                 </tr>
               ) : (
-                filtrados.map(mov => {
+                datosPaginados.map(mov => {
                   const vs = vencState(mov.fecha_vencimiento, mov.vencido)
                   const rowKey = String(vs)
-                  const bg = (ROW_BG[rowKey] ?? ROW_BG['ok'])[dark ? 'dark' : 'light']
+                  const bg = ROW_BG[rowKey] ?? ROW_BG['ok']
 
                   return (
                     <tr
@@ -383,14 +370,14 @@ export default function ResumenPage() {
                       className={`cursor-pointer transition-colors ${bg}`}
                     >
                       {/* Carpeta */}
-                      <td className={`${td} font-medium ${dark ? 'text-gray-200' : 'text-gray-800'}`} style={{ maxWidth: colWidths.carpeta, overflow: 'hidden' }}>
+                      <td className={`${td} font-medium text-gray-800 dark:text-gray-200`} style={{ maxWidth: colWidths.carpeta, overflow: 'hidden' }}>
                         <span className="block truncate" title={mov.carpeta_nombre || 'Sin carpeta'}>
                           {mov.carpeta_nombre || 'Sin carpeta'}
                         </span>
                       </td>
 
                       {/* Último movimiento */}
-                      <td className={`${td} ${dark ? 'text-gray-300' : 'text-gray-700'}`} style={{ maxWidth: colWidths.movimiento, overflow: 'hidden' }}>
+                      <td className={`${td} text-gray-700 dark:text-gray-300`} style={{ maxWidth: colWidths.movimiento, overflow: 'hidden' }}>
                         <span className="block truncate" title={mov.titulo}>{mov.titulo}</span>
                       </td>
 
@@ -423,18 +410,18 @@ export default function ResumenPage() {
                       </td>
 
                       {/* Responsable */}
-                      <td className={`${td} text-xs ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <td className={`${td} text-xs text-gray-500 dark:text-gray-400`}>
                         {mov.responsable_username || '—'}
                       </td>
 
                       {/* Fecha creación */}
-                      <td className={`${td} text-xs whitespace-nowrap ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <td className={`${td} text-xs whitespace-nowrap text-gray-500 dark:text-gray-400`}>
                         {fmt(mov.fecha_creacion)}
                       </td>
 
                       {/* Vencimiento */}
                       <td className={`${td} text-xs whitespace-nowrap`}>
-                        <span className={VENC_TEXT[vs] || (dark ? 'text-gray-400' : 'text-gray-500')}>
+                        <span className={VENC_TEXT[vs] || 'text-gray-500 dark:text-gray-400'}>
                           {mov.fecha_vencimiento ? fmt(mov.fecha_vencimiento) : '—'}
                         </span>
                       </td>
@@ -459,7 +446,24 @@ export default function ResumenPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={pagina}
+          totalPages={totalPaginas}
+          pageSize={porPagina}
+          count={totalItems}
+          onPageChange={setPagina}
+          onPageSizeChange={(ps) => { setPorPagina(ps); setPagina(1) }}
+        />
       </div>
+      {movimientoSeleccionado && (
+        <MovimientoForm
+          movimiento={movimientoSeleccionado}
+          carpetaId={movimientoSeleccionado.carpeta}
+          carpetaNombre={movimientoSeleccionado.carpeta_nombre}
+          onClose={() => setMovimientoSeleccionado(null)}
+          onSave={() => { setMovimientoSeleccionado(null); cargar() }}
+        />
+      )}
     </div>
   )
 }
