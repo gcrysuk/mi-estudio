@@ -526,26 +526,26 @@ const MovimientosTable = ({
         </div>
       ) : (
         <div className="bg-white dark:bg-dark-surface rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto w-full">
+          <table className="min-w-[800px] w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-200 dark:border-gray-700">
                 <TH columnKey="titulo">Título</TH>
-                {showCarpetaColumn && visibleColumns.carpeta     && <TH columnKey="carpeta_nombre" className="hidden sm:table-cell">Carpeta</TH>}
-                {visibleColumns.tipo        && <TH columnKey="tipo_nombre"        className="hidden md:table-cell">Tipo</TH>}
+                {showCarpetaColumn && visibleColumns.carpeta     && <TH columnKey="carpeta_nombre">Carpeta</TH>}
+                {visibleColumns.tipo        && <TH columnKey="tipo_nombre">Tipo</TH>}
                 {visibleColumns.estado      && <TH columnKey="estado_nombre">Estado</TH>}
-                {visibleColumns.fecha       && <TH columnKey="fecha_movimiento"   className="hidden sm:table-cell">Fecha</TH>}
-                {visibleColumns.vencimiento && <TH columnKey="fecha_vencimiento"  className="hidden lg:table-cell">Vencimiento</TH>}
-                {visibleColumns.fecha_notif && <TH columnKey="fecha_notificacion" className="hidden lg:table-cell">Notificación</TH>}
-                {visibleColumns.tiempo      && <TH columnKey="tiempo_trabajo"     className="hidden xl:table-cell">Tiempo</TH>}
+                {visibleColumns.fecha       && <TH columnKey="fecha_movimiento">Fecha</TH>}
+                {visibleColumns.vencimiento && <TH columnKey="fecha_vencimiento">Vencimiento</TH>}
+                {visibleColumns.fecha_notif && <TH columnKey="fecha_notificacion">Notificación</TH>}
+                {visibleColumns.tiempo      && <TH columnKey="tiempo_trabajo">Tiempo</TH>}
                 {visibleColumns.descripcion && (
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell relative" style={{ width: colWidths.descripcion, minWidth: 60 }}>Descripción{rh('descripcion')}</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide relative" style={{ width: colWidths.descripcion, minWidth: 60 }}>Descripción{rh('descripcion')}</th>
                 )}
                 {visibleColumns.creado_por && (
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell relative" style={{ width: colWidths.creado_por, minWidth: 60 }}>Creado por{rh('creado_por')}</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide relative" style={{ width: colWidths.creado_por, minWidth: 60 }}>Creado por{rh('creado_por')}</th>
                 )}
                 {visibleColumns.modificado_por && (
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell relative" style={{ width: colWidths.modificado_por, minWidth: 60 }}>Modificado por{rh('modificado_por')}</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide relative" style={{ width: colWidths.modificado_por, minWidth: 60 }}>Modificado por{rh('modificado_por')}</th>
                 )}
                 <th className="px-4 py-2.5 w-20"></th>
               </tr>
@@ -579,7 +579,7 @@ const MovimientosTable = ({
                   </td>
 
                   {showCarpetaColumn && visibleColumns.carpeta && (
-                    <td className="px-4 py-2.5 hidden sm:table-cell" style={{ maxWidth: colWidths.carpeta_nombre, overflow: 'hidden' }}>
+                    <td className="px-4 py-2.5" style={{ maxWidth: colWidths.carpeta_nombre, overflow: 'hidden' }}>
                       {mov.carpeta ? (
                         <Link
                           to={`/carpetas/${mov.carpeta}`}
@@ -597,7 +597,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.tipo && (
-                    <td className="px-4 py-2.5 hidden md:table-cell">
+                    <td className="px-4 py-2.5">
                       {mov.tipo_nombre
                         ? <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{mov.tipo_nombre}</span>
                         : <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>}
@@ -611,7 +611,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.fecha && (
-                    <td className="px-4 py-2.5 whitespace-nowrap hidden sm:table-cell">
+                    <td className="px-4 py-2.5 whitespace-nowrap">
                       {mov.fecha_movimiento ? (
                         <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                           <Calendar size={12} /> {formatFecha(mov.fecha_movimiento)}
@@ -623,7 +623,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.vencimiento && (
-                    <td className="px-4 py-2.5 whitespace-nowrap hidden lg:table-cell">
+                    <td className="px-4 py-2.5 whitespace-nowrap">
                       {mov.fecha_vencimiento ? (
                         <span className={`flex items-center gap-1 text-xs ${colorVencimiento(mov)}`}>
                           {mov.vencido ? <AlertCircle size={12} /> : <Clock size={12} />}
@@ -636,7 +636,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.fecha_notif && (
-                    <td className="px-4 py-2.5 whitespace-nowrap hidden lg:table-cell">
+                    <td className="px-4 py-2.5 whitespace-nowrap">
                       {mov.proxima_notificacion ? (
                         <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                           <Calendar size={12} /> {formatFecha(mov.proxima_notificacion)}
@@ -648,7 +648,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.tiempo && (
-                    <td className="px-4 py-2.5 whitespace-nowrap hidden xl:table-cell">
+                    <td className="px-4 py-2.5 whitespace-nowrap">
                       {mov.tiempo_trabajo ? (
                         <span className="text-xs text-gray-600 dark:text-gray-400">
                           {mov.tiempo_trabajo} min
@@ -660,7 +660,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.descripcion && (
-                    <td className="px-4 py-2.5 max-w-[200px] hidden xl:table-cell">
+                    <td className="px-4 py-2.5 max-w-[200px]">
                       {mov.descripcion ? (
                         <span className="text-xs text-gray-600 dark:text-gray-400 truncate block" title={mov.descripcion}>
                           {mov.descripcion}
@@ -672,7 +672,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.creado_por && (
-                    <td className="px-4 py-2.5 hidden xl:table-cell">
+                    <td className="px-4 py-2.5">
                       <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {mov.creado_por_nombre || mov.creado_por_username || '—'}
                       </span>
@@ -680,7 +680,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.modificado_por && (
-                    <td className="px-4 py-2.5 hidden xl:table-cell">
+                    <td className="px-4 py-2.5">
                       <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {mov.modificado_por_nombre || '—'}
                       </span>

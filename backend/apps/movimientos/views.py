@@ -103,7 +103,31 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if not _user_puede_editar_movimiento(self.request.user, serializer.instance):
             raise PermissionDenied('No tenés permiso de escritura en este movimiento.')
-        serializer.save(modificado_por=self.request.user)
+        movimiento = serializer.save(modificado_por=self.request.user)
+
+        carpeta = movimiento.carpeta
+        actor = self.request.user
+        if carpeta:
+            actor_nombre = actor.get_full_name() or actor.username
+            mensaje = f"{actor_nombre} modificó '{movimiento.titulo}' en '{carpeta.nombre}'"
+            notificados = set()
+
+            if carpeta.propietario_id != actor.pk:
+                NotificacionSistema.objects.create(
+                    usuario=carpeta.propietario, actor=actor,
+                    tipo='cambio_estado', movimiento=movimiento, carpeta=carpeta,
+                    mensaje=mensaje,
+                )
+                notificados.add(carpeta.propietario_id)
+
+            if (movimiento.responsable_id
+                    and movimiento.responsable_id != actor.pk
+                    and movimiento.responsable_id not in notificados):
+                NotificacionSistema.objects.create(
+                    usuario=movimiento.responsable, actor=actor,
+                    tipo='cambio_estado', movimiento=movimiento, carpeta=carpeta,
+                    mensaje=mensaje,
+                )
 
     def perform_destroy(self, instance):
         if not _user_puede_editar_movimiento(self.request.user, instance):
@@ -549,25 +573,25 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         carpeta = movimiento.carpeta
         actor = request.user
         actor_nombre = actor.get_full_name() or actor.username
-        if movimiento.responsable_id and carpeta:
+        if carpeta:
+            mensaje = f"{actor_nombre} cambió '{movimiento.titulo}' al estado '{estado.nombre}' en '{carpeta.nombre}'"
+            notificados = set()
+
             if carpeta.propietario_id != actor.pk:
                 NotificacionSistema.objects.create(
-                    usuario=carpeta.propietario,
-                    actor=actor,
-                    tipo='cambio_estado',
-                    movimiento=movimiento,
-                    mensaje=f"{actor_nombre} cambió '{movimiento.titulo}' al estado '{estado.nombre}'",
+                    usuario=carpeta.propietario, actor=actor,
+                    tipo='cambio_estado', movimiento=movimiento, carpeta=carpeta,
+                    mensaje=mensaje,
                 )
-            elif movimiento.responsable_id != actor.pk:
-                from django.contrib.auth import get_user_model
-                _User = get_user_model()
-                responsable = _User.objects.get(pk=movimiento.responsable_id)
+                notificados.add(carpeta.propietario_id)
+
+            if (movimiento.responsable_id
+                    and movimiento.responsable_id != actor.pk
+                    and movimiento.responsable_id not in notificados):
                 NotificacionSistema.objects.create(
-                    usuario=responsable,
-                    actor=actor,
-                    tipo='cambio_estado',
-                    movimiento=movimiento,
-                    mensaje=f"{actor_nombre} cambió '{movimiento.titulo}' al estado '{estado.nombre}'",
+                    usuario=movimiento.responsable, actor=actor,
+                    tipo='cambio_estado', movimiento=movimiento, carpeta=carpeta,
+                    mensaje=mensaje,
                 )
 
         serializer = self.get_serializer(movimiento)

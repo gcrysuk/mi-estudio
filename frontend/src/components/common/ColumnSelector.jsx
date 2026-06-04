@@ -20,6 +20,7 @@ const ColumnSelector = ({ columns, visibleColumns, onToggleColumn }) => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        onTouchEnd={(e) => { e.preventDefault(); setIsOpen(v => !v); }}
         className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs uppercase transition-colors"
         title="Seleccionar columnas"
       >
@@ -34,22 +35,25 @@ const ColumnSelector = ({ columns, visibleColumns, onToggleColumn }) => {
             MOSTRAR COLUMNAS
           </div>
           {columns.map(column => (
-            <label
+            <div
               key={column.key}
-              className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer"
+              onClick={() => !column.fixed && onToggleColumn(column.key)}
+              onTouchEnd={(e) => { if (!column.fixed) { e.preventDefault(); onToggleColumn(column.key); } }}
+              className={`flex items-center gap-2 px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded ${column.fixed ? 'opacity-50' : 'cursor-pointer'}`}
             >
               <input
                 type="checkbox"
                 checked={visibleColumns[column.key]}
-                onChange={() => onToggleColumn(column.key)}
-                className="rounded border-gray-300 text-accent focus:ring-accent"
+                onChange={() => {}}
+                className="rounded border-gray-300 text-accent focus:ring-accent pointer-events-none"
                 disabled={column.fixed}
+                readOnly
               />
               <div className="flex-1 text-sm">{column.label}</div>
               <div className="text-gray-400">
                 {visibleColumns[column.key] ? <Eye size={14} /> : <EyeOff size={14} />}
               </div>
-            </label>
+            </div>
           ))}
         </div>
       )}
