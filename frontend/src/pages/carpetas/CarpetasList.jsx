@@ -48,15 +48,15 @@ const CarpetasList = () => {
   const [pageSize, setPageSize]   = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [count, setCount]         = useState(0);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => localStorage.getItem('carpetas_busqueda') || '');
   const [diasSinMovimiento, setDiasSinMovimiento] = useState('');
-  const [filters, setFilters] = useState({
-    estado: '',
-    tipo: '',
-  });
+  const [filters, setFilters] = useState(() => ({
+    estado: localStorage.getItem('carpetas_filtro_estado') || '',
+    tipo:   '',
+  }));
   // Si hay ?estado_nombre en la URL, esperar a que se resuelva el ID antes del primer fetch
   const [filtersReady, setFiltersReady] = useState(!searchParams.get('estado_nombre'));
-  const [ordering, setOrdering] = useState('-fecha_inicio');
+  const [ordering, setOrdering] = useState(() => localStorage.getItem('carpetas_ordering') || '-fecha_inicio');
 
   // Maps UI column key → backend ordering field name
   const SORT_FIELD_MAP = {
@@ -185,6 +185,10 @@ const CarpetasList = () => {
   useEffect(() => {
     fetchData(page, pageSize);
   }, [page]); // eslint-disable-line
+
+  useEffect(() => { localStorage.setItem('carpetas_busqueda', search); }, [search]);
+  useEffect(() => { localStorage.setItem('carpetas_ordering', ordering); }, [ordering]);
+  useEffect(() => { localStorage.setItem('carpetas_filtro_estado', filters.estado); }, [filters.estado]);
 
   // Manejar tecla ESC para cerrar modales
   useEffect(() => {
@@ -576,7 +580,7 @@ const CarpetasList = () => {
       {/* Tabla */}
       <div className="bg-white dark:bg-dark-surface rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px]">
+          <table className="table-fixed w-full min-w-[900px]">
             <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider w-8">

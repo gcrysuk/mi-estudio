@@ -4,7 +4,7 @@ import {
   Search, X, Edit, Trash2, Calendar, Clock,
   FolderOpen, AlertCircle, ChevronDown, ChevronUp, Plus,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import MovimientoForm from '../../pages/movimientos/MovimientoForm';
@@ -207,6 +207,123 @@ const EstadoSelector = ({ movimiento, onUpdate }) => {
   );
 };
 
+// ── TipoSelector ─────────────────────────────────────────────────────────────
+
+const TipoSelector = ({ movimiento, onUpdate }) => {
+  const [isOpen, setIsOpen]         = useState(false);
+  const [tipos, setTipos]           = useState([]);
+  const [loading, setLoading]       = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 180 });
+  const cellRef    = useRef(null);
+  const dropdownRef = useRef(null);
+
+  useClickOutside(dropdownRef, () => setIsOpen(false));
+
+  const handleOpen = () => {
+    const rect = cellRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top:   rect.bottom + window.scrollY + 4,
+      left:  rect.left   + window.scrollX,
+      width: Math.max(rect.width, 180),
+    });
+    setIsOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    api.get('/movimientos/tipos/')
+      .then((r) => setTipos(r.data.results ?? r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [isOpen]);
+
+  const apply = async (tipoId, tipoObj) => {
+    setSaving(true);
+    try {
+      await api.patch(`/movimientos/${movimiento.id}/`, { tipo: tipoId });
+      onUpdate({ ...movimiento, tipo: tipoId, tipo_nombre: tipoObj?.nombre ?? null, tipo_color: tipoObj?.color ?? null });
+      setIsOpen(false);
+      toast.success('Tipo actualizado');
+    } catch {
+      toast.error('Error al actualizar tipo');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const badge = movimiento.tipo_nombre ? (
+    <span
+      className="text-xs px-2 py-0.5 rounded font-medium"
+      style={{
+        backgroundColor: movimiento.tipo_color ? `${movimiento.tipo_color}22` : '#f3f4f6',
+        color: movimiento.tipo_color ?? '#6b7280',
+      }}
+    >
+      {movimiento.tipo_nombre}
+    </span>
+  ) : (
+    <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+  );
+
+  return (
+    <div ref={cellRef}>
+      <div
+        className="cursor-pointer hover:opacity-75 transition-opacity"
+        onClick={handleOpen}
+        title="Click para cambiar tipo"
+      >
+        {badge}
+      </div>
+
+      {isOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ position: 'absolute', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+          className="bg-white dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl"
+        >
+          <div className="max-h-48 overflow-y-auto">
+            {loading ? (
+              <div className="p-2 text-center text-xs text-gray-400">Cargando...</div>
+            ) : (
+              <>
+                {movimiento.tipo && (
+                  <button type="button" disabled={saving} onClick={() => apply(null, null)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 italic">
+                    Sin tipo
+                  </button>
+                )}
+                {tipos.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => apply(t.id, t)}
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 ${
+                      t.id === movimiento.tipo ? 'font-semibold' : ''
+                    }`}
+                  >
+                    {t.color && (
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: t.color }} />
+                    )}
+                    {t.nombre}
+                    {t.id === movimiento.tipo && <span className="ml-auto text-accent">✓</span>}
+                  </button>
+                ))}
+                {tipos.length === 0 && !loading && (
+                  <div className="p-2 text-center text-xs text-gray-400">Sin tipos disponibles</div>
+                )}
+              </>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
 const COLUMN_CONFIG = [
   { key: 'carpeta',     label: 'Carpeta',     fixed: false },
   { key: 'tipo',        label: 'Tipo',        fixed: false },
@@ -235,6 +352,7 @@ const MovimientosTable = ({
   emptyMessage = 'No se encontraron movimientos',
   refreshKey = 0,
 }) => {
+  const [searchParams] = useSearchParams();
   const [movimientos, setMovimientos]         = useState([]);
   const [loading, setLoading]                 = useState(true);
   const [page, setPage]                       = useState(1);
@@ -247,7 +365,7 @@ const MovimientosTable = ({
   const [confirmDelete, setConfirmDelete]     = useState(null);
   const [detalleMovId, setDetalleMovId]       = useState(null);
 
-  const [ordering, setOrdering]               = useState('-fecha_movimiento');
+  const [ordering, setOrdering]               = useState(() => localStorage.getItem('movimientos_ordering') || '-fecha_movimiento');
   const { widths: colWidths, onMouseDown: onColMouseDown } = useResizableColumns(MT_INITIAL_WIDTHS, 'col-widths-movimientos');
   const rh = (key) => (
     <div
@@ -273,18 +391,32 @@ const MovimientosTable = ({
     try { return { ...DEFAULT_COLUMNS, ...(JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? {}) }; }
     catch { return DEFAULT_COLUMNS; }
   });
-  const [search, setSearch]                   = useState('');
-  const [filters, setFilters]                 = useState({ tipo: '', estado: '', vencido: '' });
+  const [search, setSearch]                   = useState(() => localStorage.getItem('movimientos_busqueda') || '');
+  const [filters, setFilters]                 = useState(() => ({
+    tipo:    localStorage.getItem('movimientos_filtro_tipo')        || '',
+    estado:  new URLSearchParams(window.location.search).get('estado') || localStorage.getItem('movimientos_filtro_estado') || '',
+    vencido: localStorage.getItem('movimientos_filtro_vencimiento') || '',
+  }));
   const [tipos, setTipos]                     = useState([]);
   const [estados, setEstados]                 = useState([]);
 
   const handleUpdateMovimiento = (updated) => {
+    // Optimistic update for immediate feedback, then sync with server
     setMovimientos((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+    doFetch(page, pageSize);
   };
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleColumns));
   }, [visibleColumns]);
+
+  useEffect(() => { localStorage.setItem('movimientos_busqueda', search); }, [search]);
+  useEffect(() => { localStorage.setItem('movimientos_ordering', ordering); }, [ordering]);
+  useEffect(() => {
+    localStorage.setItem('movimientos_filtro_tipo', filters.tipo);
+    localStorage.setItem('movimientos_filtro_estado', filters.estado);
+    localStorage.setItem('movimientos_filtro_vencimiento', filters.vencido);
+  }, [filters.tipo, filters.estado, filters.vencido]);
 
   useEffect(() => {
     Promise.all([
@@ -527,7 +659,7 @@ const MovimientosTable = ({
       ) : (
         <div className="bg-white dark:bg-dark-surface rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto w-full">
-          <table className="min-w-[800px] w-full text-sm">
+          <table className="table-fixed min-w-[800px] w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-200 dark:border-gray-700">
                 <TH columnKey="titulo">Título</TH>
@@ -598,9 +730,7 @@ const MovimientosTable = ({
 
                   {visibleColumns.tipo && (
                     <td className="px-4 py-2.5">
-                      {mov.tipo_nombre
-                        ? <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{mov.tipo_nombre}</span>
-                        : <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>}
+                      <TipoSelector movimiento={mov} onUpdate={handleUpdateMovimiento} />
                     </td>
                   )}
 

@@ -120,6 +120,7 @@ function DraggableCard({ movimiento, onEdit }) {
 
 function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, busqueda }) {
   const { dark } = useTheme()
+  const navigate = useNavigate()
   const { setNodeRef, isOver } = useDroppable({ id: String(columna.estado.id) })
   const { estado, movimientos } = columna
 
@@ -147,7 +148,11 @@ function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, busqueda }
             className="w-3 h-3 rounded-full flex-shrink-0"
             style={{ backgroundColor: estado.color }}
           />
-          <span className="font-semibold text-sm truncate text-gray-700 dark:text-gray-200">
+          <span
+            className="font-semibold text-sm truncate text-gray-700 dark:text-gray-200 cursor-pointer hover:text-accent transition-colors"
+            onClick={() => navigate(`/movimientos?estado=${estado.id}`)}
+            title={`Ver todos los movimientos en estado "${estado.nombre}"`}
+          >
             {estado.nombre}
           </span>
         </div>
@@ -275,11 +280,12 @@ export default function KanbanPage() {
 
     try {
       await cambiarEstadoMovimiento(active.id, destinoEstadoId)
+      cargarBoard() // sincronizar con servidor tras éxito
     } catch (error) {
       if (!error._403handled) {
         toast.error('Error al mover el movimiento')
       }
-      cargarBoard() // siempre revertir el optimistic update
+      cargarBoard() // revertir el optimistic update en caso de error
     }
   }
 

@@ -177,7 +177,7 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave, nombreInicial = '' }) =>
       }
 
       await syncParticipantes(carpetaId);
-      onSave?.();
+      onSave?.({ id: carpetaId });
       onClose();
     } catch (error) {
       console.error('Error guardando carpeta:', error);

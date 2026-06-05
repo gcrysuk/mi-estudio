@@ -65,13 +65,13 @@ const SORT_GETVAL = {
 export default function ResumenPage() {
   const [movimientos, setMovimientos] = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => localStorage.getItem('resumen_busqueda') || '')
   const [showPrint, setShowPrint] = useState(false)
-  const [filtroEstado, setFiltroEstado] = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('')
-  const [filtroVenc, setFiltroVenc] = useState('todos')
-  const [sortCol, setSortCol] = useState(null)
-  const [sortDir, setSortDir] = useState('asc')
+  const [filtroEstado, setFiltroEstado] = useState(() => localStorage.getItem('resumen_filtro_estado') || '')
+  const [filtroTipo, setFiltroTipo] = useState(() => localStorage.getItem('resumen_filtro_tipo') || '')
+  const [filtroVenc, setFiltroVenc] = useState(() => localStorage.getItem('resumen_filtro_vencimiento') || 'todos')
+  const [sortCol, setSortCol] = useState(() => localStorage.getItem('resumen_ordering_col') || null)
+  const [sortDir, setSortDir] = useState(() => localStorage.getItem('resumen_ordering_dir') || 'asc')
   const [movimientoSeleccionado, setMovimientoSeleccionado] = useState(null)
   const [pagina, setPagina] = useState(1)
   const [porPagina, setPorPagina] = useState(20)
@@ -144,6 +144,12 @@ export default function ResumenPage() {
 
   // Resetear a página 1 cuando cambian los filtros o búsqueda
   useEffect(() => { setPagina(1) }, [search, filtroEstado, filtroTipo, filtroVenc, sortCol, sortDir])
+  useEffect(() => { localStorage.setItem('resumen_busqueda', search) }, [search])
+  useEffect(() => { localStorage.setItem('resumen_filtro_estado', filtroEstado) }, [filtroEstado])
+  useEffect(() => { localStorage.setItem('resumen_filtro_tipo', filtroTipo) }, [filtroTipo])
+  useEffect(() => { localStorage.setItem('resumen_filtro_vencimiento', filtroVenc) }, [filtroVenc])
+  useEffect(() => { localStorage.setItem('resumen_ordering_col', sortCol ?? '') }, [sortCol])
+  useEffect(() => { localStorage.setItem('resumen_ordering_dir', sortDir) }, [sortDir])
 
   const totalItems = filtrados.length
   const totalPaginas = Math.max(1, Math.ceil(totalItems / porPagina))
@@ -310,7 +316,7 @@ export default function ResumenPage() {
       {/* Tabla */}
       <div className="rounded-lg shadow overflow-hidden bg-white dark:bg-gray-800">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="table-fixed w-full">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th className={thBase} onClick={() => handleSort('carpeta')} style={{ width: colWidths.carpeta, minWidth: 60 }}>

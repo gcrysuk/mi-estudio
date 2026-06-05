@@ -23,8 +23,11 @@ import OrganismoForm from '../../components/organismos/OrganismoForm';
 const OrganismosList = () => {
   const [organismos, setOrganismos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'nombre', direction: 'asc' });
+  const [searchTerm, setSearchTerm] = useState(() => localStorage.getItem('organismos_busqueda') || '');
+  const [sortConfig, setSortConfig] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('organismos_ordering')) || { key: 'nombre', direction: 'asc' }; }
+    catch { return { key: 'nombre', direction: 'asc' }; }
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOrganismo, setEditingOrganismo] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -38,6 +41,9 @@ const OrganismosList = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => { localStorage.setItem('organismos_busqueda', searchTerm); }, [searchTerm]);
+  useEffect(() => { localStorage.setItem('organismos_ordering', JSON.stringify(sortConfig)); }, [sortConfig]);
 
   useEffect(() => {
     const handleEsc = (e) => {
@@ -234,7 +240,7 @@ const OrganismosList = () => {
       {/* Tabla */}
       <div className="bg-white dark:bg-dark-surface rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[650px]">
+          <table className="table-fixed w-full min-w-[650px]">
             <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider w-8">
