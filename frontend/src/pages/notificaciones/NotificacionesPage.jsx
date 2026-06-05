@@ -8,7 +8,6 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
-import { useTheme } from '../../contexts/ThemeContext';
 
 const FILTROS = [
   { key: 'todas',              label: 'Todas' },
@@ -51,7 +50,6 @@ function Avatar({ nombre }) {
 }
 
 export default function NotificacionesPage() {
-  const { dark } = useTheme();
   const navigate = useNavigate();
   const [filtro, setFiltro] = useState('todas');
   const [notificaciones, setNotificaciones] = useState([]);
@@ -143,14 +141,14 @@ export default function NotificacionesPage() {
   const leidas = notificaciones.filter(n => n.leida).length;
 
   return (
-    <div className={`min-h-full ${dark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+    <div className="min-h-full bg-gray-100 dark:bg-gray-900">
       <div className="max-w-3xl mx-auto px-4 py-6">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <Bell size={20} className="text-accent" />
-            <h1 className={`text-xl font-bold uppercase ${dark ? 'text-white' : 'text-gray-800'}`}>
+            <h1 className="text-xl font-bold uppercase text-gray-800 dark:text-white">
               Notificaciones
             </h1>
             {noLeidas > 0 && (
@@ -163,9 +161,7 @@ export default function NotificacionesPage() {
             {noLeidas > 0 && (
               <button
                 onClick={handleMarcarTodas}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs uppercase font-medium transition-colors ${
-                  dark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-white text-gray-600 hover:bg-gray-200 border border-gray-200'
-                }`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs uppercase font-medium transition-colors bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-transparent"
               >
                 <CheckCheck size={13} /> Marcar todas leídas
               </button>
@@ -182,7 +178,7 @@ export default function NotificacionesPage() {
         </div>
 
         {/* Filtros */}
-        <div className={`flex flex-wrap gap-2 mb-5 p-3 rounded-xl ${dark ? 'bg-gray-800' : 'bg-white'} shadow`}>
+        <div className="flex flex-wrap gap-2 mb-5 p-3 rounded-xl bg-white dark:bg-gray-800 shadow">
           {FILTROS.map(({ key, label }) => (
             <button
               key={key}
@@ -190,9 +186,7 @@ export default function NotificacionesPage() {
               className={`px-3 py-1.5 rounded-lg text-xs font-medium uppercase transition-colors ${
                 filtro === key
                   ? 'bg-accent text-white'
-                  : dark
-                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {label}
@@ -201,20 +195,20 @@ export default function NotificacionesPage() {
         </div>
 
         {/* Lista */}
-        <div className={`rounded-xl shadow overflow-hidden ${dark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}>
+        <div className="rounded-xl shadow overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           {loading ? (
-            <div className={`flex items-center justify-center py-16 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
               <div className="text-sm">Cargando...</div>
             </div>
           ) : notificaciones.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <Bell size={36} strokeWidth={1} className={dark ? 'text-gray-600' : 'text-gray-300'} />
-              <p className={`text-sm ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+              <Bell size={36} strokeWidth={1} className="text-gray-300 dark:text-gray-600" />
+              <p className="text-sm text-gray-400 dark:text-gray-500">
                 No tenés notificaciones
               </p>
             </div>
           ) : (
-            <ul className={`divide-y ${dark ? 'divide-gray-700' : 'divide-gray-100'}`}>
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
               {notificaciones.map((notif) => {
                 const meta = TIPO_META[notif.tipo] ?? TIPO_META.asignacion;
                 const IconComp = meta.icon;
@@ -226,8 +220,8 @@ export default function NotificacionesPage() {
                     key={notif.id}
                     className={`px-3 sm:px-5 py-3 sm:py-4 transition-colors ${
                       !notif.leida
-                        ? dark ? 'bg-blue-900/10' : 'bg-blue-50/50'
-                        : dark ? 'hover:bg-gray-750' : 'hover:bg-gray-50'
+                        ? 'bg-blue-50/50 dark:bg-blue-900/10'
+                        : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -251,7 +245,7 @@ export default function NotificacionesPage() {
                       {/* Contenido */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <p className={`text-sm leading-snug ${dark ? 'text-gray-100' : 'text-gray-800'} ${!notif.leida ? 'font-medium' : ''}`}>
+                          <p className={`text-sm leading-snug text-gray-800 dark:text-gray-100 ${!notif.leida ? 'font-medium' : ''}`}>
                             {notif.mensaje}
                           </p>
                           {/* Badge tipo */}
@@ -261,11 +255,11 @@ export default function NotificacionesPage() {
                         </div>
 
                         <div className="flex items-center gap-3 mt-1">
-                          <span className={`text-[11px] ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500">
                             {relativo(notif.fecha_creacion)}
                           </span>
                           {notif.carpeta_nombre && (
-                            <span className={`text-[11px] truncate max-w-[140px] ${dark ? 'text-gray-500' : 'text-gray-400'}`} title={notif.carpeta_nombre}>
+                            <span className="text-[11px] truncate max-w-[140px] text-gray-400 dark:text-gray-500" title={notif.carpeta_nombre}>
                               {notif.carpeta_nombre}
                             </span>
                           )}
@@ -276,14 +270,14 @@ export default function NotificacionesPage() {
                           {notif.leida ? (
                             <button
                               onClick={() => handleMarcarNoLeida(notif.id)}
-                              className={`flex items-center gap-1 text-[11px] uppercase transition-colors ${dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}`}
+                              className="flex items-center gap-1 text-[11px] uppercase transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                             >
                               <Circle size={11} /> No leída
                             </button>
                           ) : (
                             <button
                               onClick={() => handleMarcarLeida(notif.id)}
-                              className={`flex items-center gap-1 text-[11px] uppercase transition-colors ${dark ? 'text-gray-500 hover:text-accent' : 'text-gray-400 hover:text-accent'}`}
+                              className="flex items-center gap-1 text-[11px] uppercase transition-colors text-gray-400 dark:text-gray-500 hover:text-accent"
                             >
                               <CheckCircle size={11} /> Leída
                             </button>
@@ -313,13 +307,11 @@ export default function NotificacionesPage() {
 
           {/* Cargar más */}
           {nextUrl && (
-            <div className={`px-5 py-3 border-t ${dark ? 'border-gray-700' : 'border-gray-100'}`}>
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700">
               <button
                 onClick={() => fetchNotificaciones(nextUrl)}
                 disabled={loadingMore}
-                className={`w-full flex items-center justify-center gap-2 py-2 text-xs uppercase font-medium rounded-lg transition-colors ${
-                  dark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } disabled:opacity-50`}
+                className="w-full flex items-center justify-center gap-2 py-2 text-xs uppercase font-medium rounded-lg transition-colors bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
               >
                 <ChevronDown size={14} />
                 {loadingMore ? 'Cargando...' : 'Cargar más'}
