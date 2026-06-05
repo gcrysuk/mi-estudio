@@ -8,6 +8,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import MovimientoDetalleModal from '../../components/movimientos/MovimientoDetalleModal';
 
 const FILTROS = [
   { key: 'todas',              label: 'Todas' },
@@ -52,6 +53,7 @@ function Avatar({ nombre }) {
 export default function NotificacionesPage() {
   const navigate = useNavigate();
   const [filtro, setFiltro] = useState('todas');
+  const [movimientoSeleccionado, setMovimientoSeleccionado] = useState(null);
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nextUrl, setNextUrl] = useState(null);
@@ -214,6 +216,18 @@ export default function NotificacionesPage() {
                 const IconComp = meta.icon;
                 const actorNombre = notif.actor_detalle?.nombre_completo || notif.actor_detalle?.username || '';
                 const destino = buildDestino(notif);
+                const handleVer = async () => {
+                  if (notif.movimiento) {
+                    try {
+                      const res = await api.get(`/movimientos/${notif.movimiento}/`);
+                      setMovimientoSeleccionado(res.data);
+                    } catch {
+                      if (destino) navigate(destino);
+                    }
+                    return;
+                  }
+                  if (destino) navigate(destino);
+                };
 
                 return (
                   <li
@@ -288,9 +302,9 @@ export default function NotificacionesPage() {
                           >
                             <Trash2 size={11} /> Eliminar
                           </button>
-                          {destino && (
+                          {(notif.movimiento || destino) && (
                             <button
-                              onClick={() => navigate(destino)}
+                              onClick={handleVer}
                               className="ml-auto flex items-center gap-1 text-[11px] uppercase font-medium text-accent hover:opacity-75 transition-opacity"
                             >
                               Ver <ExternalLink size={11} />
@@ -320,6 +334,14 @@ export default function NotificacionesPage() {
           )}
         </div>
       </div>
+
+      {movimientoSeleccionado && (
+        <MovimientoDetalleModal
+          movimientoId={movimientoSeleccionado.id}
+          onClose={() => setMovimientoSeleccionado(null)}
+          onEdit={() => {}}
+        />
+      )}
     </div>
   );
 }

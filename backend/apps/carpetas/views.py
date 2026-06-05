@@ -37,7 +37,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
-    ordering_fields = ['nombre', 'numero_expediente', 'fecha_inicio', 'estado__nombre', 'tipo__nombre', 'objeto__nombre', 'organismo__nombre', 'persona__apellido']
+    ordering_fields = ['nombre', 'numero_expediente', 'fecha_inicio', 'estado__nombre', 'tipo__nombre', 'objeto__nombre', 'organismo__nombre', 'persona__apellido', 'compartida_con__username']
     ordering = ['-fecha_inicio']
     filterset_fields = ['estado', 'tipo', 'objeto']
     search_fields = [
@@ -56,7 +56,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            queryset = Carpeta.objects.filter(activo=True).select_related('persona', 'propietario').prefetch_related('participantes', 'participantes__persona')
+            queryset = Carpeta.objects.filter(activo=True).select_related('persona', 'propietario').prefetch_related('participantes', 'participantes__persona').distinct()
         else:
             queryset = Carpeta.objects.filter(
                 Q(propietario=user) |
@@ -64,6 +64,15 @@ class CarpetaViewSet(viewsets.ModelViewSet):
                 Q(es_publico=True),
                 activo=True,
             ).select_related('persona', 'propietario').prefetch_related('participantes', 'participantes__persona').distinct()
+
+        compartida_con_param = self.request.query_params.get('compartida_con')
+        if compartida_con_param:
+            carpetas_ids = CompartirCarpeta.objects.filter(
+                Q(usuario__username__icontains=compartida_con_param) |
+                Q(usuario__first_name__icontains=compartida_con_param) |
+                Q(usuario__last_name__icontains=compartida_con_param)
+            ).values_list('carpeta_id', flat=True)
+            queryset = queryset.filter(id__in=carpetas_ids)
 
         dias_sin_mov = self.request.query_params.get('dias_sin_movimiento')
         if dias_sin_mov:

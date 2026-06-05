@@ -67,6 +67,7 @@ class CarpetaSerializer(serializers.ModelSerializer):
     propietario_nombre = serializers.ReadOnlyField(source='propietario.username')
     persona_detalle = PersonaSerializer(source='persona', read_only=True)
     compartida_con_count = serializers.SerializerMethodField()
+    compartida_con = serializers.SerializerMethodField()
     estado_nombre = serializers.SerializerMethodField()
     tipo_nombre = serializers.SerializerMethodField()
     objeto_nombre = serializers.SerializerMethodField()
@@ -81,6 +82,16 @@ class CarpetaSerializer(serializers.ModelSerializer):
     
     def get_compartida_con_count(self, obj):
         return obj.compartidos.count()
+
+    def get_compartida_con(self, obj):
+        return [
+            {
+                'id': c.usuario.id,
+                'username': c.usuario.username,
+                'nombre_completo': f"{c.usuario.first_name} {c.usuario.last_name}".strip() or c.usuario.username,
+            }
+            for c in obj.compartidos.select_related('usuario')
+        ]
     
     def get_persona_nombre(self, obj):
         return str(obj.persona) if obj.persona else None

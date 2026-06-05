@@ -4,7 +4,7 @@ import { useResizableColumns } from '../../hooks/useResizableColumns';
 
 const CL_INITIAL_WIDTHS = {
   nombre: 220, numero_expediente: 140, persona: 150,
-  estado: 120, tipo: 120, objeto: 120, organismo: 150, fecha_inicio: 120,
+  estado: 120, tipo: 120, objeto: 120, organismo: 150, fecha_inicio: 120, compartida_con: 150,
 };
 import {
   Search,
@@ -45,14 +45,15 @@ const CarpetasList = () => {
   const [objetos, setObjetos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage]           = useState(1);
-  const [pageSize, setPageSize]   = useState(10);
+  const [pageSize, setPageSize]   = useState(() => parseInt(localStorage.getItem('carpetas_page_size') || '10', 10));
   const [totalPages, setTotalPages] = useState(1);
   const [count, setCount]         = useState(0);
   const [search, setSearch] = useState(() => localStorage.getItem('carpetas_busqueda') || '');
-  const [diasSinMovimiento, setDiasSinMovimiento] = useState('');
+  const [diasSinMovimiento, setDiasSinMovimiento] = useState(() => localStorage.getItem('carpetas_dias_sin_movimiento') || '');
+  const [filtroCompartidaCon, setFiltroCompartidaCon] = useState(() => localStorage.getItem('carpetas_filtro_compartida_con') || '');
   const [filters, setFilters] = useState(() => ({
     estado: localStorage.getItem('carpetas_filtro_estado') || '',
-    tipo:   '',
+    tipo:   localStorage.getItem('carpetas_filtro_tipo')   || '',
   }));
   // Si hay ?estado_nombre en la URL, esperar a que se resuelva el ID antes del primer fetch
   const [filtersReady, setFiltersReady] = useState(!searchParams.get('estado_nombre'));
@@ -68,6 +69,7 @@ const CarpetasList = () => {
     objeto:            'objeto__nombre',
     organismo:         'organismo__nombre',
     fecha_inicio:      'fecha_inicio',
+    compartida_con:    'compartida_con__username',
   };
   const [modalOpen, setModalOpen] = useState(false);
   const [compartirModalOpen, setCompartirModalOpen] = useState(false);
@@ -83,27 +85,15 @@ const CarpetasList = () => {
   const [printData, setPrintData] = useState([]);
   const [loadingPrint, setLoadingPrint] = useState(false);
 
-  // Estado para columnas visibles
-  const [visibleColumns, setVisibleColumns] = useState({
-    numero_expediente: true,
-    cliente: true,
-    estado: true,
-    tipo: true,
-    objeto: true,
-    organismo: true,
-    fecha: true,
-    acciones: true
+  const CARPETAS_DEFAULT_COLUMNS = {
+    numero_expediente: true, cliente: true, estado: true, tipo: true,
+    objeto: true, organismo: true, fecha: true, compartida_con: false, acciones: true,
+  };
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    try { return { ...CARPETAS_DEFAULT_COLUMNS, ...(JSON.parse(localStorage.getItem('carpetas_visible_columns')) ?? {}) }; }
+    catch { return CARPETAS_DEFAULT_COLUMNS; }
   });
 
-  // Cargar preferencias guardadas
-  useEffect(() => {
-    const savedColumns = localStorage.getItem('carpetas_visible_columns');
-    if (savedColumns) {
-      setVisibleColumns(JSON.parse(savedColumns));
-    }
-  }, []);
-
-  // Guardar preferencias cuando cambien
   useEffect(() => {
     localStorage.setItem('carpetas_visible_columns', JSON.stringify(visibleColumns));
   }, [visibleColumns]);
@@ -117,6 +107,7 @@ const CarpetasList = () => {
     { key: 'objeto', label: 'OBJETO', fixed: false },
     { key: 'organismo', label: 'ORGANISMO', fixed: false },
     { key: 'fecha', label: 'FECHA', fixed: false },
+    { key: 'compartida_con', label: 'COMPARTIDA CON', fixed: false },
     { key: 'acciones', label: 'ACCIONES', fixed: true },
   ];
 
@@ -138,8 +129,9 @@ const CarpetasList = () => {
       if (search)             params.search = search;
       if (filters.estado)     params.estado = filters.estado;
       if (filters.tipo)       params.tipo   = filters.tipo;
-      if (diasSinMovimiento)  params.dias_sin_movimiento = diasSinMovimiento;
-      if (ordering)           params.ordering = ordering;
+      if (diasSinMovimiento)       params.dias_sin_movimiento = diasSinMovimiento;
+      if (filtroCompartidaCon)    params.compartida_con = filtroCompartidaCon;
+      if (ordering)               params.ordering = ordering;
 
       const response = await api.get('/carpetas/', { params });
       const data = response.data;
@@ -154,7 +146,7 @@ const CarpetasList = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, search, diasSinMovimiento, ordering]); // eslint-disable-line
+  }, [filters, search, diasSinMovimiento, filtroCompartidaCon, ordering]); // eslint-disable-line
 
   useEffect(() => {
     fetchPersonas();
@@ -179,7 +171,7 @@ const CarpetasList = () => {
     if (!filtersReady) return;
     setPage(1);
     fetchData(1, pageSize);
-  }, [filters, search, diasSinMovimiento, pageSize, filtersReady, ordering]); // eslint-disable-line
+  }, [filters, search, diasSinMovimiento, filtroCompartidaCon, pageSize, filtersReady, ordering]); // eslint-disable-line
 
   // Fetch when page changes (user navigates)
   useEffect(() => {
@@ -189,6 +181,10 @@ const CarpetasList = () => {
   useEffect(() => { localStorage.setItem('carpetas_busqueda', search); }, [search]);
   useEffect(() => { localStorage.setItem('carpetas_ordering', ordering); }, [ordering]);
   useEffect(() => { localStorage.setItem('carpetas_filtro_estado', filters.estado); }, [filters.estado]);
+  useEffect(() => { localStorage.setItem('carpetas_filtro_tipo', filters.tipo); }, [filters.tipo]);
+  useEffect(() => { localStorage.setItem('carpetas_dias_sin_movimiento', diasSinMovimiento); }, [diasSinMovimiento]);
+  useEffect(() => { localStorage.setItem('carpetas_filtro_compartida_con', filtroCompartidaCon); }, [filtroCompartidaCon]);
+  useEffect(() => { localStorage.setItem('carpetas_page_size', String(pageSize)); }, [pageSize]);
 
   // Manejar tecla ESC para cerrar modales
   useEffect(() => {
@@ -556,6 +552,18 @@ const CarpetasList = () => {
             />
           </div>
 
+          {visibleColumns.compartida_con && (
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                placeholder="Compartida con..."
+                value={filtroCompartidaCon}
+                onChange={(e) => setFiltroCompartidaCon(e.target.value)}
+                className="w-40 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+              />
+            </div>
+          )}
+
           <ColumnSelector
             columns={columnDefinitions}
             visibleColumns={visibleColumns}
@@ -566,6 +574,7 @@ const CarpetasList = () => {
             onClick={() => {
               setSearch('');
               setDiasSinMovimiento('');
+              setFiltroCompartidaCon('');
               setFilters({ estado: '', tipo: '' });
               if (estadoNombreParam) navigate('/carpetas', { replace: true });
             }}
@@ -627,6 +636,11 @@ const CarpetasList = () => {
                 {visibleColumns.fecha && (
                   <th onClick={() => handleSort('fecha_inicio')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.fecha_inicio, minWidth: 60 }}>
                     FECHA <SortIcon columnKey="fecha_inicio" />{rh('fecha_inicio')}
+                  </th>
+                )}
+                {visibleColumns.compartida_con && (
+                  <th onClick={() => handleSort('compartida_con')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.compartida_con, minWidth: 60 }}>
+                    COMPARTIDA CON <SortIcon columnKey="compartida_con" />{rh('compartida_con')}
                   </th>
                 )}
                 {visibleColumns.acciones && (
@@ -693,6 +707,31 @@ const CarpetasList = () => {
                       </td>
                     )}
                     
+                    {visibleColumns.compartida_con && (
+                      <td className="px-2 py-2" style={{ maxWidth: colWidths.compartida_con, overflow: 'hidden' }}>
+                        {carpeta.compartida_con && carpeta.compartida_con.length > 0 ? (
+                          <div className="flex flex-col gap-0.5">
+                            {carpeta.compartida_con.slice(0, 3).map(u => (
+                              <span
+                                key={u.id}
+                                className="text-xs text-gray-600 dark:text-gray-400 truncate"
+                                title={u.nombre_completo || u.username}
+                              >
+                                {u.nombre_completo || u.username}
+                              </span>
+                            ))}
+                            {carpeta.compartida_con.length > 3 && (
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                +{carpeta.compartida_con.length - 3} más
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                        )}
+                      </td>
+                    )}
+
                     {visibleColumns.acciones && (
                       <td className="px-2 py-2 whitespace-nowrap text-right space-x-1">
                         <button

@@ -50,6 +50,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
     es_responsable = serializers.SerializerMethodField()
     creado_por_nombre = serializers.SerializerMethodField()
     modificado_por_nombre = serializers.SerializerMethodField()
+    responsable_nombre = serializers.SerializerMethodField()
 
     tiempo_trabajo_formateado = serializers.SerializerMethodField()
     proxima_notificacion = serializers.SerializerMethodField()
@@ -69,6 +70,12 @@ class MovimientoSerializer(serializers.ModelSerializer):
         if obj.creado_por_id:
             nombre = f"{obj.creado_por.first_name} {obj.creado_por.last_name}".strip()
             return nombre or obj.creado_por.username
+        return None
+
+    def get_responsable_nombre(self, obj):
+        if obj.responsable_id:
+            nombre = f"{obj.responsable.first_name} {obj.responsable.last_name}".strip()
+            return nombre or obj.responsable.username
         return None
 
     def get_modificado_por_nombre(self, obj):

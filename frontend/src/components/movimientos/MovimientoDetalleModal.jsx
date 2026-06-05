@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { X, Edit, FolderOpen, Clock, Bell } from 'lucide-react';
 import api from '../../services/api';
 import MovimientoForm from '../../pages/movimientos/MovimientoForm';
@@ -12,7 +13,25 @@ const fmt = (fecha, withTime = false) => {
   return new Date(fecha).toLocaleDateString('es-AR', opts);
 };
 
+function renderDescripcion(texto) {
+  if (!texto) return null;
+  const parts = texto.split(/(\[.*?\]\(.*?\))/g);
+  return parts.map((part, i) => {
+    const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (match) {
+      return (
+        <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer"
+           className="text-accent underline hover:opacity-80">
+          {match[1]}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
+  const navigate = useNavigate();
   const [movimiento, setMovimiento] = useState(null);
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +105,12 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
               <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/50 flex items-center gap-2">
                 <FolderOpen size={14} className="text-gray-400 flex-shrink-0" />
                 <span className="text-xs text-gray-500 uppercase mr-1">Carpeta:</span>
-                <span className="text-sm font-medium">{movimiento.carpeta_nombre}</span>
+                <span
+                  onClick={() => { onClose(); navigate(`/carpetas/${movimiento.carpeta}`); }}
+                  className="text-sm font-medium cursor-pointer hover:text-accent hover:underline transition-colors"
+                >
+                  {movimiento.carpeta_nombre}
+                </span>
               </div>
             )}
 
@@ -154,9 +178,9 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
               <p className="text-xs text-gray-400 uppercase mb-2">Descripción / Minuta</p>
               {movimiento.descripcion ? (
                 <div className="bg-gray-50 dark:bg-dark-elevated rounded-lg p-3 max-h-72 overflow-y-auto">
-                  <pre className="text-sm whitespace-pre-wrap font-sans text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {movimiento.descripcion}
-                  </pre>
+                  <p className="text-sm whitespace-pre-wrap font-sans text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {renderDescripcion(movimiento.descripcion)}
+                  </p>
                 </div>
               ) : (
                 <p className="text-sm text-gray-400 italic">Sin descripción</p>

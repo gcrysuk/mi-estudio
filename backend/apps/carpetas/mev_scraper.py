@@ -203,7 +203,7 @@ def _parse_detalle(html: str) -> dict:
                 if valor:
                     detalle[key] = valor[:500]
 
-    # Extraer texto libre del proveído
+    # Extraer texto libre del proveído preservando links en formato markdown
     lineas_texto = []
     capturando = False
     for linea in lineas:
@@ -215,7 +215,16 @@ def _parse_detalle(html: str) -> dict:
         if capturando and linea:
             lineas_texto.append(linea)
     if lineas_texto:
-        detalle['texto_proveido'] = ' '.join(lineas_texto)[:1000]
+        texto_base = ' '.join(lineas_texto)
+        # Reemplazar textos de links con formato markdown [texto](url)
+        for a in soup.find_all('a', href=True):
+            link_text = a.get_text(strip=True)
+            if link_text and link_text in texto_base:
+                href = a['href']
+                if not href.startswith('http'):
+                    href = f'{MEV_BASE}/{href.lstrip("/")}'
+                texto_base = texto_base.replace(link_text, f'[{link_text}]({href})', 1)
+        detalle['texto_proveido'] = texto_base[:2000]
 
     # Buscar links a proveídos relacionados (segundo nivel)
     links_relacionados = []

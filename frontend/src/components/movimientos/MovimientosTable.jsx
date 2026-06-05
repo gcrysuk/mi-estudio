@@ -1,5 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+
+function renderDescripcion(texto) {
+  if (!texto) return null;
+  const parts = texto.split(/(\[.*?\]\(.*?\))/g);
+  return parts.map((part, i) => {
+    const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (match) {
+      return (
+        <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer"
+           className="text-accent underline hover:opacity-80" onClick={e => e.stopPropagation()}>
+          {match[1]}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
 import {
   Search, X, Edit, Trash2, Calendar, Clock,
   FolderOpen, AlertCircle, ChevronDown, ChevronUp, Plus,
@@ -18,7 +35,7 @@ import { useResizableColumns } from '../../hooks/useResizableColumns';
 const MT_INITIAL_WIDTHS = {
   titulo: 240, carpeta_nombre: 150, tipo_nombre: 110, estado_nombre: 130,
   fecha_movimiento: 130, fecha_vencimiento: 130, fecha_notificacion: 130,
-  tiempo_trabajo: 90, descripcion: 180, creado_por: 140, modificado_por: 140,
+  tiempo_trabajo: 90, descripcion: 180, responsable: 130, creado_por: 140, modificado_por: 140,
 };
 
 // ── EstadoSelector ────────────────────────────────────────────────────────────
@@ -332,7 +349,8 @@ const COLUMN_CONFIG = [
   { key: 'vencimiento', label: 'Vencimiento', fixed: false },
   { key: 'fecha_notif', label: 'Notificación', fixed: false },
   { key: 'tiempo',      label: 'Tiempo',      fixed: false },
-  { key: 'descripcion', label: 'Descripción', fixed: false },
+  { key: 'descripcion',    label: 'Descripción',    fixed: false },
+  { key: 'responsable',   label: 'Responsable',    fixed: false },
   { key: 'creado_por',     label: 'Creado por',     fixed: false },
   { key: 'modificado_por', label: 'Modificado por', fixed: false },
 ];
@@ -340,7 +358,7 @@ const COLUMN_CONFIG = [
 const DEFAULT_COLUMNS = {
   carpeta: true, tipo: true, estado: true, fecha: true,
   vencimiento: true, fecha_notif: true, tiempo: true, descripcion: true,
-  creado_por: false, modificado_por: false,
+  responsable: true, creado_por: false, modificado_por: false,
 };
 
 const STORAGE_KEY = 'movimientos_columnas';
@@ -356,7 +374,7 @@ const MovimientosTable = ({
   const [movimientos, setMovimientos]         = useState([]);
   const [loading, setLoading]                 = useState(true);
   const [page, setPage]                       = useState(1);
-  const [pageSize, setPageSize]               = useState(10);
+  const [pageSize, setPageSize]               = useState(() => parseInt(localStorage.getItem('movimientos_page_size') || '10', 10));
   const [totalPages, setTotalPages]           = useState(1);
   const [count, setCount]                     = useState(0);
 
@@ -385,6 +403,9 @@ const MovimientosTable = ({
     fecha_vencimiento: 'fecha_vencimiento',
     tiempo_trabajo:    'tiempo_trabajo',
     responsable_username: 'responsable__username',
+    responsable:          'responsable__username',
+    creado_por:           'creado_por__username',
+    modificado_por:       'modificado_por__username',
     // fecha_notificacion: computed field, not sortable by backend
   };
   const [visibleColumns, setVisibleColumns]   = useState(() => {
@@ -392,10 +413,13 @@ const MovimientosTable = ({
     catch { return DEFAULT_COLUMNS; }
   });
   const [search, setSearch]                   = useState(() => localStorage.getItem('movimientos_busqueda') || '');
-  const [filters, setFilters]                 = useState(() => ({
+  const [filters, setFilters] = useState(() => ({
     tipo:    localStorage.getItem('movimientos_filtro_tipo')        || '',
     estado:  new URLSearchParams(window.location.search).get('estado') || localStorage.getItem('movimientos_filtro_estado') || '',
     vencido: localStorage.getItem('movimientos_filtro_vencimiento') || '',
+    responsable: localStorage.getItem('movimientos_filtro_responsable') || '',
+    creado_por: localStorage.getItem('movimientos_filtro_creado_por') || '',
+    modificado_por: localStorage.getItem('movimientos_filtro_modificado_por') || '',
   }));
   const [tipos, setTipos]                     = useState([]);
   const [estados, setEstados]                 = useState([]);
@@ -412,11 +436,15 @@ const MovimientosTable = ({
 
   useEffect(() => { localStorage.setItem('movimientos_busqueda', search); }, [search]);
   useEffect(() => { localStorage.setItem('movimientos_ordering', ordering); }, [ordering]);
+  useEffect(() => { localStorage.setItem('movimientos_page_size', String(pageSize)); }, [pageSize]);
   useEffect(() => {
     localStorage.setItem('movimientos_filtro_tipo', filters.tipo);
     localStorage.setItem('movimientos_filtro_estado', filters.estado);
     localStorage.setItem('movimientos_filtro_vencimiento', filters.vencido);
-  }, [filters.tipo, filters.estado, filters.vencido]);
+    localStorage.setItem('movimientos_filtro_responsable', filters.responsable);
+    localStorage.setItem('movimientos_filtro_creado_por', filters.creado_por);
+    localStorage.setItem('movimientos_filtro_modificado_por', filters.modificado_por);
+  }, [filters.tipo, filters.estado, filters.vencido, filters.responsable, filters.creado_por, filters.modificado_por]);
 
   useEffect(() => {
     Promise.all([
@@ -439,7 +467,10 @@ const MovimientosTable = ({
       const params = { ...baseParams, page: p, page_size: ps };
       if (search)             params.search  = search;
       if (filters.tipo)       params.tipo    = filters.tipo;
-      if (filters.estado)     params.estado  = filters.estado;
+      if (filters.estado)        params.estado        = filters.estado;
+      if (filters.responsable)   params.responsable   = filters.responsable;
+      if (filters.creado_por)    params.creado_por    = filters.creado_por;
+      if (filters.modificado_por) params.modificado_por = filters.modificado_por;
       if (filters.vencido !== '') params.vencido = filters.vencido;
       if (ordering)           params.ordering = ordering;
 
@@ -462,7 +493,7 @@ const MovimientosTable = ({
     } finally {
       setLoading(false);
     }
-  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.vencido, ordering]); // eslint-disable-line
+  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.vencido, filters.responsable, filters.creado_por, filters.modificado_por, ordering]); // eslint-disable-line
 
   // Reset to page 1 and fetch when URL/params/search/filters/refreshKey change
   useEffect(() => {
@@ -501,12 +532,12 @@ const MovimientosTable = ({
   const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
 
   const clearFilters = () => {
-    setFilters({ tipo: '', estado: '', vencido: '' });
+    setFilters({ tipo: '', estado: '', vencido: '', responsable: '', creado_por: '', modificado_por: '' });
     setSearch('');
   };
 
   const hasActiveFilters =
-    search || filters.tipo || filters.estado || filters.vencido !== '';
+    search || filters.tipo || filters.estado || filters.vencido !== '' || filters.responsable || filters.creado_por || filters.modificado_por;
 
   const formatFecha = (fecha) =>
     fecha
@@ -627,6 +658,28 @@ const MovimientosTable = ({
           ))}
         </div>
 
+        {/* Responsable */}
+        <input
+          type="text"
+          placeholder="Filtrar responsable..."
+          value={filters.responsable}
+          onChange={(e) => setFilter("responsable", e.target.value)}
+          className="px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40"
+        />
+        <input
+          type="text"
+          placeholder="Filtrar creado por..."
+          value={filters.creado_por}
+          onChange={(e) => setFilter("creado_por", e.target.value)}
+          className="px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40"
+        />
+        <input
+          type="text"
+          placeholder="Filtrar modificado por..."
+          value={filters.modificado_por}
+          onChange={(e) => setFilter("modificado_por", e.target.value)}
+          className="px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40"
+        />
         {/* Limpiar */}
         {hasActiveFilters && (
           <button
@@ -673,12 +726,9 @@ const MovimientosTable = ({
                 {visibleColumns.descripcion && (
                   <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide relative" style={{ width: colWidths.descripcion, minWidth: 60 }}>Descripción{rh('descripcion')}</th>
                 )}
-                {visibleColumns.creado_por && (
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide relative" style={{ width: colWidths.creado_por, minWidth: 60 }}>Creado por{rh('creado_por')}</th>
-                )}
-                {visibleColumns.modificado_por && (
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide relative" style={{ width: colWidths.modificado_por, minWidth: 60 }}>Modificado por{rh('modificado_por')}</th>
-                )}
+                {visibleColumns.responsable   && <TH columnKey="responsable">Responsable</TH>}
+                {visibleColumns.creado_por     && <TH columnKey="creado_por">Creado por</TH>}
+                {visibleColumns.modificado_por && <TH columnKey="modificado_por">Modificado por</TH>}
                 <th className="px-4 py-2.5 w-20"></th>
               </tr>
             </thead>
@@ -790,14 +840,23 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.descripcion && (
-                    <td className="px-4 py-2.5 max-w-[200px]">
+                    <td className="px-4 py-2.5">
                       {mov.descripcion ? (
-                        <span className="text-xs text-gray-600 dark:text-gray-400 truncate block" title={mov.descripcion}>
-                          {mov.descripcion}
-                        </span>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs" title={mov.descripcion}>
+                          {renderDescripcion(mov.descripcion)}
+                        </div>
                       ) : (
                         <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
                       )}
+                    </td>
+                  )}
+
+                  {visibleColumns.responsable && (
+                    <td className="px-4 py-2.5">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap"
+                            title={mov.responsable_nombre || mov.responsable_username || undefined}>
+                        {mov.responsable_nombre || mov.responsable_username || '—'}
+                      </span>
                     </td>
                   )}
 
