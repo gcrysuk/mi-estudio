@@ -3,6 +3,7 @@ Scraper read-only para la MEV (Mesa de Entradas Virtual) del SCBA.
 """
 import http.cookiejar
 import logging
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -215,7 +216,7 @@ def _parse_detalle(html: str) -> dict:
         if capturando and linea:
             lineas_texto.append(linea)
     if lineas_texto:
-        texto_base = ' '.join(lineas_texto)
+        texto_base = '\n'.join(lineas_texto)
         # Reemplazar textos de links con formato markdown [texto](url)
         for a in soup.find_all('a', href=True):
             link_text = a.get_text(strip=True)
@@ -224,6 +225,18 @@ def _parse_detalle(html: str) -> dict:
                 if not href.startswith('http'):
                     href = f'{MEV_BASE}/{href.lstrip("/")}'
                 texto_base = texto_base.replace(link_text, f'[{link_text}]({href})', 1)
+
+        # Los links del visor MEV se generan con JavaScript en el navegador y no
+        # quedan como <a href>; detectar URLs sueltas en el texto por regex.
+        url_pattern = re.compile(r'(https?://[^\s<>()\[\]{},]+(?:&[a-zA-Z0-9#]+;)*)')
+
+        def reemplazar_url(match):
+            url = match.group(1)
+            if url.startswith('http://docs.scba.gov.ar'):
+                url = url.replace('http://docs.scba.gov.ar', 'https://docs.scba.gov.ar')
+            return f'[Ver documento]({url})'
+
+        texto_base = url_pattern.sub(reemplazar_url, texto_base)
         detalle['texto_proveido'] = texto_base[:2000]
 
     # Buscar links a proveídos relacionados (segundo nivel)

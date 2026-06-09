@@ -1,12 +1,18 @@
 # apps/carpetas/views.py
+import logging
+import urllib.parse
+import urllib.request
+
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from django.conf import settings
 from django.db.models import Q, Max
 from django.contrib.auth import get_user_model
+from django.http import HttpResponse
 from django.utils import timezone
 from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta, ParticipanteCarpeta
 from apps.organismos.models import Organismo
@@ -22,6 +28,9 @@ from .serializers import (
 from config.pagination import StandardPagination
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
+MEV_HOSTS_PERMITIDOS = ('mev.scba.gov.ar', 'docs.scba.gov.ar')
 
 
 def _user_puede_editar_carpeta(user, carpeta):
@@ -30,6 +39,25 @@ def _user_puede_editar_carpeta(user, carpeta):
     return CompartirCarpeta.objects.filter(
         carpeta=carpeta, usuario=user, puede_editar=True
     ).exists()
+
+
+def _descifrar_clave_mev(perfil):
+    """Descifra la clave MEV del perfil. Devuelve (clave, error_response)."""
+    key = getattr(settings, 'MEV_ENCRYPTION_KEY', '')
+    if not key:
+        return None, Response(
+            {'error': 'MEV_ENCRYPTION_KEY no configurada en el servidor'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    try:
+        from cryptography.fernet import Fernet
+        fernet = Fernet(key.encode() if isinstance(key, str) else key)
+        return fernet.decrypt(perfil.mev_clave.encode()).decode(), None
+    except Exception:
+        return None, Response(
+            {'error': 'Error al descifrar las credenciales MEV'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 class CarpetaViewSet(viewsets.ModelViewSet):
@@ -383,16 +411,9 @@ class CarpetaViewSet(viewsets.ModelViewSet):
         if not perfil.mev_usuario or not perfil.mev_clave:
             return Response({'error': 'Configurá tus credenciales MEV en el perfil'}, status=status.HTTP_400_BAD_REQUEST)
 
-        key = getattr(__import__('django.conf', fromlist=['settings']).settings, 'MEV_ENCRYPTION_KEY', '')
-        if not key:
-            return Response({'error': 'MEV_ENCRYPTION_KEY no configurada en el servidor'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-        try:
-            from cryptography.fernet import Fernet
-            fernet = Fernet(key.encode() if isinstance(key, str) else key)
-            clave_descifrada = fernet.decrypt(perfil.mev_clave.encode()).decode()
-        except Exception:
-            return Response({'error': 'Error al descifrar las credenciales MEV'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        clave_descifrada, error_response = _descifrar_clave_mev(perfil)
+        if error_response:
+            return error_response
 
         try:
             from apps.carpetas.tasks import sync_mev_carpeta_task
@@ -408,6 +429,44 @@ class CarpetaViewSet(viewsets.ModelViewSet):
                 'nuevos': resultado['nuevos'],
                 'ultimo_sync': carpeta.mev_ultimo_sync,
             })
+
+    @action(detail=False, methods=['get'], url_path='mev_proxy')
+    def mev_proxy(self, request):
+        """Proxy autenticado: descarga un documento de la MEV usando las credenciales MEV del usuario."""
+        url = request.query_params.get('url', '')
+        partes = urllib.parse.urlparse(url)
+        if partes.scheme not in ('http', 'https') or partes.hostname not in MEV_HOSTS_PERMITIDOS:
+            return Response({'error': 'URL no permitida'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            perfil = request.user.perfil
+        except Exception:
+            return Response({'error': 'Perfil de usuario no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not perfil.mev_usuario or not perfil.mev_clave:
+            return Response({'error': 'Configurá tus credenciales MEV en el perfil'}, status=status.HTTP_400_BAD_REQUEST)
+
+        clave_descifrada, error_response = _descifrar_clave_mev(perfil)
+        if error_response:
+            return error_response
+
+        from apps.carpetas.mev_scraper import _get_session, _UA
+
+        cookie_jar = _get_session(perfil.mev_usuario, clave_descifrada, perfil.mev_depto)
+        if cookie_jar is None:
+            return Response({'error': 'Credenciales MEV incorrectas o error de conexión'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookie_jar))
+            opener.addheaders = [('User-Agent', _UA)]
+            with opener.open(url, timeout=30) as resp:
+                content_type = resp.headers.get('Content-Type', 'application/octet-stream')
+                contenido = resp.read()
+        except Exception as exc:
+            logger.error('MEV proxy error al descargar %s: %s', url, exc)
+            return Response({'error': 'Error al descargar el documento de la MEV'}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return HttpResponse(contenido, content_type=content_type)
 
     @action(detail=False, methods=['post'], url_path='compartir_multiples')
     def compartir_multiples(self, request):

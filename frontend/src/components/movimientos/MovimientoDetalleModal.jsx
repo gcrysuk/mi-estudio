@@ -2,8 +2,27 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { X, Edit, FolderOpen, Clock, Bell } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import MovimientoForm from '../../pages/movimientos/MovimientoForm';
+
+const esUrlMev = (url) => /^https?:\/\/(mev|docs)\.scba\.gov\.ar\//i.test(url);
+
+// Las URLs de la MEV requieren la sesión del usuario: se descargan vía proxy
+// autenticado del backend (con el token JWT) y se abren como blob.
+const abrirDocumentoMev = async (url) => {
+  try {
+    const { data } = await api.get('carpetas/mev_proxy/', {
+      params: { url },
+      responseType: 'blob',
+    });
+    const objectUrl = URL.createObjectURL(data);
+    window.open(objectUrl, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+  } catch (err) {
+    toast.error('No se pudo abrir el documento de la MEV');
+  }
+};
 
 const fmt = (fecha, withTime = false) => {
   if (!fecha) return null;
@@ -19,8 +38,17 @@ function renderDescripcion(texto) {
   return parts.map((part, i) => {
     const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
     if (match) {
+      const url = match[2];
+      if (esUrlMev(url)) {
+        return (
+          <a key={i} href={url} onClick={(e) => { e.preventDefault(); abrirDocumentoMev(url); }}
+             className="text-accent underline hover:opacity-80 cursor-pointer">
+            {match[1]}
+          </a>
+        );
+      }
       return (
-        <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer"
+        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
            className="text-accent underline hover:opacity-80">
           {match[1]}
         </a>

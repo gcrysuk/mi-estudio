@@ -43,6 +43,13 @@ class EstadoMovimiento(models.Model):
     def __str__(self):
         return self.nombre
 
+COMPLEJIDAD_CHOICES = [
+    ('alto', 'Alto'),
+    ('medio', 'Medio'),
+    ('bajo', 'Bajo'),
+]
+
+
 class Movimiento(models.Model):
     carpeta = models.ForeignKey(
         'carpetas.Carpeta',
@@ -83,6 +90,14 @@ class Movimiento(models.Model):
         help_text="Tiempo de trabajo en minutos"
     )
     
+    complejidad = models.CharField(
+        max_length=10,
+        choices=COMPLEJIDAD_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Complejidad",
+    )
+
     vencido = models.BooleanField(default=False)
 
     responsable = models.ForeignKey(

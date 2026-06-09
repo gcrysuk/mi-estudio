@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck, Printer, ChevronDown } from 'lucide-react';
+import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck, Printer, Maximize2 } from 'lucide-react';
+import Quill from 'quill';
+import 'quill/dist/quill.snow.css';
 import ReporteMinuta from '../../components/print/ReporteMinuta';
 import ReporteTranscripcion from '../../components/print/ReporteTranscripcion';
 import toast from 'react-hot-toast';
@@ -11,6 +13,70 @@ import CarpetaForm from '../../components/carpetas/CarpetaForm';
 import AsignarResponsableModal from '../../components/movimientos/AsignarResponsableModal';
 import useSpeechRecognition from '../../hooks/useSpeechRecognition';
 import useAuthStore from '../../stores/authStore';
+
+// ── Quill helpers ─────────────────────────────────────────────────────────────
+
+const QUILL_TOOLBAR = [
+  ['bold', 'italic', 'underline', 'strike'],
+  [{ color: [] }, { background: [] }],
+  [{ list: 'ordered' }, { list: 'bullet' }],
+  ['clean'],
+];
+
+const textoAHtml = (texto) => {
+  if (!texto) return '';
+  if (/<[a-z][\s\S]*>/i.test(texto)) return texto;
+  return texto.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
+};
+
+// Quill v2 with quill.destroy() — React 18 StrictMode safe
+const EditorRico = memo(({ value, onChange, readonly = false }) => {
+  const containerRef = useRef(null);
+  const quillRef     = useRef(null);
+  const onChangeRef  = useRef(onChange);
+  const lastEmitted  = useRef('');
+
+  useEffect(() => { onChangeRef.current = onChange; });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const editorEl = document.createElement('div');
+    containerRef.current.appendChild(editorEl);
+    const quill = new Quill(editorEl, {
+      theme: 'snow',
+      readOnly: readonly,
+      modules: { toolbar: readonly ? false : QUILL_TOOLBAR },
+    });
+    quill.root.style.maxHeight = '180px';
+    quill.root.style.overflowY = 'auto';
+    if (value) { quill.clipboard.dangerouslyPasteHTML(value); lastEmitted.current = value; }
+    quill.on('text-change', () => {
+      const html = quill.getSemanticHTML();
+      const out  = html === '<p></p>' ? '' : html;
+      lastEmitted.current = out;
+      onChangeRef.current?.(out);
+    });
+    quillRef.current = quill;
+    return () => {
+      quillRef.current = null;
+      if (containerRef.current) containerRef.current.innerHTML = '';
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!quillRef.current || value === lastEmitted.current) return;
+    quillRef.current.clipboard.dangerouslyPasteHTML(value || '');
+    lastEmitted.current = value || '';
+  }, [value]);
+
+  return <div ref={containerRef} className="quill-host" />;
+});
+
+const SOLAPAS = [
+  { id: 'descripcion',   label: 'Descripción' },
+  { id: 'transcripcion', label: 'Transcripción' },
+  { id: 'minuta',        label: 'Minuta' },
+];
 
 const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento, onClose, onSave, estadoInicial, fechaMovimientoInicial, fechaVencimientoInicial }) => {
   const { user } = useAuthStore();
@@ -28,20 +94,24 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
   const [toDelete, setToDelete] = useState([]);             // ids to DELETE on save
   const [nuevaFecha, setNuevaFecha] = useState('');
   const [generandoMinuta, setGenerandoMinuta] = useState(false);
-  const [transcripcionLocal, setTranscripcionLocal] = useState(movimiento?.transcripcion || '');
   const [responsableSeleccionado, setResponsableSeleccionado] = useState(null);
   const [busquedaResponsable, setBusquedaResponsable] = useState('');
   const [usuariosBusqueda, setUsuariosBusqueda] = useState([]);
   const [cargandoResponsable, setCargandoResponsable] = useState(false);
-  const [showTranscripcion, setShowTranscripcion] = useState(false);
   const [showPrintTranscripcion, setShowPrintTranscripcion] = useState(false);
+  const [solapaActiva, setSolapaActiva] = useState('descripcion');
+  const [expandida, setExpandida]       = useState(false);
+  const [minuta, setMinuta]             = useState('');
+
+  const onChangeDescripcion   = useCallback(v => setFormData(p => ({ ...p, descripcion: v })),   []);
+  const onChangeTranscripcion = useCallback(v => setFormData(p => ({ ...p, transcripcion: v })), []);
+  const onChangeMinuta        = useCallback(v => setMinuta(v), []);
 
   const { isListening, reconnecting, start, stop } = useSpeechRecognition({
     onResult: (transcript) => {
-      setFormData(prev => ({
-        ...prev,
-        descripcion: prev.descripcion ? prev.descripcion + ' ' + transcript : transcript
-      }));
+      const parrafo = `<p>${transcript}</p>`;
+      setFormData(prev => ({ ...prev, descripcion: (prev.descripcion || '') + parrafo }));
+      setSolapaActiva('descripcion');
     }
   });
 
@@ -55,15 +125,13 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
 
   const generarMinuta = async () => {
     setGenerandoMinuta(true);
-    const textoOriginal = formData.descripcion;
     try {
-      const payload = { texto: textoOriginal };
+      const payload = { texto: formData.descripcion };
       if (movimientoActual?.id) payload.movimiento_id = movimientoActual.id;
       const res = await api.post('/movimientos/generar_minuta/', payload);
-      const minuta = res.data.minuta;
-      if (minuta) {
-        setFormData(prev => ({ ...prev, descripcion: minuta }));
-        setTranscripcionLocal(textoOriginal);
+      if (res.data.minuta) {
+        setMinuta(textoAHtml(res.data.minuta));
+        setSolapaActiva('minuta');
         toast.success('Minuta generada');
       }
     } catch {
@@ -86,8 +154,10 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
   const [formData, setFormData] = useState({
     titulo: '',
     descripcion: '',
+    transcripcion: '',
     tipo: '',
     estado: estadoInicial ?? '',
+    complejidad: '',
     fecha_movimiento: fechaMovimientoInicial || getCurrentDateTime(),
     fecha_vencimiento: fechaVencimientoInicial || '',
     tiempo_trabajo: '',
@@ -101,9 +171,11 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
     if (movimiento) {
       setFormData({
         titulo: movimiento.titulo || '',
-        descripcion: movimiento.descripcion || '',
+        descripcion: textoAHtml(movimiento.descripcion || ''),
+        transcripcion: textoAHtml(movimiento.transcripcion || ''),
         tipo: movimiento.tipo || '',
         estado: movimiento.estado || '',
+        complejidad: movimiento.complejidad || '',
         fecha_movimiento: movimiento.fecha_movimiento ?
           new Date(movimiento.fecha_movimiento).toISOString().slice(0, 16) : getCurrentDateTime(),
         fecha_vencimiento: movimiento.fecha_vencimiento ?
@@ -328,7 +400,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               />
             </div>
 
-            {/* Tipo y Estado */}
+            {/* Tipo, Estado y Complejidad */}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-medium mb-0.5 uppercase">TIPO</label>
@@ -356,6 +428,20 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
                   {estadosMovimiento.map(estado => (
                     <option key={estado.id} value={estado.id}>{estado.nombre}</option>
                   ))}
+                </select>
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-xs font-medium mb-0.5 uppercase">COMPLEJIDAD</label>
+                <select
+                  value={formData.complejidad}
+                  onChange={(e) => setFormData({ ...formData, complejidad: e.target.value })}
+                  className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">Sin complejidad</option>
+                  <option value="alto">🔴 Alto</option>
+                  <option value="medio">🟡 Medio</option>
+                  <option value="bajo">🟢 Bajo</option>
                 </select>
               </div>
             </div>
@@ -451,46 +537,89 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               </div>
             </div>
 
-            {/* Descripción */}
+            {/* Editor de texto — 3 solapas */}
             <div>
-              <div className="flex items-center justify-between mb-0.5">
-                <label className="text-xs font-medium uppercase">DESCRIPCIÓN</label>
+              {/* Barra de solapas */}
+              <div className="flex items-center justify-between mb-0">
+                <div className="flex gap-0">
+                  {SOLAPAS.map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSolapaActiva(s.id)}
+                      className={`px-3 py-1 text-xs rounded-t-lg border border-b-0 transition-colors uppercase font-medium ${
+                        solapaActiva === s.id
+                          ? 'bg-white dark:bg-dark-elevated border-gray-300 dark:border-gray-600 text-foreground'
+                          : 'bg-transparent border-transparent text-gray-400 hover:text-foreground'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex items-center gap-1">
+                  {solapaActiva === 'descripcion' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={isListening ? stop : start}
+                        className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                          reconnecting
+                            ? 'bg-yellow-500 text-white'
+                            : isListening
+                              ? 'bg-red-500 text-white animate-pulse'
+                              : 'border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                        title={isListening ? 'Detener grabación' : 'Iniciar grabación de voz'}
+                      >
+                        <Mic size={12} />
+                        {reconnecting ? 'Reconectando...' : isListening ? 'Grabando...' : 'Grabar'}
+                      </button>
+                      {formData.descripcion && !isListening && (
+                        <button
+                          type="button"
+                          onClick={generarMinuta}
+                          disabled={generandoMinuta}
+                          className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors disabled:opacity-50"
+                        >
+                          <Sparkles size={12} />
+                          {generandoMinuta ? 'Procesando...' : 'Generar minuta'}
+                        </button>
+                      )}
+                    </>
+                  )}
                   <button
                     type="button"
-                    onClick={isListening ? stop : start}
-                    className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
-                      reconnecting
-                        ? 'bg-yellow-500 text-white'
-                        : isListening
-                          ? 'bg-red-500 text-white animate-pulse'
-                          : 'border border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                    title={isListening ? 'Detener grabación' : 'Iniciar grabación de voz'}
+                    onClick={() => setExpandida(true)}
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-accent transition-colors"
+                    title="Expandir editor"
                   >
-                    <Mic size={12} />
-                    {reconnecting ? 'Reconectando...' : isListening ? 'Grabando...' : 'Grabar'}
+                    <Maximize2 size={12} />
                   </button>
-                  {formData.descripcion && !isListening && (
-                    <button
-                      type="button"
-                      onClick={generarMinuta}
-                      disabled={generandoMinuta}
-                      className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg border border-accent text-accent hover:bg-accent/10 transition-colors disabled:opacity-50"
-                    >
-                      <Sparkles size={12} />
-                      {generandoMinuta ? 'Procesando...' : 'Generar minuta'}
-                    </button>
-                  )}
                 </div>
               </div>
-              <textarea
-                value={formData.descripcion}
-                onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                rows="2"
-                className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                placeholder="Detalles del movimiento..."
-              />
+
+              {/* Panel de editor */}
+              <div className="border border-gray-300 dark:border-gray-600 rounded-b-lg rounded-tr-lg overflow-hidden">
+                {solapaActiva === 'descripcion' && (
+                  <EditorRico
+                    value={formData.descripcion}
+                    onChange={onChangeDescripcion}
+                  />
+                )}
+                {solapaActiva === 'transcripcion' && (
+                  <EditorRico
+                    value={formData.transcripcion}
+                    onChange={onChangeTranscripcion}
+                  />
+                )}
+                {solapaActiva === 'minuta' && (
+                  <EditorRico
+                    value={minuta}
+                    onChange={onChangeMinuta}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Responsable — solo al crear */}
@@ -581,34 +710,6 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               </div>
             )}
 
-            {/* Transcripción original */}
-            {(transcripcionLocal || movimiento?.transcripcion) && (
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowTranscripcion(v => !v)}
-                  className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-accent w-full text-left uppercase font-medium"
-                >
-                  <ChevronDown size={13} className={`transition-transform ${showTranscripcion ? 'rotate-180' : ''}`} />
-                  Transcripción original
-                </button>
-                {showTranscripcion && (
-                  <div className="mt-1.5 space-y-1.5">
-                    <div className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-dark-elevated rounded p-2 max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                      {transcripcionLocal || movimiento?.transcripcion}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowPrintTranscripcion(true)}
-                      className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <Printer size={11} /> Imprimir transcripción
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Tracking — solo al editar */}
             {movimiento?.id && (movimiento.creado_por_nombre || movimiento.modificado_por_nombre) && (
               <div className="pt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 space-y-0.5">
@@ -682,9 +783,63 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
       {showPrintTranscripcion && createPortal(
         <ReporteTranscripcion
           movimiento={{ ...movimientoActual, carpeta_nombre: carpetaSeleccionada?.nombre }}
-          transcripcion={transcripcionLocal || movimiento?.transcripcion}
+          transcripcion={formData.transcripcion || movimiento?.transcripcion}
           onClose={() => setShowPrintTranscripcion(false)}
         />,
+        document.body
+      )}
+
+      {/* Modal expandido del editor */}
+      {expandida && createPortal(
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[200] p-4">
+          <div className="bg-white dark:bg-dark-surface rounded-xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex gap-0">
+                {SOLAPAS.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setSolapaActiva(s.id)}
+                    className={`px-4 py-1.5 text-xs rounded-t-lg transition-colors uppercase font-medium border border-b-0 ${
+                      solapaActiva === s.id
+                        ? 'bg-white dark:bg-dark-elevated border-gray-300 dark:border-gray-600'
+                        : 'bg-transparent border-transparent text-gray-400 hover:text-foreground'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpandida(false)}
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-foreground transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden quill-expanded p-0">
+              {solapaActiva === 'descripcion' && (
+                <EditorRico
+                  value={formData.descripcion}
+                  onChange={v => setFormData(p => ({ ...p, descripcion: v }))}
+                />
+              )}
+              {solapaActiva === 'transcripcion' && (
+                <EditorRico
+                  value={formData.transcripcion}
+                  onChange={v => setFormData(p => ({ ...p, transcripcion: v }))}
+                />
+              )}
+              {solapaActiva === 'minuta' && (
+                <EditorRico
+                  value={minuta}
+                  onChange={v => setMinuta(v)}
+                />
+              )}
+            </div>
+          </div>
+        </div>,
         document.body
       )}
 

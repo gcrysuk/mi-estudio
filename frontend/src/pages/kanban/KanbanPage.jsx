@@ -20,6 +20,19 @@ import { getKanbanBoard, cambiarEstadoMovimiento } from '../../services/kanbanSe
 import MovimientoForm from '../movimientos/MovimientoForm'
 import { useTheme } from '../../contexts/ThemeContext'
 
+const COMPLEJIDAD_CONFIG = {
+  alto:  { label: 'Alto',  className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  medio: { label: 'Medio', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  bajo:  { label: 'Bajo',  className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+}
+
+function ComplejidadBadge({ valor }) {
+  if (!valor) return null
+  const { label, className } = COMPLEJIDAD_CONFIG[valor] || {}
+  if (!label) return null
+  return <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${className}`}>{label}</span>
+}
+
 function formatFecha(fechaStr) {
   if (!fechaStr) return null
   const d = new Date(fechaStr)
@@ -82,14 +95,17 @@ function KanbanCard({ movimiento, isDragging, onEdit }) {
       </div>
 
       <div className="flex items-center justify-between mt-2">
-        {movimiento.estado_color ? (
-          <span
-            className="inline-block px-2 py-0.5 rounded-full text-white text-xs font-medium"
-            style={{ backgroundColor: movimiento.estado_color }}
-          >
-            {movimiento.estado_nombre}
-          </span>
-        ) : <span />}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {movimiento.estado_color ? (
+            <span
+              className="inline-block px-2 py-0.5 rounded-full text-white text-xs font-medium"
+              style={{ backgroundColor: movimiento.estado_color }}
+            >
+              {movimiento.estado_nombre}
+            </span>
+          ) : <span />}
+          <ComplejidadBadge valor={movimiento.complejidad} />
+        </div>
         {movimiento.responsable_username && (
           <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${
             movimiento.es_responsable

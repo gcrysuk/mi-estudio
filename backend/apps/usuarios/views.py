@@ -438,12 +438,9 @@ class CambiarPasswordView(APIView):
 
     def post(self, request):
         user = request.user
-        actual = request.data.get('password_actual', '')
         nueva = request.data.get('password_nueva', '')
         nueva2 = request.data.get('password_nueva2', '')
 
-        if user.has_usable_password() and not user.check_password(actual):
-            return Response({'password_actual': 'Contraseña actual incorrecta.'}, status=400)
         if nueva != nueva2:
             return Response({'password_nueva2': 'Las contraseñas no coinciden.'}, status=400)
 

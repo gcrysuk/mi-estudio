@@ -38,7 +38,7 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
-    ordering_fields = ['titulo', 'fecha_movimiento', 'fecha_vencimiento', 'fecha_creacion', 'tiempo_trabajo', 'estado__nombre', 'tipo__nombre', 'carpeta__nombre', 'responsable__username', 'creado_por__username', 'modificado_por__username']
+    ordering_fields = ['titulo', 'fecha_movimiento', 'fecha_vencimiento', 'fecha_creacion', 'tiempo_trabajo', 'estado__nombre', 'tipo__nombre', 'carpeta__nombre', 'responsable__username', 'creado_por__username', 'modificado_por__username', 'complejidad']
     ordering = ['-fecha_movimiento']
     filterset_fields = ['carpeta', 'tipo', 'estado', 'vencido']
     search_fields = [
@@ -73,6 +73,10 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         carpeta_id = self.request.query_params.get('carpeta')
         if carpeta_id:
             queryset = queryset.filter(carpeta_id=carpeta_id)
+
+        complejidad = self.request.query_params.get('complejidad')
+        if complejidad:
+            queryset = queryset.filter(complejidad=complejidad)
 
         return queryset
 

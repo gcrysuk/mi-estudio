@@ -66,7 +66,7 @@ export default function PerfilPage() {
   const [saving, setSaving] = useState(false)
   const [savingPwd, setSavingPwd] = useState(false)
   const [form, setForm] = useState({})
-  const [pwd, setPwd] = useState({ password_actual: '', password_nueva: '', password_nueva2: '' })
+  const [pwd, setPwd] = useState({ password_nueva: '', password_nueva2: '' })
   const [errPwd, setErrPwd] = useState({})
   const [mev, setMev] = useState({ mev_usuario: '', mev_clave: '', mev_depto: '' })
   const [mevTieneClave, setMevTieneClave] = useState(false)
@@ -103,7 +103,7 @@ export default function PerfilPage() {
     try {
       await api.post('/usuarios/cambiar-password/', pwd)
       toast.success('Contraseña actualizada')
-      setPwd({ password_actual: '', password_nueva: '', password_nueva2: '' })
+      setPwd({ password_nueva: '', password_nueva2: '' })
     } catch (err) {
       setErrPwd(err.response?.data || { general: 'Error al cambiar contraseña.' })
     } finally { setSavingPwd(false) }
@@ -287,18 +287,6 @@ export default function PerfilPage() {
           </p>
         )}
         {errPwd.general && <p className="text-red-500 text-xs">{errPwd.general}</p>}
-        {perfil.tiene_password && (
-          <div>
-            <label className={LABEL}>Contraseña actual</label>
-            <PasswordInput
-              value={pwd.password_actual}
-              onChange={e => setPwd(p => ({ ...p, password_actual: e.target.value }))}
-              required
-              autoComplete="current-password"
-            />
-            {errPwd.password_actual && <p className="text-red-500 text-xs mt-0.5">{errPwd.password_actual}</p>}
-          </div>
-        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={LABEL}>Nueva contraseña</label>

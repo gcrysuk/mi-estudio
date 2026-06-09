@@ -36,6 +36,93 @@ const MT_INITIAL_WIDTHS = {
   titulo: 240, carpeta_nombre: 150, tipo_nombre: 110, estado_nombre: 130,
   fecha_movimiento: 130, fecha_vencimiento: 130, fecha_notificacion: 130,
   tiempo_trabajo: 90, descripcion: 180, responsable: 130, creado_por: 140, modificado_por: 140,
+  complejidad: 100,
+};
+
+// ── ComplejidadSelector ───────────────────────────────────────────────────────
+
+const COMPLEJIDAD_CONFIG = {
+  alto:  { label: 'Alto',  className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  medio: { label: 'Medio', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  bajo:  { label: 'Bajo',  className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+};
+
+const ComplejidadBadge = ({ valor }) => {
+  if (!valor) return <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>;
+  const { label, className } = COMPLEJIDAD_CONFIG[valor] || {};
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${className}`}>{label}</span>;
+};
+
+const ComplejidadSelector = ({ movimiento, onUpdate }) => {
+  const [isOpen, setIsOpen]       = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 160 });
+  const cellRef    = useRef(null);
+  const dropdownRef = useRef(null);
+
+  useClickOutside(dropdownRef, () => setIsOpen(false));
+
+  const handleOpen = () => {
+    const rect = cellRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top:   rect.bottom + window.scrollY + 4,
+      left:  rect.left   + window.scrollX,
+      width: Math.max(rect.width, 160),
+    });
+    setIsOpen((o) => !o);
+  };
+
+  const apply = async (valor) => {
+    setSaving(true);
+    try {
+      await api.patch(`/movimientos/${movimiento.id}/`, { complejidad: valor });
+      onUpdate({ ...movimiento, complejidad: valor });
+      setIsOpen(false);
+      toast.success('Complejidad actualizada');
+    } catch {
+      toast.error('Error al actualizar complejidad');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div ref={cellRef}>
+      <div className="cursor-pointer hover:opacity-75 transition-opacity" onClick={handleOpen} title="Click para cambiar complejidad">
+        <ComplejidadBadge valor={movimiento.complejidad} />
+      </div>
+
+      {isOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ position: 'absolute', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+          className="bg-white dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden"
+        >
+          {movimiento.complejidad && (
+            <button type="button" disabled={saving} onClick={() => apply(null)}
+              className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 italic">
+              Sin complejidad
+            </button>
+          )}
+          {Object.entries(COMPLEJIDAD_CONFIG).map(([valor, { label, className }]) => (
+            <button
+              key={valor}
+              type="button"
+              disabled={saving}
+              onClick={() => apply(valor)}
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 ${
+                movimiento.complejidad === valor ? 'font-semibold' : ''
+              }`}
+            >
+              <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${className}`}>{label}</span>
+              {movimiento.complejidad === valor && <span className="ml-auto text-accent">✓</span>}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
 };
 
 // ── EstadoSelector ────────────────────────────────────────────────────────────
@@ -342,21 +429,22 @@ const TipoSelector = ({ movimiento, onUpdate }) => {
 };
 
 const COLUMN_CONFIG = [
-  { key: 'carpeta',     label: 'Carpeta',     fixed: false },
-  { key: 'tipo',        label: 'Tipo',        fixed: false },
-  { key: 'estado',      label: 'Estado',      fixed: false },
-  { key: 'fecha',       label: 'Fecha',       fixed: false },
-  { key: 'vencimiento', label: 'Vencimiento', fixed: false },
-  { key: 'fecha_notif', label: 'Notificación', fixed: false },
-  { key: 'tiempo',      label: 'Tiempo',      fixed: false },
+  { key: 'carpeta',      label: 'Carpeta',      fixed: false },
+  { key: 'tipo',         label: 'Tipo',         fixed: false },
+  { key: 'estado',       label: 'Estado',       fixed: false },
+  { key: 'complejidad',  label: 'Complejidad',  fixed: false },
+  { key: 'fecha',        label: 'Fecha',        fixed: false },
+  { key: 'vencimiento',  label: 'Vencimiento',  fixed: false },
+  { key: 'fecha_notif',  label: 'Notificación', fixed: false },
+  { key: 'tiempo',       label: 'Tiempo',       fixed: false },
   { key: 'descripcion',    label: 'Descripción',    fixed: false },
-  { key: 'responsable',   label: 'Responsable',    fixed: false },
+  { key: 'responsable',    label: 'Responsable',    fixed: false },
   { key: 'creado_por',     label: 'Creado por',     fixed: false },
   { key: 'modificado_por', label: 'Modificado por', fixed: false },
 ];
 
 const DEFAULT_COLUMNS = {
-  carpeta: true, tipo: true, estado: true, fecha: true,
+  carpeta: true, tipo: true, estado: true, complejidad: true, fecha: true,
   vencimiento: true, fecha_notif: true, tiempo: true, descripcion: true,
   responsable: true, creado_por: false, modificado_por: false,
 };
@@ -399,6 +487,7 @@ const MovimientosTable = ({
     carpeta_nombre:    'carpeta__nombre',
     tipo_nombre:       'tipo__nombre',
     estado_nombre:     'estado__nombre',
+    complejidad:       'complejidad',
     fecha_movimiento:  'fecha_movimiento',
     fecha_vencimiento: 'fecha_vencimiento',
     tiempo_trabajo:    'tiempo_trabajo',
@@ -414,12 +503,13 @@ const MovimientosTable = ({
   });
   const [search, setSearch]                   = useState(() => localStorage.getItem('movimientos_busqueda') || '');
   const [filters, setFilters] = useState(() => ({
-    tipo:    localStorage.getItem('movimientos_filtro_tipo')        || '',
-    estado:  new URLSearchParams(window.location.search).get('estado') || localStorage.getItem('movimientos_filtro_estado') || '',
-    vencido: localStorage.getItem('movimientos_filtro_vencimiento') || '',
-    responsable: localStorage.getItem('movimientos_filtro_responsable') || '',
-    creado_por: localStorage.getItem('movimientos_filtro_creado_por') || '',
+    tipo:         localStorage.getItem('movimientos_filtro_tipo')         || '',
+    estado:       new URLSearchParams(window.location.search).get('estado') || localStorage.getItem('movimientos_filtro_estado') || '',
+    vencido:      localStorage.getItem('movimientos_filtro_vencimiento')  || '',
+    responsable:  localStorage.getItem('movimientos_filtro_responsable')  || '',
+    creado_por:   localStorage.getItem('movimientos_filtro_creado_por')   || '',
     modificado_por: localStorage.getItem('movimientos_filtro_modificado_por') || '',
+    complejidad:  localStorage.getItem('movimientos_filtro_complejidad')  || '',
   }));
   const [tipos, setTipos]                     = useState([]);
   const [estados, setEstados]                 = useState([]);
@@ -444,7 +534,8 @@ const MovimientosTable = ({
     localStorage.setItem('movimientos_filtro_responsable', filters.responsable);
     localStorage.setItem('movimientos_filtro_creado_por', filters.creado_por);
     localStorage.setItem('movimientos_filtro_modificado_por', filters.modificado_por);
-  }, [filters.tipo, filters.estado, filters.vencido, filters.responsable, filters.creado_por, filters.modificado_por]);
+    localStorage.setItem('movimientos_filtro_complejidad', filters.complejidad);
+  }, [filters.tipo, filters.estado, filters.vencido, filters.responsable, filters.creado_por, filters.modificado_por, filters.complejidad]);
 
   useEffect(() => {
     Promise.all([
@@ -472,6 +563,7 @@ const MovimientosTable = ({
       if (filters.creado_por)    params.creado_por    = filters.creado_por;
       if (filters.modificado_por) params.modificado_por = filters.modificado_por;
       if (filters.vencido !== '') params.vencido = filters.vencido;
+      if (filters.complejidad)    params.complejidad = filters.complejidad;
       if (ordering)           params.ordering = ordering;
 
       const res = await api.get(baseFetchUrl, { params });
@@ -493,7 +585,7 @@ const MovimientosTable = ({
     } finally {
       setLoading(false);
     }
-  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.vencido, filters.responsable, filters.creado_por, filters.modificado_por, ordering]); // eslint-disable-line
+  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.vencido, filters.responsable, filters.creado_por, filters.modificado_por, filters.complejidad, ordering]); // eslint-disable-line
 
   // Reset to page 1 and fetch when URL/params/search/filters/refreshKey change
   useEffect(() => {
@@ -532,12 +624,12 @@ const MovimientosTable = ({
   const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
 
   const clearFilters = () => {
-    setFilters({ tipo: '', estado: '', vencido: '', responsable: '', creado_por: '', modificado_por: '' });
+    setFilters({ tipo: '', estado: '', vencido: '', responsable: '', creado_por: '', modificado_por: '', complejidad: '' });
     setSearch('');
   };
 
   const hasActiveFilters =
-    search || filters.tipo || filters.estado || filters.vencido !== '' || filters.responsable || filters.creado_por || filters.modificado_por;
+    search || filters.tipo || filters.estado || filters.vencido !== '' || filters.responsable || filters.creado_por || filters.modificado_por || filters.complejidad;
 
   const formatFecha = (fecha) =>
     fecha
@@ -637,6 +729,21 @@ const MovimientosTable = ({
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
         </div>
 
+        {/* Complejidad */}
+        <div className="relative">
+          <select
+            value={filters.complejidad}
+            onChange={(e) => setFilter('complejidad', e.target.value)}
+            className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+          >
+            <option value="">Todas las complejidades</option>
+            <option value="alto">🔴 Alto</option>
+            <option value="medio">🟡 Medio</option>
+            <option value="bajo">🟢 Bajo</option>
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+        </div>
+
         {/* Vencido */}
         <div className="flex gap-1">
           {[
@@ -719,6 +826,7 @@ const MovimientosTable = ({
                 {showCarpetaColumn && visibleColumns.carpeta     && <TH columnKey="carpeta_nombre">Carpeta</TH>}
                 {visibleColumns.tipo        && <TH columnKey="tipo_nombre">Tipo</TH>}
                 {visibleColumns.estado      && <TH columnKey="estado_nombre">Estado</TH>}
+                {visibleColumns.complejidad && <TH columnKey="complejidad">Complejidad</TH>}
                 {visibleColumns.fecha       && <TH columnKey="fecha_movimiento">Fecha</TH>}
                 {visibleColumns.vencimiento && <TH columnKey="fecha_vencimiento">Vencimiento</TH>}
                 {visibleColumns.fecha_notif && <TH columnKey="fecha_notificacion">Notificación</TH>}
@@ -787,6 +895,12 @@ const MovimientosTable = ({
                   {visibleColumns.estado && (
                     <td className="px-4 py-2.5">
                       <EstadoSelector movimiento={mov} onUpdate={handleUpdateMovimiento} />
+                    </td>
+                  )}
+
+                  {visibleColumns.complejidad && (
+                    <td className="px-4 py-2.5">
+                      <ComplejidadSelector movimiento={mov} onUpdate={handleUpdateMovimiento} />
                     </td>
                   )}
 
