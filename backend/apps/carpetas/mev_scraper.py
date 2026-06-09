@@ -253,7 +253,8 @@ def _parse_detalle(html: str) -> dict:
 
 
 def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
-    from apps.movimientos.models import Movimiento, TipoMovimiento, NotificacionSistema
+    from apps.movimientos.models import Movimiento, TipoMovimiento
+    from apps.movimientos.utils import crear_notificacion
     import time
 
     if not carpeta.mev_url:
@@ -274,9 +275,9 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
     if estado_mev_actual and estado_mev_actual != carpeta.mev_estado:
         estado_anterior = carpeta.mev_estado or 'Sin estado'
         carpeta.mev_estado = estado_mev_actual
-        NotificacionSistema.objects.create(
-            usuario=carpeta.propietario,
-            tipo='mev_cambio_estado',
+        crear_notificacion(
+            carpeta.propietario,
+            'mev_cambio_estado',
             movimiento=None,
             carpeta=carpeta,
             mensaje=f"La carpeta '{carpeta.nombre}' cambió de estado en la MEV: {estado_anterior} → {estado_mev_actual}",
@@ -376,9 +377,9 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
 
     if nuevos > 0:
         mov_label = 'movimiento' if nuevos == 1 else 'movimientos'
-        NotificacionSistema.objects.create(
-            usuario=carpeta.propietario,
-            tipo='mev_nuevo_movimiento',
+        crear_notificacion(
+            carpeta.propietario,
+            'mev_nuevo_movimiento',
             movimiento=None,
             carpeta=carpeta,
             mensaje=f"MEV: {nuevos} {mov_label} nuevo{'s' if nuevos != 1 else ''} en '{carpeta.nombre}'",

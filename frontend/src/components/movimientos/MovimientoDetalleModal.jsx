@@ -2,27 +2,8 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { X, Edit, FolderOpen, Clock, Bell } from 'lucide-react';
-import toast from 'react-hot-toast';
 import api from '../../services/api';
 import MovimientoForm from '../../pages/movimientos/MovimientoForm';
-
-const esUrlMev = (url) => /^https?:\/\/(mev|docs)\.scba\.gov\.ar\//i.test(url);
-
-// Las URLs de la MEV requieren la sesión del usuario: se descargan vía proxy
-// autenticado del backend (con el token JWT) y se abren como blob.
-const abrirDocumentoMev = async (url) => {
-  try {
-    const { data } = await api.get('carpetas/mev_proxy/', {
-      params: { url },
-      responseType: 'blob',
-    });
-    const objectUrl = URL.createObjectURL(data);
-    window.open(objectUrl, '_blank', 'noopener,noreferrer');
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-  } catch (err) {
-    toast.error('No se pudo abrir el documento de la MEV');
-  }
-};
 
 const fmt = (fecha, withTime = false) => {
   if (!fecha) return null;
@@ -32,31 +13,11 @@ const fmt = (fecha, withTime = false) => {
   return new Date(fecha).toLocaleDateString('es-AR', opts);
 };
 
-function renderDescripcion(texto) {
-  if (!texto) return null;
-  const parts = texto.split(/(\[.*?\]\(.*?\))/g);
-  return parts.map((part, i) => {
-    const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
-    if (match) {
-      const url = match[2];
-      if (esUrlMev(url)) {
-        return (
-          <a key={i} href={url} onClick={(e) => { e.preventDefault(); abrirDocumentoMev(url); }}
-             className="text-accent underline hover:opacity-80 cursor-pointer">
-            {match[1]}
-          </a>
-        );
-      }
-      return (
-        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-           className="text-accent underline hover:opacity-80">
-          {match[1]}
-        </a>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
-}
+const SOLAPAS = [
+  { key: 'descripcion',   label: 'Descripción' },
+  { key: 'transcripcion', label: 'Transcripción' },
+  { key: 'minuta',        label: 'Minuta' },
+];
 
 const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
   const navigate = useNavigate();
@@ -64,6 +25,7 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
+  const [solapaActiva, setSolapaActiva] = useState('descripcion');
 
   const fetchData = async () => {
     setLoading(true);
@@ -184,6 +146,17 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
               </div>
             )}
 
+            {/* Completado */}
+            {movimiento.fecha_completado && (
+              <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/50 flex items-center gap-2">
+                <span className="text-sm">✅</span>
+                <span className="text-xs text-gray-500 uppercase mr-1">Completado:</span>
+                <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                  {fmt(movimiento.fecha_completado, true)}
+                </span>
+              </div>
+            )}
+
             {/* Notificaciones */}
             {notificaciones.length > 0 && (
               <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/50 flex items-start gap-2">
@@ -201,18 +174,41 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
               </div>
             )}
 
-            {/* Descripción / Minuta */}
-            <div className="p-4">
-              <p className="text-xs text-gray-400 uppercase mb-2">Descripción / Minuta</p>
-              {movimiento.descripcion ? (
-                <div className="bg-gray-50 dark:bg-dark-elevated rounded-lg p-3 max-h-72 overflow-y-auto">
-                  <p className="text-sm whitespace-pre-wrap font-sans text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {renderDescripcion(movimiento.descripcion)}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400 italic">Sin descripción</p>
-              )}
+            {/* Solapas: Descripción / Transcripción / Minuta */}
+            <div className="mx-4 my-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
+                {SOLAPAS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSolapaActiva(key)}
+                    className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                      solapaActiva === key
+                        ? 'border-b-2 border-accent text-accent bg-white dark:bg-dark-surface'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="p-3 min-h-[120px] max-h-72 overflow-y-auto bg-white dark:bg-dark-surface">
+                {SOLAPAS.map(({ key }) => {
+                  const html = movimiento[key];
+                  return solapaActiva === key ? (
+                    html ? (
+                      <div
+                        key={key}
+                        className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300"
+                        dangerouslySetInnerHTML={{ __html: html }}
+                      />
+                    ) : (
+                      <p key={key} className="text-sm text-gray-400 italic">
+                        Sin {key === 'descripcion' ? 'descripción' : key === 'transcripcion' ? 'transcripción' : 'minuta'}
+                      </p>
+                    )
+                  ) : null;
+                })}
+              </div>
             </div>
 
             {/* Footer */}

@@ -14,10 +14,11 @@ import {
 } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import { useDraggable } from '@dnd-kit/core'
-import { Settings, RefreshCw, Calendar, Folder, Tag, UserCheck, Plus, Edit2, Search, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
+import { Settings, RefreshCw, Calendar, Folder, Tag, UserCheck, Plus, Edit2, Eye, Search, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getKanbanBoard, cambiarEstadoMovimiento } from '../../services/kanbanService'
 import MovimientoForm from '../movimientos/MovimientoForm'
+import MovimientoDetalleModal from '../../components/movimientos/MovimientoDetalleModal'
 import { useTheme } from '../../contexts/ThemeContext'
 
 const COMPLEJIDAD_CONFIG = {
@@ -50,7 +51,7 @@ function vencimientoClase(fechaStr) {
   return 'text-green-600 dark:text-green-400'
 }
 
-function KanbanCard({ movimiento, isDragging, onEdit }) {
+function KanbanCard({ movimiento, isDragging, onEdit, onVerDetalle }) {
   return (
     <div
       className={`group relative rounded-lg p-3 mb-2 border border-gray-200 dark:border-gray-600 transition-colors cursor-grab active:cursor-grabbing select-none ${
@@ -59,19 +60,38 @@ function KanbanCard({ movimiento, isDragging, onEdit }) {
           : 'bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
       }`}
     >
-      {!isDragging && onEdit && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onEdit(movimiento) }}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-0.5 rounded transition-all text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-500"
-          title="Editar movimiento"
-        >
-          <Edit2 size={13} />
-        </button>
+      {!isDragging && (
+        <div className="absolute top-1.5 right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+          {onVerDetalle && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onVerDetalle(movimiento) }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="p-0.5 rounded text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+              title="Ver detalle"
+            >
+              <Eye size={13} />
+            </button>
+          )}
+          {onEdit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(movimiento) }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+              title="Editar movimiento"
+            >
+              <Edit2 size={13} />
+            </button>
+          )}
+        </div>
       )}
-      <p className="text-sm font-medium mb-1.5 leading-snug pr-5 text-gray-800 dark:text-gray-100" title={movimiento.titulo}>
+      <p className="text-sm font-medium mb-1.5 leading-snug pr-10 text-gray-800 dark:text-gray-100" title={movimiento.titulo}>
         {movimiento.titulo}
       </p>
+      {movimiento.fecha_completado && (
+        <p className="text-[10px] text-green-600 dark:text-green-400 mb-1">
+          ✅ {formatFecha(movimiento.fecha_completado)}
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-1.5 mt-1">
         {movimiento.carpeta_nombre && (
@@ -113,7 +133,7 @@ function KanbanCard({ movimiento, isDragging, onEdit }) {
               : 'bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-300'
           }`}>
             <UserCheck size={9} />
-            {movimiento.es_responsable ? 'Asignado a mí' : movimiento.responsable_username}
+            {movimiento.es_responsable ? 'Asignado a mí' : (movimiento.responsable_nombre || movimiento.responsable_username)}
           </span>
         )}
       </div>
@@ -121,7 +141,7 @@ function KanbanCard({ movimiento, isDragging, onEdit }) {
   )
 }
 
-function DraggableCard({ movimiento, onEdit }) {
+function DraggableCard({ movimiento, onEdit, onVerDetalle }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: String(movimiento.id),
     data: { movimiento },
@@ -129,12 +149,12 @@ function DraggableCard({ movimiento, onEdit }) {
 
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} style={{ opacity: isDragging ? 0.4 : 1 }}>
-      <KanbanCard movimiento={movimiento} isDragging={false} onEdit={onEdit} />
+      <KanbanCard movimiento={movimiento} isDragging={false} onEdit={onEdit} onVerDetalle={onVerDetalle} />
     </div>
   )
 }
 
-function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, busqueda }) {
+function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, onVerDetalleMovimiento, busqueda }) {
   const { dark } = useTheme()
   const navigate = useNavigate()
   const { setNodeRef, isOver } = useDroppable({ id: String(columna.estado.id) })
@@ -197,7 +217,7 @@ function KanbanColumn({ columna, onNuevoMovimiento, onEditMovimiento, busqueda }
           strategy={verticalListSortingStrategy}
         >
           {visibles.map((m) => (
-            <DraggableCard key={m.id} movimiento={m} onEdit={onEditMovimiento} />
+            <DraggableCard key={m.id} movimiento={m} onEdit={onEditMovimiento} onVerDetalle={onVerDetalleMovimiento} />
           ))}
         </SortableContext>
         {visibles.length === 0 && (
@@ -219,6 +239,7 @@ export default function KanbanPage() {
   const [activeMovimiento, setActiveMovimiento] = useState(null)
   const [nuevoMovEstado, setNuevoMovEstado] = useState(null)
   const [editingMovimiento, setEditingMovimiento] = useState(null)
+  const [movimientoDetalleId, setMovimientoDetalleId] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const ZOOM_STEP = 0.1
   const ZOOM_MIN = 0.5
@@ -392,7 +413,14 @@ export default function KanbanPage() {
               }}
             >
               {columnas.map((col) => (
-                <KanbanColumn key={col.estado.id} columna={col} onNuevoMovimiento={setNuevoMovEstado} onEditMovimiento={setEditingMovimiento} busqueda={busqueda} />
+                <KanbanColumn
+                  key={col.estado.id}
+                  columna={col}
+                  onNuevoMovimiento={setNuevoMovEstado}
+                  onEditMovimiento={setEditingMovimiento}
+                  onVerDetalleMovimiento={(mov) => setMovimientoDetalleId(mov.id)}
+                  busqueda={busqueda}
+                />
               ))}
               {columnas.length === 0 && (
                 <div className={`text-sm ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -430,6 +458,14 @@ export default function KanbanPage() {
           carpetaNombre={editingMovimiento.carpeta_nombre}
           onClose={() => setEditingMovimiento(null)}
           onSave={() => { setEditingMovimiento(null); cargarBoard() }}
+        />
+      )}
+
+      {movimientoDetalleId && (
+        <MovimientoDetalleModal
+          movimientoId={movimientoDetalleId}
+          onClose={() => setMovimientoDetalleId(null)}
+          onEdit={() => { setMovimientoDetalleId(null); cargarBoard() }}
         />
       )}
     </div>

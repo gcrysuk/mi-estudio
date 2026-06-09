@@ -36,6 +36,11 @@ class PerfilUsuario(models.Model):
     # Configuración
     firma_digital = models.FileField(upload_to='firmas/', blank=True, null=True)
     notificaciones_email = models.BooleanField(default=True)
+    notificacion_config = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Configuración de notificaciones",
+    )
 
     # Cuenta / acceso
     username_display = models.CharField(

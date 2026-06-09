@@ -82,6 +82,7 @@ class Movimiento(models.Model):
     fecha_notificacion = models.DateTimeField(null=True, blank=True)
     fecha_vencimiento = models.DateTimeField(null=True, blank=True)
     fecha_cambio_estado = models.DateTimeField(auto_now=False, null=True, blank=True)
+    fecha_completado = models.DateTimeField(null=True, blank=True, verbose_name="Fecha de completado")
     
     # Tiempo de trabajo (en minutos)
     tiempo_trabajo = models.IntegerField(

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Clock, FolderOpen, ListTodo, ChevronRight, CalendarClock, Search, X } from 'lucide-react';
+import { AlertCircle, Clock, FolderOpen, ListTodo, ChevronRight, ChevronLeft, CalendarClock, Search, X } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import api from '../../services/api';
@@ -65,6 +65,8 @@ const CARDS = [
   },
 ];
 
+const PAGE_SIZE_VENC = 10;
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
@@ -73,22 +75,47 @@ const Dashboard = () => {
   const [loadingProximos, setLoadingProximos] = useState(true);
   const [detalleMovId, setDetalleMovId] = useState(null);
   const [busqueda, setBusqueda] = useState('');
+  const [paginaVenc, setPaginaVenc] = useState(1);
+  const [totalVenc, setTotalVenc] = useState(0);
+  const [hasMoreVenc, setHasMoreVenc] = useState(false);
+
+  const fetchVencimientos = useCallback(async (pagina = 1) => {
+    setLoadingProximos(true);
+    try {
+      const res = await api.get('/movimientos/proximos_vencer/', {
+        params: { dias: 7, page: pagina, page_size: PAGE_SIZE_VENC },
+      });
+      const data = res.data;
+      setProximos(data.results ?? data ?? []);
+      setTotalVenc(data.count ?? 0);
+      setHasMoreVenc(!!data.next);
+    } catch {
+      // no-op
+    } finally {
+      setLoadingProximos(false);
+    }
+  }, []);
 
   const cargarDatos = useCallback(() => {
     setLoadingStats(true);
-    setLoadingProximos(true);
     api.get('/movimientos/dashboard_stats/')
       .then(res => setStats(res.data))
       .catch(() => {})
       .finally(() => setLoadingStats(false));
 
-    api.get('/movimientos/proximos_vencer/', { params: { dias: 30, page_size: 5 } })
-      .then(res => setProximos(res.data.results ?? res.data ?? []))
-      .catch(() => {})
-      .finally(() => setLoadingProximos(false));
-  }, []);
+    setPaginaVenc(1);
+    fetchVencimientos(1);
+  }, [fetchVencimientos]);
 
   useEffect(() => { cargarDatos(); }, [cargarDatos]);
+
+  const irPagina = (nueva) => {
+    setPaginaVenc(nueva);
+    fetchVencimientos(nueva);
+    setBusqueda('');
+  };
+
+  const totalPaginas = Math.ceil(totalVenc / PAGE_SIZE_VENC);
 
   return (
     <div className="space-y-8 p-4">
@@ -123,6 +150,11 @@ const Dashboard = () => {
         <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <CalendarClock size={18} className="text-accent" />
           <h2 className="text-sm font-bold uppercase tracking-wide">Próximos vencimientos</h2>
+          {totalVenc > 0 && (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              ({totalVenc} esta semana)
+            </span>
+          )}
           {!loadingProximos && proximos.length > 0 && (
             <div className="relative flex items-center ml-auto">
               <Search size={12} className="absolute left-2.5 text-gray-400 pointer-events-none" />
@@ -149,7 +181,7 @@ const Dashboard = () => {
             </div>
           ) : proximos.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-10">
-              No hay vencimientos en los próximos 30 días
+              No hay vencimientos en los próximos 7 días
             </p>
           ) : (() => {
             const q = busqueda.toLowerCase();
@@ -185,7 +217,33 @@ const Dashboard = () => {
             ));
           })()}
         </div>
+
+        {/* Paginación */}
+        {!loadingProximos && totalPaginas > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 dark:border-gray-700">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              Página {paginaVenc} de {totalPaginas} — {totalVenc} vencimientos
+            </span>
+            <div className="flex gap-1.5">
+              <button
+                disabled={paginaVenc === 1}
+                onClick={() => irPagina(paginaVenc - 1)}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <ChevronLeft size={13} /> Ant
+              </button>
+              <button
+                disabled={!hasMoreVenc}
+                onClick={() => irPagina(paginaVenc + 1)}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Sig <ChevronRight size={13} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
       {detalleMovId && (
         <MovimientoDetalleModal
           movimientoId={detalleMovId}

@@ -77,7 +77,7 @@ const AsignarResponsableModal = ({ movimiento, onClose, onAsignado }) => {
           {movimiento.responsable_username && (
             <div className="flex items-center gap-2 px-3 py-2 bg-accent/10 rounded-lg text-xs">
               <UserCheck size={13} className="text-accent flex-shrink-0" />
-              <span>Actual: <strong>{movimiento.responsable_username}</strong></span>
+              <span>Actual: <strong>{movimiento.responsable_nombre || movimiento.responsable_username}</strong></span>
             </div>
           )}
 

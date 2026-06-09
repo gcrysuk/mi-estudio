@@ -58,7 +58,7 @@ class MovimientoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movimiento
         fields = '__all__'
-        read_only_fields = ['creado_por', 'fecha_creacion', 'ultima_actualizacion', 'vencido']
+        read_only_fields = ['creado_por', 'fecha_creacion', 'ultima_actualizacion', 'vencido', 'fecha_completado']
 
     def get_es_responsable(self, obj):
         request = self.context.get('request')
@@ -69,19 +69,19 @@ class MovimientoSerializer(serializers.ModelSerializer):
     def get_creado_por_nombre(self, obj):
         if obj.creado_por_id:
             nombre = f"{obj.creado_por.first_name} {obj.creado_por.last_name}".strip()
-            return nombre or obj.creado_por.username
+            return f"{nombre} ({obj.creado_por.username})" if nombre else obj.creado_por.username
         return None
 
     def get_responsable_nombre(self, obj):
         if obj.responsable_id:
             nombre = f"{obj.responsable.first_name} {obj.responsable.last_name}".strip()
-            return nombre or obj.responsable.username
+            return f"{nombre} ({obj.responsable.username})" if nombre else obj.responsable.username
         return None
 
     def get_modificado_por_nombre(self, obj):
         if obj.modificado_por_id:
             nombre = f"{obj.modificado_por.first_name} {obj.modificado_por.last_name}".strip()
-            return nombre or obj.modificado_por.username
+            return f"{nombre} ({obj.modificado_por.username})" if nombre else obj.modificado_por.username
         return None
 
     def get_tiempo_trabajo_formateado(self, obj):

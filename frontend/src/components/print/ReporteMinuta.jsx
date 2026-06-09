@@ -48,16 +48,17 @@ export default function ReporteMinuta({ movimiento, onClose }) {
             {movimiento.responsable_username && (
               <tr>
                 <td style={{ padding: '4px 8px', fontWeight: 'bold', border: '1px solid #ddd', backgroundColor: '#f8f8f8' }}>Responsable</td>
-                <td style={{ padding: '4px 8px', border: '1px solid #ddd' }} colSpan={3}>{movimiento.responsable_username}</td>
+                <td style={{ padding: '4px 8px', border: '1px solid #ddd' }} colSpan={3}>{movimiento.responsable_nombre || movimiento.responsable_username}</td>
               </tr>
             )}
           </tbody>
         </table>
 
         {/* Cuerpo de la minuta */}
-        <div style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '16px', minHeight: '200px', fontSize: '11px', lineHeight: '1.7', whiteSpace: 'pre-wrap', backgroundColor: '#fff' }}>
-          {movimiento.descripcion || '(Sin descripción)'}
-        </div>
+        <div
+          style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '16px', minHeight: '200px', fontSize: '11px', lineHeight: '1.7', backgroundColor: '#fff' }}
+          dangerouslySetInnerHTML={{ __html: movimiento.descripcion || '<p style="color:#999;font-style:italic">(Sin descripción)</p>' }}
+        />
       </div>
 
       {/* Espacio para firma */}

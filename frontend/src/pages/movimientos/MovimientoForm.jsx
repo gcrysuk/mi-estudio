@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck, Printer, Maximize2 } from 'lucide-react';
+import { X, Save, FolderOpen, Settings, Clock, Calendar, Plus, Bell, Mic, Sparkles, UserCheck, Printer, Maximize2, SpellCheck } from 'lucide-react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import ReporteMinuta from '../../components/print/ReporteMinuta';
@@ -29,6 +29,27 @@ const textoAHtml = (texto) => {
   return texto.split('\n').filter(l => l.trim()).map(l => `<p>${l}</p>`).join('');
 };
 
+const checkSpelling = async (html) => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const texto = div.innerText.trim();
+  if (!texto) return [];
+  try {
+    const body = new URLSearchParams();
+    body.append('text', texto);
+    body.append('language', 'es-AR');
+    const res = await fetch('https://api.languagetool.org/v2/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    const data = await res.json();
+    return data.matches || [];
+  } catch {
+    return [];
+  }
+};
+
 // Quill v2 with quill.destroy() — React 18 StrictMode safe
 const EditorRico = memo(({ value, onChange, readonly = false }) => {
   const containerRef = useRef(null);
@@ -49,6 +70,10 @@ const EditorRico = memo(({ value, onChange, readonly = false }) => {
     });
     quill.root.style.maxHeight = '180px';
     quill.root.style.overflowY = 'auto';
+    quill.root.setAttribute('spellcheck', 'true');
+    quill.root.contentEditable = 'true';
+    quill.root.spellcheck = true;
+    quill.root.setAttribute('lang', 'es-AR');
     if (value) { quill.clipboard.dangerouslyPasteHTML(value); lastEmitted.current = value; }
     quill.on('text-change', () => {
       const html = quill.getSemanticHTML();
@@ -69,7 +94,7 @@ const EditorRico = memo(({ value, onChange, readonly = false }) => {
     lastEmitted.current = value || '';
   }, [value]);
 
-  return <div ref={containerRef} className="quill-host" />;
+  return <div ref={containerRef} className="quill-host" spellCheck={true} lang="es-AR" />;
 });
 
 const SOLAPAS = [
@@ -102,10 +127,21 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
   const [solapaActiva, setSolapaActiva] = useState('descripcion');
   const [expandida, setExpandida]       = useState(false);
   const [minuta, setMinuta]             = useState('');
+  const [ltResultados, setLtResultados] = useState({ descripcion: null, transcripcion: null, minuta: null });
+  const [ltVerificando, setLtVerificando] = useState(false);
 
   const onChangeDescripcion   = useCallback(v => setFormData(p => ({ ...p, descripcion: v })),   []);
   const onChangeTranscripcion = useCallback(v => setFormData(p => ({ ...p, transcripcion: v })), []);
   const onChangeMinuta        = useCallback(v => setMinuta(v), []);
+
+  const handleVerificarOrtografia = async () => {
+    const contenido = solapaActiva === 'minuta' ? minuta : formData[solapaActiva];
+    if (!contenido) return;
+    setLtVerificando(true);
+    const matches = await checkSpelling(contenido);
+    setLtResultados(prev => ({ ...prev, [solapaActiva]: { matches, checked: true } }));
+    setLtVerificando(false);
+  };
 
   const { isListening, reconnecting, start, stop } = useSpeechRecognition({
     onResult: (transcript) => {
@@ -620,6 +656,53 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
                   />
                 )}
               </div>
+
+              {/* Corrector ortográfico */}
+              {(() => {
+                const contenido = solapaActiva === 'minuta' ? minuta : formData[solapaActiva];
+                const resultado = ltResultados[solapaActiva];
+                return (
+                  <div className="mt-1.5">
+                    <button
+                      type="button"
+                      onClick={handleVerificarOrtografia}
+                      disabled={ltVerificando || !contenido}
+                      className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                    >
+                      <SpellCheck size={12} />
+                      {ltVerificando ? 'Verificando...' : 'Verificar ortografía'}
+                    </button>
+                    {resultado?.checked && resultado.matches.length === 0 && (
+                      <p className="text-xs text-green-500 mt-1">✓ Sin errores ortográficos</p>
+                    )}
+                    {resultado?.matches?.length > 0 && (
+                      <div className="mt-1.5 space-y-1 max-h-36 overflow-y-auto">
+                        {resultado.matches.map((error, i) => {
+                          const word = error.context.text.substring(
+                            error.context.offset,
+                            error.context.offset + error.context.length
+                          );
+                          const suggestions = error.replacements.slice(0, 3).map(r => r.value).join(', ');
+                          return (
+                            <div key={i} className="text-xs p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                              <div className="flex items-baseline gap-1 flex-wrap">
+                                <span className="font-medium text-red-600 dark:text-red-400">"{word}"</span>
+                                {suggestions && (
+                                  <>
+                                    <span className="text-gray-400">→</span>
+                                    <span className="text-green-600 dark:text-green-400">{suggestions}</span>
+                                  </>
+                                )}
+                              </div>
+                              <p className="text-gray-400 dark:text-gray-500 mt-0.5 leading-snug">{error.message}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Responsable — solo al crear */}
@@ -687,7 +770,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
                       <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent">
                         {movimientoActual.responsable_username[0].toUpperCase()}
                       </div>
-                      <span className="text-xs">{movimientoActual.responsable_username}</span>
+                      <span className="text-xs">{movimientoActual.responsable_nombre || movimientoActual.responsable_username}</span>
                     </div>
                     <button
                       type="button"

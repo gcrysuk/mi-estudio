@@ -337,6 +337,7 @@ class PerfilView(APIView):
         'matricula_tomo', 'matricula_folio', 'matricula_numero',
         'numero_jubilacion', 'cuil_cuit', 'condicion_fiscal',
         'domicilio_real', 'domicilio_electronico', 'notificaciones_email',
+        'notificacion_config',
     ]
 
     def get(self, request):
@@ -369,6 +370,7 @@ class PerfilView(APIView):
             'domicilio_real': p.domicilio_real,
             'domicilio_electronico': p.domicilio_electronico,
             'notificaciones_email': p.notificaciones_email,
+            'notificacion_config': p.notificacion_config or {},
             'tiene_password': user.has_usable_password(),
         })
 
@@ -383,6 +385,17 @@ class PerfilView(APIView):
             if campo in request.data:
                 setattr(p, campo, request.data[campo])
         p.save()
+
+        user_fields = []
+        if 'nombre' in request.data:
+            user.first_name = request.data['nombre']
+            user_fields.append('first_name')
+        if 'apellido' in request.data:
+            user.last_name = request.data['apellido']
+            user_fields.append('last_name')
+        if user_fields:
+            user.save(update_fields=user_fields)
+
         return Response({'ok': True})
 
 

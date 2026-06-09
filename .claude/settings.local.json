@@ -95,7 +95,15 @@
       "Bash(npm --version)",
       "Read(//usr/bin/**)",
       "Read(//usr/local/bin/**)",
-      "PowerShell($env:WSLENV=''; wsl -d Ubuntu -u focus -- env -i HOME=/home/focus PATH=/home/focus/.nvm/versions/node/v20.20.2/bin:/usr/local/bin:/usr/bin:/bin npm --prefix /home/focus/mi_estudio/frontend install quill 2>&1 | Select-Object -Last 8)"
+      "PowerShell($env:WSLENV=''; wsl -d Ubuntu -u focus -- env -i HOME=/home/focus PATH=/home/focus/.nvm/versions/node/v20.20.2/bin:/usr/local/bin:/usr/bin:/bin npm --prefix /home/focus/mi_estudio/frontend install quill 2>&1 | Select-Object -Last 8)",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && python manage.py migrate usuarios 0004_perfilusuario_notificacion_config 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cat /home/focus/mi_estudio/backend/install-local.sh\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio && docker-compose -f docker-compose.local.yml exec web python manage.py migrate usuarios 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio && docker-compose -f docker-compose.local.yml ps 2>&1 | head -20\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py migrate usuarios 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker restart mi_estudio_web_local mi_estudio_celery_local 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py migrate movimientos 0024_movimiento_fecha_completado 2>&1\")",
+      "Bash(docker restart mi_estudio_web_local *)"
     ]
   }
 }

@@ -26,6 +26,7 @@ from .serializers import (
     ParticipanteSerializer,
 )
 from config.pagination import StandardPagination
+from apps.movimientos.utils import crear_notificacion
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -259,13 +260,12 @@ class CarpetaViewSet(viewsets.ModelViewSet):
         )
 
         if created:
-            from apps.movimientos.models import NotificacionSistema
             actor = request.user
             acceso = 'edición' if puede_editar else 'solo lectura'
-            NotificacionSistema.objects.create(
-                usuario=usuario,
+            crear_notificacion(
+                usuario,
+                'carpeta_compartida',
                 actor=actor,
-                tipo='carpeta_compartida',
                 movimiento=None,
                 mensaje=f"{actor.get_full_name() or actor.username} te compartió la carpeta '{carpeta.nombre}' con acceso de {acceso}.",
             )
@@ -482,7 +482,6 @@ class CarpetaViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
-        from apps.movimientos.models import NotificacionSistema
         actor = request.user
         acceso = 'edición' if puede_editar else 'solo lectura'
 
@@ -495,10 +494,10 @@ class CarpetaViewSet(viewsets.ModelViewSet):
                     defaults={'puede_editar': puede_editar},
                 )
                 if created:
-                    NotificacionSistema.objects.create(
-                        usuario=usuario,
+                    crear_notificacion(
+                        usuario,
+                        'carpeta_compartida',
                         actor=actor,
-                        tipo='carpeta_compartida',
                         movimiento=None,
                         mensaje=f"{actor.get_full_name() or actor.username} te compartió la carpeta '{carpeta.nombre}' con acceso de {acceso}.",
                     )

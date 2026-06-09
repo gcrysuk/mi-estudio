@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Eye,
   Printer,
+  Filter,
 } from 'lucide-react';
 import ImprimirLista from '../../components/print/ImprimirLista';
 import { useResizableColumns } from '../../hooks/useResizableColumns';
@@ -112,6 +113,8 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   useEffect(() => { localStorage.setItem('personas_busqueda', searchTerm); }, [searchTerm]);
   useEffect(() => { localStorage.setItem('personas_filtro_tipo', filters.tipo_persona); }, [filters.tipo_persona]);
   useEffect(() => { localStorage.setItem('personas_ordering', JSON.stringify(sortConfig)); }, [sortConfig]);
+
+  const hasActiveFilters = !!(searchTerm || filters.tipo_persona);
 
   useEffect(() => {
     if (formData.provincia) {
@@ -679,7 +682,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
             placeholder="BUSCAR..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
+            className={`w-full pl-8 pr-3 py-1.5 rounded-lg border-none focus:ring-1 focus:ring-accent uppercase text-xs ${searchTerm ? 'bg-accent/10 dark:bg-accent/10 ring-1 ring-accent text-accent' : 'bg-gray-100 dark:bg-dark-elevated'}`}
           />
         </div>
 
@@ -687,7 +690,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
           <select
             value={filters.tipo_persona}
             onChange={(e) => setFilters({...filters, tipo_persona: e.target.value})}
-            className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
+            className={`w-full sm:w-auto px-2 py-1.5 rounded-lg border-none focus:ring-1 focus:ring-accent uppercase text-xs ${filters.tipo_persona ? 'bg-accent/10 dark:bg-accent/10 ring-1 ring-accent text-accent' : 'bg-gray-100 dark:bg-dark-elevated'}`}
           >
             <option value="">TODOS LOS TIPOS</option>
             {TIPO_PERSONA_OPTIONS.map(opt => (
@@ -695,14 +698,20 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
             ))}
           </select>
 
+          {hasActiveFilters && (
+            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
+              <Filter size={11} />
+              FILTROS ACTIVOS
+            </span>
+          )}
           <button
             onClick={() => {
               setSearchTerm('');
               setFilters({ tipo_persona: '' });
             }}
-            className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-1.5 uppercase text-xs"
+            className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
           >
-            <RefreshCw size={14} />
+            <X size={12} />
             LIMPIAR
           </button>
         </div>

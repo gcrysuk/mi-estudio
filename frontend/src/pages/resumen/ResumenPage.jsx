@@ -1,19 +1,38 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   LayoutList, RefreshCw, Search, ExternalLink, Printer,
-  ChevronUp, ChevronDown, Clock, AlertCircle, X,
+  ChevronUp, ChevronDown, Clock, AlertCircle, X, Filter, Columns,
 } from 'lucide-react'
 import ImprimirLista from '../../components/print/ImprimirLista'
 import { format, parseISO, isBefore, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
 import { getResumen } from '../../services/movimientosService'
 import { useResizableColumns } from '../../hooks/useResizableColumns'
-import MovimientoForm from '../movimientos/MovimientoForm'
+import MovimientoDetalleModal from '../../components/movimientos/MovimientoDetalleModal'
 import Pagination from '../../components/ui/Pagination'
 
 const RS_INITIAL_WIDTHS = {
   carpeta: 160, movimiento: 220, tipo: 110, estado: 120,
   responsable: 120, fecha: 130, vencimiento: 130,
+}
+
+const DEFAULT_COLUMNS = {
+  carpeta:           true,
+  ultimo_movimiento: true,
+  tipo:              true,
+  estado:            true,
+  responsable:       true,
+  fecha:             true,
+  vencimiento:       true,
+}
+
+const COLUMN_LABELS = {
+  ultimo_movimiento: 'Último movimiento',
+  tipo:              'Tipo',
+  estado:            'Estado',
+  responsable:       'Responsable',
+  fecha:             'Fecha',
+  vencimiento:       'Vencimiento',
 }
 
 const fmt = (iso) => {
@@ -75,6 +94,26 @@ export default function ResumenPage() {
   const [movimientoSeleccionado, setMovimientoSeleccionado] = useState(null)
   const [pagina, setPagina] = useState(1)
   const [porPagina, setPorPagina] = useState(20)
+  const [showColumnas, setShowColumnas] = useState(false)
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    try { return { ...DEFAULT_COLUMNS, ...(JSON.parse(localStorage.getItem('resumen_columnas')) ?? {}) } }
+    catch { return DEFAULT_COLUMNS }
+  })
+
+  const colRef = useRef(null)
+
+  useEffect(() => {
+    localStorage.setItem('resumen_columnas', JSON.stringify(visibleColumns))
+  }, [visibleColumns])
+
+  useEffect(() => {
+    if (!showColumnas) return
+    const handler = (e) => {
+      if (colRef.current && !colRef.current.contains(e.target)) setShowColumnas(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showColumnas])
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -142,7 +181,6 @@ export default function ResumenPage() {
     return result
   }, [movimientos, search, filtroEstado, filtroTipo, filtroVenc, sortCol, sortDir])
 
-  // Resetear a página 1 cuando cambian los filtros o búsqueda
   useEffect(() => { setPagina(1) }, [search, filtroEstado, filtroTipo, filtroVenc, sortCol, sortDir])
   useEffect(() => { localStorage.setItem('resumen_busqueda', search) }, [search])
   useEffect(() => { localStorage.setItem('resumen_filtro_estado', filtroEstado) }, [filtroEstado])
@@ -155,9 +193,10 @@ export default function ResumenPage() {
   const totalPaginas = Math.max(1, Math.ceil(totalItems / porPagina))
   const datosPaginados = filtrados.slice((pagina - 1) * porPagina, pagina * porPagina)
 
-  const hasActiveFilters = filtroEstado || filtroTipo || filtroVenc !== 'todos'
+  const hasActiveFilters = search || filtroEstado || filtroTipo || filtroVenc !== 'todos'
 
   const limpiarFiltros = () => {
+    setSearch('')
     setFiltroEstado('')
     setFiltroTipo('')
     setFiltroVenc('todos')
@@ -169,6 +208,9 @@ export default function ResumenPage() {
     filtroTipo && `Tipo: ${filtroTipo}`,
     filtroVenc !== 'todos' && `Vencimiento: ${filtroVenc}`,
   ].filter(Boolean).join(' | ') || undefined
+
+  // colSpan dinámico: carpeta siempre + opcionales visibles + columna acción
+  const colSpan = Object.values(visibleColumns).filter(Boolean).length + 1
 
   const { widths: colWidths, onMouseDown: onColMouseDown } = useResizableColumns(RS_INITIAL_WIDTHS, 'col-widths-resumen')
   const rh = (key) => (
@@ -210,20 +252,52 @@ export default function ResumenPage() {
             </span>
           )}
         </div>
-        <button
-          onClick={cargar}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50 bg-white dark:bg-gray-700 border border-gray-200 dark:border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-        >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          Actualizar
-        </button>
-        <button
-          onClick={() => setShowPrint(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors bg-white dark:bg-gray-700 border border-gray-200 dark:border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-        >
-          <Printer size={13} /> Imprimir
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={cargar}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors disabled:opacity-50 bg-white dark:bg-gray-700 border border-gray-200 dark:border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            Actualizar
+          </button>
+          <button
+            onClick={() => setShowPrint(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors bg-white dark:bg-gray-700 border border-gray-200 dark:border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+          >
+            <Printer size={13} /> Imprimir
+          </button>
+
+          {/* Selector de columnas */}
+          <div className="relative" ref={colRef}>
+            <button
+              onClick={() => setShowColumnas(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors bg-white dark:bg-gray-700 border border-gray-200 dark:border-transparent text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+            >
+              <Columns size={13} />
+              Columnas
+              <ChevronDown size={11} />
+            </button>
+            {showColumnas && (
+              <div className="absolute right-0 top-full mt-1 bg-white dark:bg-dark-surface border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 p-3 min-w-[190px]">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                  Mostrar columnas
+                </p>
+                {Object.entries(COLUMN_LABELS).map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 py-1 cursor-pointer hover:text-accent transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns[key] !== false}
+                      onChange={() => setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }))}
+                      className="w-3.5 h-3.5 accent-accent"
+                    />
+                    <span className="text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {showPrint && (
@@ -237,7 +311,7 @@ export default function ResumenPage() {
             m.titulo,
             m.tipo_nombre || '—',
             m.estado_nombre || '—',
-            m.responsable_username || '—',
+            m.responsable_nombre || '—',
             fmt(m.fecha_creacion),
             m.fecha_vencimiento ? fmt(m.fecha_vencimiento) : '—',
           ]}
@@ -246,7 +320,7 @@ export default function ResumenPage() {
       )}
 
       {/* Buscador */}
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg shadow bg-white dark:bg-gray-800 border border-gray-200 dark:border-transparent">
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg shadow bg-white dark:bg-gray-800 ${search ? 'border border-accent ring-1 ring-accent' : 'border border-gray-200 dark:border-transparent'}`}>
         <Search size={14} className="text-gray-400 flex-shrink-0" />
         <input
           type="text"
@@ -267,7 +341,7 @@ export default function ResumenPage() {
         <div className="flex flex-wrap gap-2 items-center">
           {/* Estado */}
           <div className="relative">
-            <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className={dropSel}>
+            <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className={`${dropSel} ${filtroEstado ? 'ring-1 ring-accent text-accent' : ''}`}>
               <option value="">Todos los estados</option>
               {estados.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
@@ -276,7 +350,7 @@ export default function ResumenPage() {
 
           {/* Tipo */}
           <div className="relative">
-            <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)} className={dropSel}>
+            <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)} className={`${dropSel} ${filtroTipo ? 'ring-1 ring-accent text-accent' : ''}`}>
               <option value="">Todos los tipos</option>
               {tipos.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -301,14 +375,20 @@ export default function ResumenPage() {
             ))}
           </div>
 
-          {/* Limpiar */}
+          {/* Limpiar + badge */}
           {hasActiveFilters && (
-            <button
-              onClick={limpiarFiltros}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg border transition-colors ml-auto text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-gray-300 dark:border-gray-600"
-            >
-              <X size={12} /> Limpiar
-            </button>
+            <>
+              <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500">
+                <Filter size={11} />
+                FILTROS ACTIVOS
+              </span>
+              <button
+                onClick={limpiarFiltros}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm ml-auto"
+              >
+                <X size={12} /> LIMPIAR
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -322,37 +402,49 @@ export default function ResumenPage() {
                 <th className={thBase} onClick={() => handleSort('carpeta')} style={{ width: colWidths.carpeta, minWidth: 60 }}>
                   Carpeta{sortIcon('carpeta')}{rh('carpeta')}
                 </th>
-                <th className={thBase} onClick={() => handleSort('movimiento')} style={{ width: colWidths.movimiento, minWidth: 60 }}>
-                  Último movimiento{sortIcon('movimiento')}{rh('movimiento')}
-                </th>
-                <th className={thBase} onClick={() => handleSort('tipo')} style={{ width: colWidths.tipo, minWidth: 60 }}>
-                  Tipo{sortIcon('tipo')}{rh('tipo')}
-                </th>
-                <th className={thBase} onClick={() => handleSort('estado')} style={{ width: colWidths.estado, minWidth: 60 }}>
-                  Estado{sortIcon('estado')}{rh('estado')}
-                </th>
-                <th className={thBase} onClick={() => handleSort('responsable')} style={{ width: colWidths.responsable, minWidth: 60 }}>
-                  Responsable{sortIcon('responsable')}{rh('responsable')}
-                </th>
-                <th className={thBase} onClick={() => handleSort('fecha')} style={{ width: colWidths.fecha, minWidth: 60 }}>
-                  Fecha{sortIcon('fecha')}{rh('fecha')}
-                </th>
-                <th className={thBase} onClick={() => handleSort('vencimiento')} style={{ width: colWidths.vencimiento, minWidth: 60 }}>
-                  Vencimiento{sortIcon('vencimiento')}{rh('vencimiento')}
-                </th>
+                {visibleColumns.ultimo_movimiento && (
+                  <th className={thBase} onClick={() => handleSort('movimiento')} style={{ width: colWidths.movimiento, minWidth: 60 }}>
+                    Último movimiento{sortIcon('movimiento')}{rh('movimiento')}
+                  </th>
+                )}
+                {visibleColumns.tipo && (
+                  <th className={thBase} onClick={() => handleSort('tipo')} style={{ width: colWidths.tipo, minWidth: 60 }}>
+                    Tipo{sortIcon('tipo')}{rh('tipo')}
+                  </th>
+                )}
+                {visibleColumns.estado && (
+                  <th className={thBase} onClick={() => handleSort('estado')} style={{ width: colWidths.estado, minWidth: 60 }}>
+                    Estado{sortIcon('estado')}{rh('estado')}
+                  </th>
+                )}
+                {visibleColumns.responsable && (
+                  <th className={thBase} onClick={() => handleSort('responsable')} style={{ width: colWidths.responsable, minWidth: 60 }}>
+                    Responsable{sortIcon('responsable')}{rh('responsable')}
+                  </th>
+                )}
+                {visibleColumns.fecha && (
+                  <th className={thBase} onClick={() => handleSort('fecha')} style={{ width: colWidths.fecha, minWidth: 60 }}>
+                    Fecha{sortIcon('fecha')}{rh('fecha')}
+                  </th>
+                )}
+                {visibleColumns.vencimiento && (
+                  <th className={thBase} onClick={() => handleSort('vencimiento')} style={{ width: colWidths.vencimiento, minWidth: 60 }}>
+                    Vencimiento{sortIcon('vencimiento')}{rh('vencimiento')}
+                  </th>
+                )}
                 <th className="px-3 py-2.5 pr-4 text-gray-500 dark:text-gray-400" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-sm text-gray-400">
+                  <td colSpan={colSpan} className="py-12 text-center text-sm text-gray-400">
                     Cargando...
                   </td>
                 </tr>
               ) : filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center">
+                  <td colSpan={colSpan} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <LayoutList size={28} strokeWidth={1} className="text-gray-300 dark:text-gray-600" />
                       <p className="text-sm text-gray-400">
@@ -375,7 +467,7 @@ export default function ResumenPage() {
                       onClick={() => handleRowClick(mov)}
                       className={`cursor-pointer transition-colors ${bg}`}
                     >
-                      {/* Carpeta */}
+                      {/* Carpeta — siempre visible */}
                       <td className={`${td} font-medium text-gray-800 dark:text-gray-200`} style={{ maxWidth: colWidths.carpeta, overflow: 'hidden' }}>
                         <span className="block truncate" title={mov.carpeta_nombre || 'Sin carpeta'}>
                           {mov.carpeta_nombre || 'Sin carpeta'}
@@ -383,54 +475,66 @@ export default function ResumenPage() {
                       </td>
 
                       {/* Último movimiento */}
-                      <td className={`${td} text-gray-700 dark:text-gray-300`} style={{ maxWidth: colWidths.movimiento, overflow: 'hidden' }}>
-                        <span className="block truncate" title={mov.titulo}>{mov.titulo}</span>
-                      </td>
+                      {visibleColumns.ultimo_movimiento && (
+                        <td className={`${td} text-gray-700 dark:text-gray-300`} style={{ maxWidth: colWidths.movimiento, overflow: 'hidden' }}>
+                          <span className="block truncate" title={mov.titulo}>{mov.titulo}</span>
+                        </td>
+                      )}
 
                       {/* Tipo */}
-                      <td className={td}>
-                        {mov.tipo_nombre ? (
-                          <span
-                            className="text-[11px] px-2 py-0.5 rounded-full text-white font-medium whitespace-nowrap"
-                            style={{ backgroundColor: mov.tipo_color || '#6b7280' }}
-                          >
-                            {mov.tipo_nombre}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
+                      {visibleColumns.tipo && (
+                        <td className={td}>
+                          {mov.tipo_nombre ? (
+                            <span
+                              className="text-[11px] px-2 py-0.5 rounded-full text-white font-medium whitespace-nowrap"
+                              style={{ backgroundColor: mov.tipo_color || '#6b7280' }}
+                            >
+                              {mov.tipo_nombre}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      )}
 
                       {/* Estado */}
-                      <td className={td}>
-                        {mov.estado_nombre ? (
-                          <span
-                            className="text-[11px] px-2 py-0.5 rounded-full text-white font-medium whitespace-nowrap"
-                            style={{ backgroundColor: mov.estado_color || '#6b7280' }}
-                          >
-                            {mov.estado_nombre}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
+                      {visibleColumns.estado && (
+                        <td className={td}>
+                          {mov.estado_nombre ? (
+                            <span
+                              className="text-[11px] px-2 py-0.5 rounded-full text-white font-medium whitespace-nowrap"
+                              style={{ backgroundColor: mov.estado_color || '#6b7280' }}
+                            >
+                              {mov.estado_nombre}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      )}
 
                       {/* Responsable */}
-                      <td className={`${td} text-xs text-gray-500 dark:text-gray-400`}>
-                        {mov.responsable_username || '—'}
-                      </td>
+                      {visibleColumns.responsable && (
+                        <td className={`${td} text-xs text-gray-500 dark:text-gray-400`}>
+                          {mov.responsable_nombre || '—'}
+                        </td>
+                      )}
 
-                      {/* Fecha creación */}
-                      <td className={`${td} text-xs whitespace-nowrap text-gray-500 dark:text-gray-400`}>
-                        {fmt(mov.fecha_creacion)}
-                      </td>
+                      {/* Fecha */}
+                      {visibleColumns.fecha && (
+                        <td className={`${td} text-xs whitespace-nowrap text-gray-500 dark:text-gray-400`}>
+                          {fmt(mov.fecha_creacion)}
+                        </td>
+                      )}
 
                       {/* Vencimiento */}
-                      <td className={`${td} text-xs whitespace-nowrap`}>
-                        <span className={VENC_TEXT[vs] || 'text-gray-500 dark:text-gray-400'}>
-                          {mov.fecha_vencimiento ? fmt(mov.fecha_vencimiento) : '—'}
-                        </span>
-                      </td>
+                      {visibleColumns.vencimiento && (
+                        <td className={`${td} text-xs whitespace-nowrap`}>
+                          <span className={VENC_TEXT[vs] || 'text-gray-500 dark:text-gray-400'}>
+                            {mov.fecha_vencimiento ? fmt(mov.fecha_vencimiento) : '—'}
+                          </span>
+                        </td>
+                      )}
 
                       {/* Acción */}
                       <td
@@ -462,12 +566,10 @@ export default function ResumenPage() {
         />
       </div>
       {movimientoSeleccionado && (
-        <MovimientoForm
-          movimiento={movimientoSeleccionado}
-          carpetaId={movimientoSeleccionado.carpeta}
-          carpetaNombre={movimientoSeleccionado.carpeta_nombre}
+        <MovimientoDetalleModal
+          movimientoId={movimientoSeleccionado.id}
           onClose={() => setMovimientoSeleccionado(null)}
-          onSave={() => { setMovimientoSeleccionado(null); cargar() }}
+          onEdit={() => { setMovimientoSeleccionado(null); cargar() }}
         />
       )}
     </div>

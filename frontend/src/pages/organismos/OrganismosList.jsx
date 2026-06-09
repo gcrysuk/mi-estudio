@@ -9,6 +9,7 @@ import {
   Building2,
   RefreshCw,
   Printer,
+  Filter,
 } from 'lucide-react';
 import ImprimirLista from '../../components/print/ImprimirLista';
 import { useResizableColumns } from '../../hooks/useResizableColumns';
@@ -44,6 +45,8 @@ const OrganismosList = () => {
 
   useEffect(() => { localStorage.setItem('organismos_busqueda', searchTerm); }, [searchTerm]);
   useEffect(() => { localStorage.setItem('organismos_ordering', JSON.stringify(sortConfig)); }, [sortConfig]);
+
+  const hasActiveFilters = !!searchTerm;
 
   useEffect(() => {
     const handleEsc = (e) => {
@@ -224,14 +227,20 @@ const OrganismosList = () => {
               placeholder="BUSCAR POR NOMBRE, PROVINCIA, LOCALIDAD O MATERIA..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
+              className={`w-full pl-8 pr-3 py-1.5 rounded-lg border-none focus:ring-1 focus:ring-accent uppercase text-xs ${searchTerm ? 'bg-accent/10 dark:bg-accent/10 ring-1 ring-accent text-accent' : 'bg-gray-100 dark:bg-dark-elevated'}`}
             />
           </div>
+          {hasActiveFilters && (
+            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
+              <Filter size={11} />
+              FILTROS ACTIVOS
+            </span>
+          )}
           <button
             onClick={() => setSearchTerm('')}
-            className="px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center gap-1.5 uppercase text-xs"
+            className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
           >
-            <RefreshCw size={14} />
+            <X size={12} />
             LIMPIAR
           </button>
         </div>

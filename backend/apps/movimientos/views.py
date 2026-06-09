@@ -11,6 +11,7 @@ from django.db.models import Q, Max, Case, When, IntegerField, Value
 from django.utils import timezone
 from .models import Movimiento, TipoMovimiento, EstadoMovimiento, NotificacionMovimiento, KanbanConfig, NotificacionSistema
 from .serializers import MovimientoSerializer, TipoMovimientoSerializer, EstadoMovimientoSerializer, NotificacionSerializer, KanbanConfigSerializer, NotificacionSistemaSerializer
+from .utils import crear_notificacion
 from apps.carpetas.models import Carpeta, CompartirCarpeta
 from config.pagination import StandardPagination
 
@@ -96,10 +97,10 @@ class MovimientoViewSet(viewsets.ModelViewSet):
                 defaults={'puede_editar': False, 'compartido_por': actor},
             )
             if movimiento.responsable_id != actor.pk:
-                NotificacionSistema.objects.create(
-                    usuario=movimiento.responsable,
+                crear_notificacion(
+                    movimiento.responsable,
+                    'asignacion',
                     actor=actor,
-                    tipo='asignacion',
                     movimiento=movimiento,
                     mensaje=f"{actor_nombre} te asignó el movimiento '{movimiento.titulo}' en '{carpeta.nombre}'",
                 )
@@ -107,19 +108,36 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         if not _user_puede_editar_movimiento(self.request.user, serializer.instance):
             raise PermissionDenied('No tenés permiso de escritura en este movimiento.')
-        movimiento = serializer.save(modificado_por=self.request.user)
+
+        estado_anterior = serializer.instance.estado
+        complejidad_anterior = serializer.instance.complejidad
+
+        extra = {}
+        nuevo_estado = serializer.validated_data.get('estado')
+        if nuevo_estado is not None:
+            extra['fecha_completado'] = timezone.now() if nuevo_estado.es_final else None
+        movimiento = serializer.save(modificado_por=self.request.user, **extra)
 
         carpeta = movimiento.carpeta
         actor = self.request.user
         if carpeta:
             actor_nombre = actor.get_full_name() or actor.username
-            mensaje = f"{actor_nombre} modificó '{movimiento.titulo}' en '{carpeta.nombre}'"
+
+            cambios = []
+            if estado_anterior != movimiento.estado and movimiento.estado:
+                cambios.append(f"estado → {movimiento.estado.nombre}")
+            if complejidad_anterior != movimiento.complejidad and movimiento.complejidad:
+                cambios.append(f"complejidad → {movimiento.get_complejidad_display()}")
+
+            detalle = f": {', '.join(cambios)}" if cambios else ""
+            mensaje = f"{actor_nombre} modificó '{movimiento.titulo}' en '{carpeta.nombre}'{detalle}"
             notificados = set()
 
             if carpeta.propietario_id != actor.pk:
-                NotificacionSistema.objects.create(
-                    usuario=carpeta.propietario, actor=actor,
-                    tipo='cambio_estado', movimiento=movimiento, carpeta=carpeta,
+                crear_notificacion(
+                    carpeta.propietario,
+                    'cambio_estado',
+                    actor=actor, movimiento=movimiento, carpeta=carpeta,
                     mensaje=mensaje,
                 )
                 notificados.add(carpeta.propietario_id)
@@ -127,9 +145,10 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             if (movimiento.responsable_id
                     and movimiento.responsable_id != actor.pk
                     and movimiento.responsable_id not in notificados):
-                NotificacionSistema.objects.create(
-                    usuario=movimiento.responsable, actor=actor,
-                    tipo='cambio_estado', movimiento=movimiento, carpeta=carpeta,
+                crear_notificacion(
+                    movimiento.responsable,
+                    'cambio_estado',
+                    actor=actor, movimiento=movimiento, carpeta=carpeta,
                     mensaje=mensaje,
                 )
 
@@ -425,7 +444,6 @@ class MovimientoViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='proximos_vencer')
     def proximos_vencer(self, request):
         dias = int(request.query_params.get('dias', 7))
-        limit = int(request.query_params.get('page_size', 5))
         now = timezone.now()
         fecha_limite = now + timezone.timedelta(days=dias)
         queryset = self.get_queryset().filter(
@@ -433,7 +451,11 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             fecha_vencimiento__isnull=False,
             fecha_vencimiento__gte=now,
             fecha_vencimiento__lte=fecha_limite,
-        ).order_by('fecha_vencimiento')[:limit]
+        ).order_by('fecha_vencimiento')
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -572,19 +594,21 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         movimiento.estado = estado
         movimiento.fecha_cambio_estado = timezone.now()
         movimiento.modificado_por = request.user
-        movimiento.save(update_fields=['estado', 'fecha_cambio_estado', 'modificado_por'])
+        movimiento.fecha_completado = timezone.now() if estado.es_final else None
+        movimiento.save(update_fields=['estado', 'fecha_cambio_estado', 'modificado_por', 'fecha_completado'])
 
         carpeta = movimiento.carpeta
         actor = request.user
         actor_nombre = actor.get_full_name() or actor.username
         if carpeta:
-            mensaje = f"{actor_nombre} cambió '{movimiento.titulo}' al estado '{estado.nombre}' en '{carpeta.nombre}'"
+            mensaje = f"{actor_nombre} cambió el estado de '{movimiento.titulo}' a '{estado.nombre}' en '{carpeta.nombre}'"
             notificados = set()
 
             if carpeta.propietario_id != actor.pk:
-                NotificacionSistema.objects.create(
-                    usuario=carpeta.propietario, actor=actor,
-                    tipo='cambio_estado', movimiento=movimiento, carpeta=carpeta,
+                crear_notificacion(
+                    carpeta.propietario,
+                    'cambio_estado',
+                    actor=actor, movimiento=movimiento, carpeta=carpeta,
                     mensaje=mensaje,
                 )
                 notificados.add(carpeta.propietario_id)
@@ -592,9 +616,10 @@ class MovimientoViewSet(viewsets.ModelViewSet):
             if (movimiento.responsable_id
                     and movimiento.responsable_id != actor.pk
                     and movimiento.responsable_id not in notificados):
-                NotificacionSistema.objects.create(
-                    usuario=movimiento.responsable, actor=actor,
-                    tipo='cambio_estado', movimiento=movimiento, carpeta=carpeta,
+                crear_notificacion(
+                    movimiento.responsable,
+                    'cambio_estado',
+                    actor=actor, movimiento=movimiento, carpeta=carpeta,
                     mensaje=mensaje,
                 )
 
@@ -633,10 +658,10 @@ class MovimientoViewSet(viewsets.ModelViewSet):
 
         actor = request.user
         actor_nombre = actor.get_full_name() or actor.username
-        NotificacionSistema.objects.create(
-            usuario=usuario,
+        crear_notificacion(
+            usuario,
+            'asignacion',
             actor=actor,
-            tipo='asignacion',
             movimiento=movimiento,
             mensaje=f"{actor_nombre} te asignó el movimiento '{movimiento.titulo}' en la carpeta '{carpeta.nombre}'",
         )

@@ -43,9 +43,10 @@ export default function ReporteTranscripcion({ movimiento, transcripcion, onClos
         </table>
 
         {/* Cuerpo de la transcripción */}
-        <div style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '16px', minHeight: '200px', fontSize: '11px', lineHeight: '1.7', whiteSpace: 'pre-wrap', backgroundColor: '#fff' }}>
-          {transcripcion || '(Sin transcripción)'}
-        </div>
+        <div
+          style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '16px', minHeight: '200px', fontSize: '11px', lineHeight: '1.7', backgroundColor: '#fff' }}
+          dangerouslySetInnerHTML={{ __html: transcripcion || '<p style="color:#999;font-style:italic">(Sin transcripción)</p>' }}
+        />
       </div>
 
       {/* Footer */}

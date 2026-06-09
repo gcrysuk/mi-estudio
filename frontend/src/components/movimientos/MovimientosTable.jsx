@@ -19,7 +19,7 @@ function renderDescripcion(texto) {
 }
 import {
   Search, X, Edit, Trash2, Calendar, Clock,
-  FolderOpen, AlertCircle, ChevronDown, ChevronUp, Plus,
+  FolderOpen, AlertCircle, ChevronDown, ChevronUp, Plus, Filter,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
@@ -36,7 +36,7 @@ const MT_INITIAL_WIDTHS = {
   titulo: 240, carpeta_nombre: 150, tipo_nombre: 110, estado_nombre: 130,
   fecha_movimiento: 130, fecha_vencimiento: 130, fecha_notificacion: 130,
   tiempo_trabajo: 90, descripcion: 180, responsable: 130, creado_por: 140, modificado_por: 140,
-  complejidad: 100,
+  complejidad: 100, fecha_completado: 150,
 };
 
 // ── ComplejidadSelector ───────────────────────────────────────────────────────
@@ -441,12 +441,13 @@ const COLUMN_CONFIG = [
   { key: 'responsable',    label: 'Responsable',    fixed: false },
   { key: 'creado_por',     label: 'Creado por',     fixed: false },
   { key: 'modificado_por', label: 'Modificado por', fixed: false },
+  { key: 'completado',     label: 'Completado',     fixed: false },
 ];
 
 const DEFAULT_COLUMNS = {
   carpeta: true, tipo: true, estado: true, complejidad: true, fecha: true,
   vencimiento: true, fecha_notif: true, tiempo: true, descripcion: true,
-  responsable: true, creado_por: false, modificado_por: false,
+  responsable: true, creado_por: false, modificado_por: false, completado: false,
 };
 
 const STORAGE_KEY = 'movimientos_columnas';
@@ -495,6 +496,7 @@ const MovimientosTable = ({
     responsable:          'responsable__username',
     creado_por:           'creado_por__username',
     modificado_por:       'modificado_por__username',
+    fecha_completado:     'fecha_completado',
     // fecha_notificacion: computed field, not sortable by backend
   };
   const [visibleColumns, setVisibleColumns]   = useState(() => {
@@ -636,6 +638,11 @@ const MovimientosTable = ({
       ? new Date(fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
       : null;
 
+  const formatFechaHora = (fecha) =>
+    fecha
+      ? new Date(fecha).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : null;
+
   const colorVencimiento = (mov) => {
     if (mov.vencido) return 'text-red-600 dark:text-red-400';
     if (!mov.fecha_vencimiento) return '';
@@ -694,7 +701,7 @@ const MovimientosTable = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar en movimientos..."
-            className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+            className={`w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${search ? 'border-accent ring-1 ring-accent' : 'border-gray-300 dark:border-gray-600'}`}
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -708,7 +715,7 @@ const MovimientosTable = ({
           <select
             value={filters.tipo}
             onChange={(e) => setFilter('tipo', e.target.value)}
-            className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+            className={`appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${filters.tipo ? 'border-accent ring-1 ring-accent text-accent' : 'border-gray-300 dark:border-gray-600'}`}
           >
             <option value="">Todos los tipos</option>
             {tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
@@ -721,7 +728,7 @@ const MovimientosTable = ({
           <select
             value={filters.estado}
             onChange={(e) => setFilter('estado', e.target.value)}
-            className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+            className={`appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${filters.estado ? 'border-accent ring-1 ring-accent text-accent' : 'border-gray-300 dark:border-gray-600'}`}
           >
             <option value="">Todos los estados</option>
             {estados.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
@@ -734,7 +741,7 @@ const MovimientosTable = ({
           <select
             value={filters.complejidad}
             onChange={(e) => setFilter('complejidad', e.target.value)}
-            className="appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+            className={`appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${filters.complejidad ? 'border-accent ring-1 ring-accent text-accent' : 'border-gray-300 dark:border-gray-600'}`}
           >
             <option value="">Todas las complejidades</option>
             <option value="alto">🔴 Alto</option>
@@ -771,30 +778,36 @@ const MovimientosTable = ({
           placeholder="Filtrar responsable..."
           value={filters.responsable}
           onChange={(e) => setFilter("responsable", e.target.value)}
-          className="px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40"
+          className={`px-2 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40 ${filters.responsable ? 'border-accent ring-1 ring-accent' : 'border-gray-300 dark:border-gray-600'}`}
         />
         <input
           type="text"
           placeholder="Filtrar creado por..."
           value={filters.creado_por}
           onChange={(e) => setFilter("creado_por", e.target.value)}
-          className="px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40"
+          className={`px-2 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40 ${filters.creado_por ? 'border-accent ring-1 ring-accent' : 'border-gray-300 dark:border-gray-600'}`}
         />
         <input
           type="text"
           placeholder="Filtrar modificado por..."
           value={filters.modificado_por}
           onChange={(e) => setFilter("modificado_por", e.target.value)}
-          className="px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40"
+          className={`px-2 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent w-40 ${filters.modificado_por ? 'border-accent ring-1 ring-accent' : 'border-gray-300 dark:border-gray-600'}`}
         />
-        {/* Limpiar */}
+        {/* Limpiar + badge */}
         {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-300 dark:border-gray-600 transition-colors"
-          >
-            <X size={13} /> Limpiar
-          </button>
+          <>
+            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500">
+              <Filter size={11} />
+              FILTROS ACTIVOS
+            </span>
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm"
+            >
+              <X size={12} /> LIMPIAR
+            </button>
+          </>
         )}
 
         {/* Selector de columnas */}
@@ -837,6 +850,7 @@ const MovimientosTable = ({
                 {visibleColumns.responsable   && <TH columnKey="responsable">Responsable</TH>}
                 {visibleColumns.creado_por     && <TH columnKey="creado_por">Creado por</TH>}
                 {visibleColumns.modificado_por && <TH columnKey="modificado_por">Modificado por</TH>}
+                {visibleColumns.completado     && <TH columnKey="fecha_completado">Completado</TH>}
                 <th className="px-4 py-2.5 w-20"></th>
               </tr>
             </thead>
@@ -863,17 +877,17 @@ const MovimientosTable = ({
                         <span className="w-3.5 h-3.5 rounded-full bg-current/20 flex items-center justify-center font-bold text-[8px] flex-shrink-0">
                           {mov.responsable_username[0].toUpperCase()}
                         </span>
-                        {mov.es_responsable ? 'Asignado a mí' : mov.responsable_username}
+                        {mov.es_responsable ? 'Asignado a mí' : (mov.responsable_nombre || mov.responsable_username)}
                       </span>
                     )}
                   </td>
 
                   {showCarpetaColumn && visibleColumns.carpeta && (
-                    <td className="px-4 py-2.5" style={{ maxWidth: colWidths.carpeta_nombre, overflow: 'hidden' }}>
+                    <td className="px-4 py-2.5" style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
                       {mov.carpeta ? (
                         <Link
                           to={`/carpetas/${mov.carpeta}`}
-                          className="flex items-center gap-1 text-xs text-accent hover:underline truncate max-w-[140px]"
+                          className="flex items-center gap-1 text-xs text-accent hover:underline break-words whitespace-normal"
                           title={mov.carpeta_nombre}
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -987,6 +1001,18 @@ const MovimientosTable = ({
                       <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {mov.modificado_por_nombre || '—'}
                       </span>
+                    </td>
+                  )}
+
+                  {visibleColumns.completado && (
+                    <td className="px-4 py-2.5 whitespace-nowrap">
+                      {mov.fecha_completado ? (
+                        <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                          ✅ {formatFechaHora(mov.fecha_completado)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                      )}
                     </td>
                   )}
 

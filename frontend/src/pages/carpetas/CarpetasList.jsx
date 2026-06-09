@@ -19,6 +19,7 @@ import {
   RefreshCw,
   Eye,
   Printer,
+  Filter,
 } from 'lucide-react';
 import ImprimirLista from '../../components/print/ImprimirLista';
 import toast from 'react-hot-toast';
@@ -185,6 +186,8 @@ const CarpetasList = () => {
   useEffect(() => { localStorage.setItem('carpetas_dias_sin_movimiento', diasSinMovimiento); }, [diasSinMovimiento]);
   useEffect(() => { localStorage.setItem('carpetas_filtro_compartida_con', filtroCompartidaCon); }, [filtroCompartidaCon]);
   useEffect(() => { localStorage.setItem('carpetas_page_size', String(pageSize)); }, [pageSize]);
+
+  const hasActiveFilters = !!(search || filters.estado || filters.tipo || diasSinMovimiento || filtroCompartidaCon);
 
   // Manejar tecla ESC para cerrar modales
   useEffect(() => {
@@ -506,7 +509,7 @@ const CarpetasList = () => {
               placeholder="Buscar en carpetas..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-7 pr-7 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent text-xs"
+              className={`w-full pl-7 pr-7 py-1.5 rounded-lg border-none focus:ring-1 focus:ring-accent text-xs ${search ? 'bg-accent/10 dark:bg-accent/10 ring-1 ring-accent text-accent' : 'bg-gray-100 dark:bg-dark-elevated'}`}
             />
             {search && (
               <button
@@ -522,7 +525,7 @@ const CarpetasList = () => {
           <select
             value={filters.estado}
             onChange={(e) => setFilters({...filters, estado: e.target.value})}
-            className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
+            className={`w-full sm:w-auto px-2 py-1.5 rounded-lg border-none focus:ring-1 focus:ring-accent uppercase text-xs ${filters.estado ? 'bg-accent/10 dark:bg-accent/10 ring-1 ring-accent text-accent' : 'bg-gray-100 dark:bg-dark-elevated'}`}
           >
             <option value="">TODOS LOS ESTADOS</option>
             {estados.map(estado => (
@@ -533,7 +536,7 @@ const CarpetasList = () => {
           <select
             value={filters.tipo}
             onChange={(e) => setFilters({...filters, tipo: e.target.value})}
-            className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-100 dark:bg-dark-elevated border-none focus:ring-1 focus:ring-accent uppercase text-xs"
+            className={`w-full sm:w-auto px-2 py-1.5 rounded-lg border-none focus:ring-1 focus:ring-accent uppercase text-xs ${filters.tipo ? 'bg-accent/10 dark:bg-accent/10 ring-1 ring-accent text-accent' : 'bg-gray-100 dark:bg-dark-elevated'}`}
           >
             <option value="">TODOS LOS TIPOS</option>
             {tipos.map(tipo => (
@@ -548,7 +551,7 @@ const CarpetasList = () => {
               placeholder="Días sin mov."
               value={diasSinMovimiento}
               onChange={(e) => setDiasSinMovimiento(e.target.value)}
-              className="w-32 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+              className={`w-32 px-2 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${diasSinMovimiento ? 'border-accent ring-1 ring-accent' : 'border-gray-300 dark:border-gray-600'}`}
             />
           </div>
 
@@ -559,7 +562,7 @@ const CarpetasList = () => {
                 placeholder="Compartida con..."
                 value={filtroCompartidaCon}
                 onChange={(e) => setFiltroCompartidaCon(e.target.value)}
-                className="w-40 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                className={`w-40 px-2 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${filtroCompartidaCon ? 'border-accent ring-1 ring-accent' : 'border-gray-300 dark:border-gray-600'}`}
               />
             </div>
           )}
@@ -570,6 +573,12 @@ const CarpetasList = () => {
             onToggleColumn={handleToggleColumn}
           />
 
+          {hasActiveFilters && (
+            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
+              <Filter size={11} />
+              FILTROS ACTIVOS
+            </span>
+          )}
           <button
             onClick={() => {
               setSearch('');
@@ -578,9 +587,9 @@ const CarpetasList = () => {
               setFilters({ estado: '', tipo: '' });
               if (estadoNombreParam) navigate('/carpetas', { replace: true });
             }}
-            className="w-full sm:w-auto px-2 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 flex items-center justify-center gap-1.5 uppercase text-xs"
+            className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
           >
-            <RefreshCw size={14} />
+            <X size={12} />
             LIMPIAR
           </button>
         </div>
@@ -667,10 +676,10 @@ const CarpetasList = () => {
                       />
                     </td>
 
-                    <td className="px-2 py-2 text-sm font-medium" style={{ maxWidth: colWidths.nombre, overflow: 'hidden' }}>
+                    <td className="px-2 py-2 text-sm font-medium" style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
                       <Link
                         to={`/carpetas/${carpeta.id}`}
-                        className="text-accent hover:text-accent-hover hover:underline truncate block"
+                        className="text-accent hover:text-accent-hover hover:underline break-words whitespace-normal"
                         title={carpeta.nombre}
                       >
                         {carpeta.nombre}

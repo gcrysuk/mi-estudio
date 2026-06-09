@@ -71,10 +71,16 @@ export default function PerfilPage() {
   const [mev, setMev] = useState({ mev_usuario: '', mev_clave: '', mev_depto: '' })
   const [mevTieneClave, setMevTieneClave] = useState(false)
   const [savingMev, setSavingMev] = useState(false)
+  const [notifConfig, setNotifConfig] = useState({})
+  const [savingNotif, setSavingNotif] = useState(false)
 
   useEffect(() => {
     api.get('/usuarios/perfil/')
-      .then(res => { setPerfil(res.data); setForm(res.data) })
+      .then(res => {
+        setPerfil(res.data)
+        setForm(res.data)
+        setNotifConfig(res.data.notificacion_config || {})
+      })
       .catch(() => toast.error('Error al cargar perfil'))
       .finally(() => setLoading(false))
 
@@ -113,6 +119,15 @@ export default function PerfilPage() {
   if (!perfil) return null
 
   const s = (k) => (v) => setForm(f => ({ ...f, [k]: typeof v === 'object' ? v.target.value : v }))
+
+  const handleSaveNotifConfig = async () => {
+    setSavingNotif(true)
+    try {
+      await api.patch('/usuarios/perfil/', { notificacion_config: notifConfig })
+      toast.success('Configuración de notificaciones guardada')
+    } catch { toast.error('Error al guardar') }
+    finally { setSavingNotif(false) }
+  }
 
   const handleSaveMev = async (e) => {
     e.preventDefault()
@@ -275,6 +290,42 @@ export default function PerfilPage() {
           </button>
         </div>
       </form>
+
+      {/* Configuración de notificaciones */}
+      <div className="p-4 rounded-lg shadow space-y-3 bg-white dark:bg-dark-surface">
+        <h2 className="text-sm font-bold uppercase mb-1 text-gray-500">Configuración de Notificaciones</h2>
+        <p className="text-xs text-gray-400">
+          Activá o desactivá los tipos de notificaciones que querés recibir.
+        </p>
+        {[
+          { key: 'asignacion', label: 'Asignaciones de movimientos' },
+          { key: 'cambio_estado', label: 'Cambios de estado' },
+          { key: 'carpeta_compartida', label: 'Carpetas compartidas' },
+          { key: 'mev_nuevo_movimiento', label: 'MEV — Nuevos movimientos' },
+          { key: 'mev_cambio_estado', label: 'MEV — Cambio de estado' },
+          { key: 'mev_error', label: 'MEV — Errores de sincronización' },
+        ].map(({ key, label }) => (
+          <label key={key} className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={notifConfig[key] !== false}
+              onChange={(e) => setNotifConfig(prev => ({ ...prev, [key]: e.target.checked }))}
+              className="w-4 h-4 accent-accent"
+            />
+            <span className="text-sm">{label}</span>
+          </label>
+        ))}
+        <div className="flex justify-end pt-1">
+          <button
+            onClick={handleSaveNotifConfig}
+            disabled={savingNotif}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
+          >
+            <Save size={14} />
+            {savingNotif ? 'Guardando...' : 'Guardar configuración'}
+          </button>
+        </div>
+      </div>
 
       {/* Cambiar contraseña */}
       <form onSubmit={handleCambiarPwd} className={`p-4 rounded-lg shadow space-y-3 bg-white dark:bg-dark-surface`}>
