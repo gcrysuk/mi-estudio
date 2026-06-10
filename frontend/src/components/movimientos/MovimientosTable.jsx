@@ -970,9 +970,10 @@ const MovimientosTable = ({
                   {visibleColumns.descripcion && (
                     <td className="px-4 py-2.5">
                       {mov.descripcion ? (
-                        <div className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs" title={mov.descripcion}>
-                          {renderDescripcion(mov.descripcion)}
-                        </div>
+                        <div
+                          className="text-xs text-muted-foreground line-clamp-2 max-w-xs prose prose-sm dark:prose-invert"
+                          dangerouslySetInnerHTML={{ __html: mov.descripcion || '' }}
+                        />
                       ) : (
                         <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
                       )}

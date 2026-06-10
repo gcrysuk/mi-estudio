@@ -10,7 +10,7 @@ const FILTROS = [
   { key: 'vencidos_hoy',  label: 'Vencen hoy',      url: '/movimientos/vencen_hoy/',   params: {},          color: 'red' },
   { key: 'proximos',      label: 'Próximos 7 días',  url: '/movimientos/proximos_vencer/', params: { dias: 7 }, color: 'accent' },
   { key: 'vencidos',      label: 'Vencidos',         url: '/movimientos/vencidos/',     params: {},          color: 'red' },
-  { key: 'pendientes',    label: 'Pendientes',       url: '/movimientos/pendientes/',   params: {},          color: 'accent' },
+  { key: 'pendientes',    label: 'Pendientes',       url: '/movimientos/',              params: { estado_nombre: 'Pendiente' }, color: 'accent' },
 ];
 
 const MovimientosGlobal = () => {

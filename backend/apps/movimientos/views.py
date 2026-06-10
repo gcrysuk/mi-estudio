@@ -79,6 +79,10 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         if complejidad:
             queryset = queryset.filter(complejidad=complejidad)
 
+        estado_nombre = self.request.query_params.get('estado_nombre')
+        if estado_nombre:
+            queryset = queryset.filter(estado__nombre__iexact=estado_nombre)
+
         return queryset
 
     def perform_create(self, serializer):
