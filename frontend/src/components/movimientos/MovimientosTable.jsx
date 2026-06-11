@@ -458,6 +458,7 @@ const MovimientosTable = ({
   showCarpetaColumn = true,
   emptyMessage = 'No se encontraron movimientos',
   refreshKey = 0,
+  onClearTabFilter = null,
 }) => {
   const [searchParams] = useSearchParams();
   const [movimientos, setMovimientos]         = useState([]);
@@ -622,13 +623,16 @@ const MovimientosTable = ({
 
   const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
 
+  const hasTabFilter = Object.keys(baseParams).length > 0;
+
   const clearFilters = () => {
     setFilters({ tipo: '', estado: '', responsable: '', creado_por: '', modificado_por: '', complejidad: '' });
     setSearch('');
+    if (hasTabFilter && onClearTabFilter) onClearTabFilter();
   };
 
   const hasActiveFilters =
-    search || filters.tipo || filters.estado || filters.responsable || filters.creado_por || filters.modificado_por || filters.complejidad;
+    hasTabFilter || search || filters.tipo || filters.estado || filters.responsable || filters.creado_por || filters.modificado_por || filters.complejidad;
 
   const formatFecha = (fecha) =>
     fecha
@@ -773,13 +777,13 @@ const MovimientosTable = ({
         {/* Limpiar + badge */}
         {hasActiveFilters && (
           <>
-            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500">
+            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
               <Filter size={11} />
               FILTROS ACTIVOS
             </span>
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors shadow-sm"
+              className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
             >
               <X size={12} /> LIMPIAR
             </button>

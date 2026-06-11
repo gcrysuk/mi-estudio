@@ -121,6 +121,7 @@ const MovimientosGlobal = () => {
         baseParams={activeFiltro.params}
         showCarpetaColumn={true}
         refreshKey={refreshKey}
+        onClearTabFilter={() => handleFiltro('todos')}
       />
 
       {newModalOpen && (
