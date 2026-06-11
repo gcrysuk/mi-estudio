@@ -507,7 +507,6 @@ const MovimientosTable = ({
   const [filters, setFilters] = useState(() => ({
     tipo:         localStorage.getItem('movimientos_filtro_tipo')         || '',
     estado:       new URLSearchParams(window.location.search).get('estado') || localStorage.getItem('movimientos_filtro_estado') || '',
-    vencido:      localStorage.getItem('movimientos_filtro_vencimiento')  || '',
     responsable:  localStorage.getItem('movimientos_filtro_responsable')  || '',
     creado_por:   localStorage.getItem('movimientos_filtro_creado_por')   || '',
     modificado_por: localStorage.getItem('movimientos_filtro_modificado_por') || '',
@@ -532,12 +531,11 @@ const MovimientosTable = ({
   useEffect(() => {
     localStorage.setItem('movimientos_filtro_tipo', filters.tipo);
     localStorage.setItem('movimientos_filtro_estado', filters.estado);
-    localStorage.setItem('movimientos_filtro_vencimiento', filters.vencido);
     localStorage.setItem('movimientos_filtro_responsable', filters.responsable);
     localStorage.setItem('movimientos_filtro_creado_por', filters.creado_por);
     localStorage.setItem('movimientos_filtro_modificado_por', filters.modificado_por);
     localStorage.setItem('movimientos_filtro_complejidad', filters.complejidad);
-  }, [filters.tipo, filters.estado, filters.vencido, filters.responsable, filters.creado_por, filters.modificado_por, filters.complejidad]);
+  }, [filters.tipo, filters.estado, filters.responsable, filters.creado_por, filters.modificado_por, filters.complejidad]);
 
   useEffect(() => {
     Promise.all([
@@ -564,7 +562,6 @@ const MovimientosTable = ({
       if (filters.responsable)   params.responsable   = filters.responsable;
       if (filters.creado_por)    params.creado_por    = filters.creado_por;
       if (filters.modificado_por) params.modificado_por = filters.modificado_por;
-      if (filters.vencido !== '') params.vencido = filters.vencido;
       if (filters.complejidad)    params.complejidad = filters.complejidad;
       if (ordering)           params.ordering = ordering;
 
@@ -587,7 +584,7 @@ const MovimientosTable = ({
     } finally {
       setLoading(false);
     }
-  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.vencido, filters.responsable, filters.creado_por, filters.modificado_por, filters.complejidad, ordering]); // eslint-disable-line
+  }, [baseFetchUrl, baseParamsKey, search, filters.tipo, filters.estado, filters.responsable, filters.creado_por, filters.modificado_por, filters.complejidad, ordering]); // eslint-disable-line
 
   // Reset to page 1 and fetch when URL/params/search/filters/refreshKey change
   useEffect(() => {
@@ -626,12 +623,12 @@ const MovimientosTable = ({
   const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
 
   const clearFilters = () => {
-    setFilters({ tipo: '', estado: '', vencido: '', responsable: '', creado_por: '', modificado_por: '', complejidad: '' });
+    setFilters({ tipo: '', estado: '', responsable: '', creado_por: '', modificado_por: '', complejidad: '' });
     setSearch('');
   };
 
   const hasActiveFilters =
-    search || filters.tipo || filters.estado || filters.vencido !== '' || filters.responsable || filters.creado_por || filters.modificado_por || filters.complejidad;
+    search || filters.tipo || filters.estado || filters.responsable || filters.creado_por || filters.modificado_por || filters.complejidad;
 
   const formatFecha = (fecha) =>
     fecha
@@ -663,7 +660,7 @@ const MovimientosTable = ({
   const TH = ({ columnKey, children, className = '' }) => (
     <th
       onClick={() => handleSort(columnKey)}
-      className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-pointer hover:text-accent select-none relative ${className}`}
+      className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wide cursor-pointer hover:text-accent select-none relative overflow-hidden ${className}`}
       style={{ width: colWidths[columnKey], minWidth: 60 }}
     >
       {children}<SortIcon columnKey={columnKey} />
@@ -751,27 +748,6 @@ const MovimientosTable = ({
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
         </div>
 
-        {/* Vencido */}
-        <div className="flex gap-1">
-          {[
-            { label: 'Todos',    value: '' },
-            { label: 'Vencidos', value: 'true' },
-            { label: 'Vigentes', value: 'false' },
-          ].map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setFilter('vencido', opt.value)}
-              className={`px-3 py-1.5 text-xs rounded-lg uppercase transition-colors ${
-                filters.vencido === opt.value
-                  ? opt.value === 'true' ? 'bg-red-500 text-white' : 'bg-accent text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
         {/* Responsable */}
         <input
           type="text"
@@ -845,7 +821,7 @@ const MovimientosTable = ({
                 {visibleColumns.fecha_notif && <TH columnKey="fecha_notificacion">Notificación</TH>}
                 {visibleColumns.tiempo      && <TH columnKey="tiempo_trabajo">Tiempo</TH>}
                 {visibleColumns.descripcion && (
-                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide relative" style={{ width: colWidths.descripcion, minWidth: 60 }}>Descripción{rh('descripcion')}</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide relative overflow-hidden" style={{ width: colWidths.descripcion, minWidth: 60 }}>Descripción{rh('descripcion')}</th>
                 )}
                 {visibleColumns.responsable   && <TH columnKey="responsable">Responsable</TH>}
                 {visibleColumns.creado_por     && <TH columnKey="creado_por">Creado por</TH>}
@@ -860,7 +836,7 @@ const MovimientosTable = ({
                   key={mov.id}
                   className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
                 >
-                  <td className="px-4 py-2.5" style={{ maxWidth: colWidths.titulo, overflow: 'hidden' }}>
+                  <td className="px-4 py-2.5 overflow-hidden" style={{ maxWidth: colWidths.titulo }}>
                     <button
                       onClick={() => setDetalleMovId(mov.id)}
                       className="font-medium truncate block text-left w-full hover:text-accent hover:underline transition-colors"
@@ -901,25 +877,25 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.tipo && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 overflow-hidden">
                       <TipoSelector movimiento={mov} onUpdate={handleUpdateMovimiento} />
                     </td>
                   )}
 
                   {visibleColumns.estado && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 overflow-hidden">
                       <EstadoSelector movimiento={mov} onUpdate={handleUpdateMovimiento} />
                     </td>
                   )}
 
                   {visibleColumns.complejidad && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 overflow-hidden">
                       <ComplejidadSelector movimiento={mov} onUpdate={handleUpdateMovimiento} />
                     </td>
                   )}
 
                   {visibleColumns.fecha && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap overflow-hidden">
                       {mov.fecha_movimiento ? (
                         <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                           <Calendar size={12} /> {formatFecha(mov.fecha_movimiento)}
@@ -931,7 +907,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.vencimiento && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap overflow-hidden">
                       {mov.fecha_vencimiento ? (
                         <span className={`flex items-center gap-1 text-xs ${colorVencimiento(mov)}`}>
                           {mov.vencido ? <AlertCircle size={12} /> : <Clock size={12} />}
@@ -944,7 +920,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.fecha_notif && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap overflow-hidden">
                       {mov.proxima_notificacion ? (
                         <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
                           <Calendar size={12} /> {formatFecha(mov.proxima_notificacion)}
@@ -956,7 +932,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.tiempo && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap overflow-hidden">
                       {mov.tiempo_trabajo ? (
                         <span className="text-xs text-gray-600 dark:text-gray-400">
                           {mov.tiempo_trabajo} min
@@ -968,7 +944,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.descripcion && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 overflow-hidden">
                       {mov.descripcion ? (
                         <div
                           className="text-xs text-muted-foreground line-clamp-2 max-w-xs prose prose-sm dark:prose-invert"
@@ -981,7 +957,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.responsable && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 overflow-hidden">
                       <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap"
                             title={mov.responsable_nombre || mov.responsable_username || undefined}>
                         {mov.responsable_nombre || mov.responsable_username || '—'}
@@ -990,7 +966,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.creado_por && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 overflow-hidden">
                       <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {mov.creado_por_nombre || mov.creado_por_username || '—'}
                       </span>
@@ -998,7 +974,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.modificado_por && (
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2.5 overflow-hidden">
                       <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {mov.modificado_por_nombre || '—'}
                       </span>
@@ -1006,7 +982,7 @@ const MovimientosTable = ({
                   )}
 
                   {visibleColumns.completado && (
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap overflow-hidden">
                       {mov.fecha_completado ? (
                         <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                           ✅ {formatFechaHora(mov.fecha_completado)}
@@ -1017,7 +993,7 @@ const MovimientosTable = ({
                     </td>
                   )}
 
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-2.5 overflow-hidden">
                     <div className="flex items-center gap-1 justify-end">
                       <button
                         onClick={() => { setEditingMovimiento(mov); setModalOpen(true); }}

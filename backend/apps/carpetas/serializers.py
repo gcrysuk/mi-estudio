@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta, ParticipanteCarpeta
+from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta, ParticipanteCarpeta, HistorialEstadoMEV
 from apps.organismos.models import Organismo
 from apps.personas.serializers import PersonaSerializer
 from django.contrib.auth import get_user_model
@@ -78,7 +78,7 @@ class CarpetaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Carpeta
         fields = '__all__'
-        read_only_fields = ['fecha_inicio', 'ultima_actualizacion', 'propietario', 'mev_ultimo_sync', 'mev_estado']
+        read_only_fields = ['fecha_inicio', 'ultima_actualizacion', 'propietario', 'mev_ultimo_sync', 'mev_estado', 'mev_fecha_estado']
     
     def get_compartida_con_count(self, obj):
         return obj.compartidos.count()
@@ -115,6 +115,18 @@ class CarpetaSerializer(serializers.ModelSerializer):
             return None
         delta = timezone.now() - ultimo.fecha_movimiento
         return delta.days
+
+class HistorialEstadoMEVSerializer(serializers.ModelSerializer):
+    carpeta_nombre = serializers.ReadOnlyField(source='carpeta.nombre')
+    organismo_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = HistorialEstadoMEV
+        fields = ['id', 'carpeta', 'carpeta_nombre', 'organismo_nombre', 'estado_anterior', 'estado_nuevo', 'fecha_cambio']
+
+    def get_organismo_nombre(self, obj):
+        return obj.carpeta.organismo.nombre if obj.carpeta.organismo else None
+
 
 # Serializer para CompartirCarpeta
 class CompartirCarpetaSerializer(serializers.ModelSerializer):

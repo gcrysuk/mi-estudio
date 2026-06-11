@@ -271,10 +271,17 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
         return {'nuevos': 0, 'error': f'Error al acceder a la MEV: {str(exc)[:100]}'}
 
     # ── Detectar cambio de estado del expediente ─────────────────────────────
+    from .models import HistorialEstadoMEV
     estado_mev_actual = _parse_estado_expediente(html)
     if estado_mev_actual and estado_mev_actual != carpeta.mev_estado:
         estado_anterior = carpeta.mev_estado or 'Sin estado'
+        HistorialEstadoMEV.objects.create(
+            carpeta=carpeta,
+            estado_anterior=estado_anterior,
+            estado_nuevo=estado_mev_actual,
+        )
         carpeta.mev_estado = estado_mev_actual
+        carpeta.mev_fecha_estado = timezone.now()
         crear_notificacion(
             carpeta.propietario,
             'mev_cambio_estado',
@@ -291,7 +298,7 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
 
     if not procesales:
         carpeta.mev_ultimo_sync = timezone.now()
-        carpeta.save(update_fields=['mev_ultimo_sync', 'mev_estado'])
+        carpeta.save(update_fields=['mev_ultimo_sync', 'mev_estado', 'mev_fecha_estado'])
         return {'nuevos': 0, 'error': None}
 
     tipo_mev, _ = TipoMovimiento.objects.get_or_create(
@@ -373,7 +380,7 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
         nuevos += 1
 
     carpeta.mev_ultimo_sync = timezone.now()
-    carpeta.save(update_fields=['mev_ultimo_sync', 'mev_estado'])
+    carpeta.save(update_fields=['mev_ultimo_sync', 'mev_estado', 'mev_fecha_estado'])
 
     if nuevos > 0:
         mov_label = 'movimiento' if nuevos == 1 else 'movimientos'

@@ -198,7 +198,7 @@ const MovimientoDetalleModal = ({ movimientoId, onClose, onEdit }) => {
                     html ? (
                       <div
                         key={key}
-                        className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300"
+                        className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300 whitespace-normal break-words"
                         dangerouslySetInnerHTML={{ __html: html }}
                       />
                     ) : (

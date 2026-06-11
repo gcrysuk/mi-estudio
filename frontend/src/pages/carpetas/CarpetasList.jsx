@@ -5,6 +5,7 @@ import { useResizableColumns } from '../../hooks/useResizableColumns';
 const CL_INITIAL_WIDTHS = {
   nombre: 220, numero_expediente: 140, persona: 150,
   estado: 120, tipo: 120, objeto: 120, organismo: 150, fecha_inicio: 120, compartida_con: 150,
+  mev_estado: 140, mev_fecha_estado: 140,
 };
 import {
   Search,
@@ -53,8 +54,9 @@ const CarpetasList = () => {
   const [diasSinMovimiento, setDiasSinMovimiento] = useState(() => localStorage.getItem('carpetas_dias_sin_movimiento') || '');
   const [filtroCompartidaCon, setFiltroCompartidaCon] = useState(() => localStorage.getItem('carpetas_filtro_compartida_con') || '');
   const [filters, setFilters] = useState(() => ({
-    estado: localStorage.getItem('carpetas_filtro_estado') || '',
-    tipo:   localStorage.getItem('carpetas_filtro_tipo')   || '',
+    estado:     localStorage.getItem('carpetas_filtro_estado')     || '',
+    tipo:       localStorage.getItem('carpetas_filtro_tipo')       || '',
+    mev_estado: localStorage.getItem('carpetas_filtro_mev_estado') || '',
   }));
   // Si hay ?estado_nombre en la URL, esperar a que se resuelva el ID antes del primer fetch
   const [filtersReady, setFiltersReady] = useState(!searchParams.get('estado_nombre'));
@@ -71,6 +73,8 @@ const CarpetasList = () => {
     organismo:         'organismo__nombre',
     fecha_inicio:      'fecha_inicio',
     compartida_con:    'compartida_con__username',
+    mev_estado:        'mev_estado',
+    mev_fecha_estado:  'mev_fecha_estado',
   };
   const [modalOpen, setModalOpen] = useState(false);
   const [compartirModalOpen, setCompartirModalOpen] = useState(false);
@@ -88,7 +92,8 @@ const CarpetasList = () => {
 
   const CARPETAS_DEFAULT_COLUMNS = {
     numero_expediente: true, cliente: true, estado: true, tipo: true,
-    objeto: true, organismo: true, fecha: true, compartida_con: false, acciones: true,
+    objeto: true, organismo: true, fecha: true, compartida_con: false,
+    mev_estado: true, mev_fecha_estado: true, acciones: true,
   };
   const [visibleColumns, setVisibleColumns] = useState(() => {
     try { return { ...CARPETAS_DEFAULT_COLUMNS, ...(JSON.parse(localStorage.getItem('carpetas_visible_columns')) ?? {}) }; }
@@ -109,6 +114,8 @@ const CarpetasList = () => {
     { key: 'organismo', label: 'ORGANISMO', fixed: false },
     { key: 'fecha', label: 'FECHA', fixed: false },
     { key: 'compartida_con', label: 'COMPARTIDA CON', fixed: false },
+    { key: 'mev_estado', label: 'ESTADO MEV', fixed: false },
+    { key: 'mev_fecha_estado', label: 'FECHA ESTADO MEV', fixed: false },
     { key: 'acciones', label: 'ACCIONES', fixed: true },
   ];
 
@@ -132,6 +139,7 @@ const CarpetasList = () => {
       if (filters.tipo)       params.tipo   = filters.tipo;
       if (diasSinMovimiento)       params.dias_sin_movimiento = diasSinMovimiento;
       if (filtroCompartidaCon)    params.compartida_con = filtroCompartidaCon;
+      if (filters.mev_estado)     params.mev_estado = filters.mev_estado;
       if (ordering)               params.ordering = ordering;
 
       const response = await api.get('/carpetas/', { params });
@@ -183,6 +191,7 @@ const CarpetasList = () => {
   useEffect(() => { localStorage.setItem('carpetas_ordering', ordering); }, [ordering]);
   useEffect(() => { localStorage.setItem('carpetas_filtro_estado', filters.estado); }, [filters.estado]);
   useEffect(() => { localStorage.setItem('carpetas_filtro_tipo', filters.tipo); }, [filters.tipo]);
+  useEffect(() => { localStorage.setItem('carpetas_filtro_mev_estado', filters.mev_estado); }, [filters.mev_estado]);
   useEffect(() => { localStorage.setItem('carpetas_dias_sin_movimiento', diasSinMovimiento); }, [diasSinMovimiento]);
   useEffect(() => { localStorage.setItem('carpetas_filtro_compartida_con', filtroCompartidaCon); }, [filtroCompartidaCon]);
   useEffect(() => { localStorage.setItem('carpetas_page_size', String(pageSize)); }, [pageSize]);
@@ -487,7 +496,7 @@ const CarpetasList = () => {
           </span>
           <button
             onClick={() => {
-              setFilters({ estado: '', tipo: '' });
+              setFilters({ estado: '', tipo: '', mev_estado: '' });
               setSearch('');
               navigate('/carpetas', { replace: true });
             }}
@@ -567,6 +576,16 @@ const CarpetasList = () => {
             </div>
           )}
 
+          {visibleColumns.mev_estado && (
+            <input
+              type="text"
+              placeholder="Filtrar estado MEV..."
+              value={filters.mev_estado}
+              onChange={(e) => setFilters({ ...filters, mev_estado: e.target.value })}
+              className={`w-40 px-2 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${filters.mev_estado ? 'border-accent ring-1 ring-accent' : 'border-gray-300 dark:border-gray-600'}`}
+            />
+          )}
+
           <ColumnSelector
             columns={columnDefinitions}
             visibleColumns={visibleColumns}
@@ -584,7 +603,7 @@ const CarpetasList = () => {
               setSearch('');
               setDiasSinMovimiento('');
               setFiltroCompartidaCon('');
-              setFilters({ estado: '', tipo: '' });
+              setFilters({ estado: '', tipo: '', mev_estado: '' });
               if (estadoNombreParam) navigate('/carpetas', { replace: true });
             }}
             className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
@@ -609,51 +628,61 @@ const CarpetasList = () => {
                     className="rounded border-gray-300 text-accent focus:ring-accent"
                   />
                 </th>
-                <th onClick={() => handleSort('nombre')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.nombre, minWidth: 60 }}>
+                <th onClick={() => handleSort('nombre')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.nombre, minWidth: 60 }}>
                   NOMBRE <SortIcon columnKey="nombre" />{rh('nombre')}
                 </th>
                 {visibleColumns.numero_expediente && (
-                  <th onClick={() => handleSort('numero_expediente')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.numero_expediente, minWidth: 60 }}>
+                  <th onClick={() => handleSort('numero_expediente')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.numero_expediente, minWidth: 60 }}>
                     N° EXPEDIENTE <SortIcon columnKey="numero_expediente" />{rh('numero_expediente')}
                   </th>
                 )}
                 {visibleColumns.cliente && (
-                  <th onClick={() => handleSort('persona')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.persona, minWidth: 60 }}>
+                  <th onClick={() => handleSort('persona')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.persona, minWidth: 60 }}>
                     CLIENTE <SortIcon columnKey="persona" />{rh('persona')}
                   </th>
                 )}
                 {visibleColumns.estado && (
-                  <th onClick={() => handleSort('estado')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.estado, minWidth: 60 }}>
+                  <th onClick={() => handleSort('estado')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.estado, minWidth: 60 }}>
                     ESTADO <SortIcon columnKey="estado" />{rh('estado')}
                   </th>
                 )}
                 {visibleColumns.tipo && (
-                  <th onClick={() => handleSort('tipo')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.tipo, minWidth: 60 }}>
+                  <th onClick={() => handleSort('tipo')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.tipo, minWidth: 60 }}>
                     TIPO <SortIcon columnKey="tipo" />{rh('tipo')}
                   </th>
                 )}
                 {visibleColumns.objeto && (
-                  <th onClick={() => handleSort('objeto')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.objeto, minWidth: 60 }}>
+                  <th onClick={() => handleSort('objeto')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.objeto, minWidth: 60 }}>
                     OBJETO <SortIcon columnKey="objeto" />{rh('objeto')}
                   </th>
                 )}
                 {visibleColumns.organismo && (
-                  <th onClick={() => handleSort('organismo')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.organismo, minWidth: 60 }}>
+                  <th onClick={() => handleSort('organismo')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.organismo, minWidth: 60 }}>
                     ORGANISMO <SortIcon columnKey="organismo" />{rh('organismo')}
                   </th>
                 )}
                 {visibleColumns.fecha && (
-                  <th onClick={() => handleSort('fecha_inicio')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.fecha_inicio, minWidth: 60 }}>
+                  <th onClick={() => handleSort('fecha_inicio')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.fecha_inicio, minWidth: 60 }}>
                     FECHA <SortIcon columnKey="fecha_inicio" />{rh('fecha_inicio')}
                   </th>
                 )}
                 {visibleColumns.compartida_con && (
-                  <th onClick={() => handleSort('compartida_con')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.compartida_con, minWidth: 60 }}>
+                  <th onClick={() => handleSort('compartida_con')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.compartida_con, minWidth: 60 }}>
                     COMPARTIDA CON <SortIcon columnKey="compartida_con" />{rh('compartida_con')}
                   </th>
                 )}
+                {visibleColumns.mev_estado && (
+                  <th onClick={() => handleSort('mev_estado')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.mev_estado, minWidth: 60 }}>
+                    ESTADO MEV <SortIcon columnKey="mev_estado" />{rh('mev_estado')}
+                  </th>
+                )}
+                {visibleColumns.mev_fecha_estado && (
+                  <th onClick={() => handleSort('mev_fecha_estado')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.mev_fecha_estado, minWidth: 60 }}>
+                    FECHA ESTADO MEV <SortIcon columnKey="mev_fecha_estado" />{rh('mev_fecha_estado')}
+                  </th>
+                )}
                 {visibleColumns.acciones && (
-                  <th className="px-2 py-2 text-right text-xs font-medium uppercase tracking-wider">
+                  <th className="px-2 py-2 text-right text-xs font-medium uppercase tracking-wider overflow-hidden">
                     ACCIONES
                   </th>
                 )}
@@ -667,7 +696,7 @@ const CarpetasList = () => {
               ) : (
                 filteredCarpetas.map(carpeta => (
                   <tr key={carpeta.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="px-2 py-2 whitespace-nowrap">
+                    <td className="px-2 py-2 whitespace-nowrap overflow-hidden">
                       <input
                         type="checkbox"
                         checked={selectedItems.includes(carpeta.id)}
@@ -687,37 +716,37 @@ const CarpetasList = () => {
                     </td>
                     
                     {visibleColumns.numero_expediente && (
-                      <td className="px-2 py-2 whitespace-nowrap text-sm">{carpeta.numero_expediente}</td>
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden text-sm">{carpeta.numero_expediente}</td>
                     )}
                     
                     {visibleColumns.cliente && (
-                      <td className="px-2 py-2 whitespace-nowrap text-sm">{getPersonaNombre(carpeta.persona)}</td>
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden text-sm">{getPersonaNombre(carpeta.persona)}</td>
                     )}
                     
                     {visibleColumns.estado && (
-                      <td className="px-2 py-2 whitespace-nowrap">{getEstadoBadge(carpeta.estado)}</td>
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden">{getEstadoBadge(carpeta.estado)}</td>
                     )}
                     
                     {visibleColumns.tipo && (
-                      <td className="px-2 py-2 whitespace-nowrap uppercase text-xs">{getTipoNombre(carpeta.tipo)}</td>
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden uppercase text-xs">{getTipoNombre(carpeta.tipo)}</td>
                     )}
                     
                     {visibleColumns.objeto && (
-                      <td className="px-2 py-2 whitespace-nowrap uppercase text-xs">{getObjetoNombre(carpeta.objeto)}</td>
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden uppercase text-xs">{getObjetoNombre(carpeta.objeto)}</td>
                     )}
                     
                     {visibleColumns.organismo && (
-                      <td className="px-2 py-2 whitespace-nowrap uppercase text-xs">{getOrganismoNombre(carpeta.organismo)}</td>
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden uppercase text-xs">{getOrganismoNombre(carpeta.organismo)}</td>
                     )}
                     
                     {visibleColumns.fecha && (
-                      <td className="px-2 py-2 whitespace-nowrap text-xs">
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden text-xs">
                         {new Date(carpeta.fecha_inicio).toLocaleDateString('es-AR')}
                       </td>
                     )}
                     
                     {visibleColumns.compartida_con && (
-                      <td className="px-2 py-2" style={{ maxWidth: colWidths.compartida_con, overflow: 'hidden' }}>
+                      <td className="px-2 py-2 overflow-hidden" style={{ maxWidth: colWidths.compartida_con }}>
                         {carpeta.compartida_con && carpeta.compartida_con.length > 0 ? (
                           <div className="flex flex-col gap-0.5">
                             {carpeta.compartida_con.slice(0, 3).map(u => (
@@ -741,8 +770,34 @@ const CarpetasList = () => {
                       </td>
                     )}
 
+                    {visibleColumns.mev_estado && (
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden">
+                        {carpeta.mev_estado ? (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            carpeta.mev_estado.toLowerCase().includes('despacho')
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                              : carpeta.mev_estado.toLowerCase().includes('letra')
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                          }`}>
+                            {carpeta.mev_estado}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {visibleColumns.mev_fecha_estado && (
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden text-xs text-gray-500 dark:text-gray-400">
+                        {carpeta.mev_fecha_estado
+                          ? new Date(carpeta.mev_fecha_estado).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                      </td>
+                    )}
+
                     {visibleColumns.acciones && (
-                      <td className="px-2 py-2 whitespace-nowrap text-right space-x-1">
+                      <td className="px-2 py-2 whitespace-nowrap overflow-hidden text-right space-x-1">
                         <button
                           onClick={() => openDetalleModal(carpeta)}
                           className="p-1 hover:text-accent transition-colors"

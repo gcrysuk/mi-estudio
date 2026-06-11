@@ -6,11 +6,11 @@ import ReporteMovimientos from '../../components/print/ReporteMovimientos';
 import MovimientosTable from '../../components/movimientos/MovimientosTable';
 
 const FILTROS = [
-  { key: 'todos',         label: 'Todos',           url: '/movimientos/',              params: {},          color: 'accent' },
-  { key: 'vencidos_hoy',  label: 'Vencen hoy',      url: '/movimientos/vencen_hoy/',   params: {},          color: 'red' },
-  { key: 'proximos',      label: 'Próximos 7 días',  url: '/movimientos/proximos_vencer/', params: { dias: 7 }, color: 'accent' },
-  { key: 'vencidos',      label: 'Vencidos',         url: '/movimientos/vencidos/',     params: {},          color: 'red' },
-  { key: 'pendientes',    label: 'Pendientes',       url: '/movimientos/',              params: { estado_nombre: 'Pendiente' }, color: 'accent' },
+  { key: 'todos',         label: 'Todos',           url: '/movimientos/', params: {},                          color: 'accent' },
+  { key: 'vencidos_hoy',  label: 'Vencen hoy',      url: '/movimientos/', params: { vence_hoy: true },         color: 'red' },
+  { key: 'proximos',      label: 'Próximos 7 días',  url: '/movimientos/', params: { proximos_dias: 7 },        color: 'accent' },
+  { key: 'vencidos',      label: 'Vencidos',         url: '/movimientos/', params: { vencido: 'true' },         color: 'red' },
+  { key: 'pendientes',    label: 'Pendientes',       url: '/movimientos/', params: { estado_nombre: 'Pendiente' }, color: 'accent' },
 ];
 
 const MovimientosGlobal = () => {
@@ -25,6 +25,12 @@ const MovimientosGlobal = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
   const [refreshKey, setRefreshKey]     = useState(0);
   const [showReporte, setShowReporte]   = useState(false);
+
+  useEffect(() => {
+    const param = searchParams.get("filtro");
+    const key = FILTROS.find(f => f.key === param)?.key ?? "todos";
+    setFiltro(key);
+  }, [searchParams]);
 
   useEffect(() => {
     let lastSync = Date.now()

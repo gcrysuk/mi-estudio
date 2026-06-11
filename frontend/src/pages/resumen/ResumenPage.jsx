@@ -221,8 +221,8 @@ export default function ResumenPage() {
     />
   )
 
-  const thBase = 'px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-accent transition-colors relative text-gray-500 dark:text-gray-400'
-  const td = 'px-3 py-2.5 text-sm'
+  const thBase = 'px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-accent transition-colors relative overflow-hidden text-gray-500 dark:text-gray-400'
+  const td = 'px-3 py-2.5 text-sm overflow-hidden'
 
   const sortIcon = (col) => {
     if (sortCol !== col) return <ChevronUp size={12} className="ml-1 inline opacity-20" />
@@ -468,7 +468,7 @@ export default function ResumenPage() {
                       className={`cursor-pointer transition-colors ${bg}`}
                     >
                       {/* Carpeta — siempre visible */}
-                      <td className={`${td} font-medium text-gray-800 dark:text-gray-200`} style={{ maxWidth: colWidths.carpeta, overflow: 'hidden' }}>
+                      <td className={`${td} font-medium text-gray-800 dark:text-gray-200`} style={{ maxWidth: colWidths.carpeta }}>
                         <span className="block truncate" title={mov.carpeta_nombre || 'Sin carpeta'}>
                           {mov.carpeta_nombre || 'Sin carpeta'}
                         </span>
@@ -476,7 +476,7 @@ export default function ResumenPage() {
 
                       {/* Último movimiento */}
                       {visibleColumns.ultimo_movimiento && (
-                        <td className={`${td} text-gray-700 dark:text-gray-300`} style={{ maxWidth: colWidths.movimiento, overflow: 'hidden' }}>
+                        <td className={`${td} text-gray-700 dark:text-gray-300`} style={{ maxWidth: colWidths.movimiento }}>
                           <span className="block truncate" title={mov.titulo}>{mov.titulo}</span>
                         </td>
                       )}

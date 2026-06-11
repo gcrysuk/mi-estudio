@@ -25,6 +25,7 @@ import KanbanPage from "./pages/kanban/KanbanPage";
 import KanbanConfigPage from "./pages/kanban/KanbanConfigPage";
 import NotificacionesPage from "./pages/notificaciones/NotificacionesPage";
 import ResumenPage from "./pages/resumen/ResumenPage";
+import InformeMEVPage from "./pages/informes/InformeMEVPage";
 import useAuthStore from "./stores/authStore";
 import ModalGlobal from './components/modals/ModalGlobal';
 
@@ -92,6 +93,7 @@ function App() {
               <Route path="/kanban/config" element={<KanbanConfigPage />} />
               <Route path="/notificaciones" element={<NotificacionesPage />} />
               <Route path="/resumen" element={<ResumenPage />} />
+              <Route path="/informes/mev" element={<InformeMEVPage />} />
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
 

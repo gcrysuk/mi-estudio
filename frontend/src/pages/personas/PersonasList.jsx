@@ -731,13 +731,13 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
                     className="rounded border-gray-300 text-accent focus:ring-accent"
                   />
                 </th>
-                <th onClick={() => handleSort('denominacion')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative" style={{ width: colWidths.denominacion, minWidth: 60 }}>
+                <th onClick={() => handleSort('denominacion')} className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:text-accent relative overflow-hidden" style={{ width: colWidths.denominacion, minWidth: 60 }}>
                   DENOMINACIÓN <SortIcon columnKey="denominacion" />{rh('denominacion')}
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden md:table-cell relative" style={{ width: colWidths.documento, minWidth: 60 }}>
+                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider overflow-hidden hidden md:table-cell relative" style={{ width: colWidths.documento, minWidth: 60 }}>
                   DOCUMENTO{rh('documento')}
                 </th>
-                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider hidden lg:table-cell relative" style={{ width: colWidths.tipo, minWidth: 60 }}>
+                <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wider overflow-hidden hidden lg:table-cell relative" style={{ width: colWidths.tipo, minWidth: 60 }}>
                   TIPO{rh('tipo')}
                 </th>
                 <th className="px-2 py-2 text-right text-xs font-medium uppercase tracking-wider">
@@ -753,7 +753,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
               ) : (
                 filteredPersonas.map(persona => (
                   <tr key={persona.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="px-2 py-2 whitespace-nowrap">
+                    <td className="px-2 py-2 whitespace-nowrap overflow-hidden">
                       <input
                         type="checkbox"
                         checked={selectedItems.includes(persona.id)}
@@ -761,18 +761,18 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
                         className="rounded border-gray-300 text-accent focus:ring-accent"
                       />
                     </td>
-                    <td className="px-2 py-2 text-sm" style={{ maxWidth: colWidths.denominacion, overflow: 'hidden' }}>
+                    <td className="px-2 py-2 text-sm overflow-hidden" style={{ maxWidth: colWidths.denominacion }}>
                       <span className="truncate block" title={getPersonaLabel(persona)}>
                         {getPersonaLabel(persona)}
                       </span>
                     </td>
-                    <td className="px-2 py-2 whitespace-nowrap hidden md:table-cell font-mono text-xs">
+                    <td className="px-2 py-2 whitespace-nowrap overflow-hidden hidden md:table-cell font-mono text-xs">
                       {formatDocumento(persona.tipo_documento, persona.numero_documento)}
                     </td>
-                    <td className="px-2 py-2 whitespace-nowrap hidden lg:table-cell text-xs">
+                    <td className="px-2 py-2 whitespace-nowrap overflow-hidden hidden lg:table-cell text-xs">
                       {getTipoPersonaNombre(persona.tipo_persona)}
                     </td>
-                    <td className="px-2 py-2 whitespace-nowrap text-right space-x-1">
+                    <td className="px-2 py-2 whitespace-nowrap overflow-hidden text-right space-x-1">
                       <button
                         onClick={() => openDetalleModal(persona)}
                         className="p-1 hover:text-accent transition-colors"

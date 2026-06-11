@@ -1,6 +1,7 @@
 # apps/carpetas/models.py
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from apps.personas.models import Persona
 from apps.organismos.models import Organismo
 
@@ -156,6 +157,7 @@ class Carpeta(models.Model):
     mev_url = models.URLField(max_length=500, blank=True, help_text="URL del expediente en la MEV")
     mev_ultimo_sync = models.DateTimeField(null=True, blank=True)
     mev_estado = models.CharField(max_length=100, blank=True, default='', verbose_name="Estado en MEV")
+    mev_fecha_estado = models.DateTimeField(null=True, blank=True, verbose_name="Fecha cambio estado MEV")
 
     class Meta:
         verbose_name = "Carpeta"
@@ -222,6 +224,20 @@ class CompartirCarpeta(models.Model):
 
     def __str__(self):
         return f"{self.carpeta} → {self.usuario}"
+
+
+class HistorialEstadoMEV(models.Model):
+    carpeta = models.ForeignKey(Carpeta, on_delete=models.CASCADE, related_name='historial_estado_mev')
+    estado_anterior = models.CharField(max_length=100, blank=True, null=True)
+    estado_nuevo = models.CharField(max_length=100)
+    fecha_cambio = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-fecha_cambio']
+        verbose_name = "Historial Estado MEV"
+
+    def __str__(self):
+        return f"{self.carpeta} | {self.estado_anterior} → {self.estado_nuevo}"
 
 
 class CarpetaInicializada(models.Model):

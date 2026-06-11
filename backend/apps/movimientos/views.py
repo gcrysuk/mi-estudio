@@ -7,7 +7,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Max, Case, When, IntegerField, Value
+from django.db.models import Q, Max, Case, When, IntegerField, Value, F
 from django.utils import timezone
 from .models import Movimiento, TipoMovimiento, EstadoMovimiento, NotificacionMovimiento, KanbanConfig, NotificacionSistema
 from .serializers import MovimientoSerializer, TipoMovimientoSerializer, EstadoMovimientoSerializer, NotificacionSerializer, KanbanConfigSerializer, NotificacionSistemaSerializer
@@ -83,7 +83,28 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         if estado_nombre:
             queryset = queryset.filter(estado__nombre__iexact=estado_nombre)
 
+        vence_hoy = self.request.query_params.get('vence_hoy')
+        if vence_hoy:
+            hoy = timezone.now().date()
+            queryset = queryset.filter(fecha_vencimiento__date=hoy)
+
+        proximos_dias = self.request.query_params.get('proximos_dias')
+        if proximos_dias:
+            hoy = timezone.now().date()
+            hasta = hoy + timezone.timedelta(days=int(proximos_dias))
+            queryset = queryset.filter(
+                fecha_vencimiento__date__gte=hoy,
+                fecha_vencimiento__date__lte=hasta,
+            )
+
         return queryset
+
+    def filter_queryset(self, queryset):
+        estado_nombre = self.request.query_params.get('estado_nombre')
+        result = super().filter_queryset(queryset)
+        if estado_nombre:
+            result = result.order_by(F('fecha_vencimiento').asc(nulls_last=True))
+        return result
 
     def perform_create(self, serializer):
         carpeta = serializer.validated_data.get('carpeta')
@@ -451,7 +472,6 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         now = timezone.now()
         fecha_limite = now + timezone.timedelta(days=dias)
         queryset = self.get_queryset().filter(
-            vencido=False,
             fecha_vencimiento__isnull=False,
             fecha_vencimiento__gte=now,
             fecha_vencimiento__lte=fecha_limite,

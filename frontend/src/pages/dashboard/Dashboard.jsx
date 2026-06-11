@@ -1,34 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Clock, FolderOpen, ListTodo, ChevronRight, ChevronLeft, CalendarClock, Search, X } from 'lucide-react';
-import { format, parseISO, differenceInDays } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { AlertCircle, Clock, FolderOpen, ListTodo } from 'lucide-react';
 import api from '../../services/api';
-import MovimientoDetalleModal from '../../components/movimientos/MovimientoDetalleModal';
 
 const SkeletonCard = () => (
   <div className="rounded-2xl shadow-lg p-6 bg-gray-200 dark:bg-gray-700 animate-pulse h-36" />
 );
 
-const SkeletonRow = () => (
-  <div className="h-12 rounded-lg bg-gray-100 dark:bg-gray-700 animate-pulse" />
-);
-
-const urgencyClasses = (fechaStr) => {
-  const days = differenceInDays(parseISO(fechaStr), new Date());
-  if (days <= 0) return 'text-red-600 dark:text-red-400 font-semibold';
-  if (days <= 2) return 'text-orange-500 dark:text-orange-400 font-semibold';
-  if (days <= 6) return 'text-yellow-600 dark:text-yellow-400';
-  return 'text-gray-500 dark:text-gray-400';
-};
-
-const urgencyDotClass = (fechaStr) => {
-  const days = differenceInDays(parseISO(fechaStr), new Date());
-  if (days <= 0) return 'bg-red-500';
-  if (days <= 2) return 'bg-orange-400';
-  if (days <= 6) return 'bg-yellow-400';
-  return 'bg-green-400';
-};
 
 const CARDS = [
   {
@@ -65,57 +43,32 @@ const CARDS = [
   },
 ];
 
-const PAGE_SIZE_VENC = 10;
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
-  const [proximos, setProximos] = useState([]);
   const [loadingStats, setLoadingStats] = useState(true);
-  const [loadingProximos, setLoadingProximos] = useState(true);
-  const [detalleMovId, setDetalleMovId] = useState(null);
-  const [busqueda, setBusqueda] = useState('');
-  const [paginaVenc, setPaginaVenc] = useState(1);
-  const [totalVenc, setTotalVenc] = useState(0);
-  const [hasMoreVenc, setHasMoreVenc] = useState(false);
 
-  const fetchVencimientos = useCallback(async (pagina = 1) => {
-    setLoadingProximos(true);
-    try {
-      const res = await api.get('/movimientos/proximos_vencer/', {
-        params: { dias: 7, page: pagina, page_size: PAGE_SIZE_VENC },
-      });
-      const data = res.data;
-      setProximos(data.results ?? data ?? []);
-      setTotalVenc(data.count ?? 0);
-      setHasMoreVenc(!!data.next);
-    } catch {
-      // no-op
-    } finally {
-      setLoadingProximos(false);
-    }
-  }, []);
-
-  const cargarDatos = useCallback(() => {
+  useEffect(() => {
     setLoadingStats(true);
     api.get('/movimientos/dashboard_stats/')
       .then(res => setStats(res.data))
       .catch(() => {})
       .finally(() => setLoadingStats(false));
+  }, []);
 
-    setPaginaVenc(1);
-    fetchVencimientos(1);
-  }, [fetchVencimientos]);
-
-  useEffect(() => { cargarDatos(); }, [cargarDatos]);
-
-  const irPagina = (nueva) => {
-    setPaginaVenc(nueva);
-    fetchVencimientos(nueva);
-    setBusqueda('');
+  const handleCardClick = (to) => {
+    localStorage.removeItem('movimientos_busqueda');
+    localStorage.removeItem("movimientos_busqueda");
+    localStorage.removeItem("movimientos_ordering");
+    localStorage.removeItem('movimientos_filtro_tipo');
+    localStorage.removeItem('movimientos_filtro_estado');
+    localStorage.removeItem('movimientos_filtro_vencimiento');
+    localStorage.removeItem('movimientos_filtro_responsable');
+    localStorage.removeItem('movimientos_filtro_creado_por');
+    localStorage.removeItem('movimientos_filtro_modificado_por');
+    localStorage.removeItem('movimientos_filtro_complejidad');
+    navigate(to);
   };
-
-  const totalPaginas = Math.ceil(totalVenc / PAGE_SIZE_VENC);
 
   return (
     <div className="space-y-8 p-4">
@@ -129,7 +82,7 @@ const Dashboard = () => {
           ) : (
             <button
               key={key}
-              onClick={() => navigate(to)}
+              onClick={() => handleCardClick(to)}
               className={`bg-gradient-to-br ${gradient} rounded-2xl shadow-lg p-4 sm:p-6 text-white text-left cursor-pointer hover:scale-105 transition-transform duration-200 focus:outline-none`}
             >
               <div className="flex items-start justify-between">
@@ -145,112 +98,6 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* Próximos vencimientos */}
-      <div className="bg-white dark:bg-dark-surface rounded-2xl shadow-lg overflow-hidden">
-        <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <CalendarClock size={18} className="text-accent" />
-          <h2 className="text-sm font-bold uppercase tracking-wide">Próximos vencimientos</h2>
-          {totalVenc > 0 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              ({totalVenc} esta semana)
-            </span>
-          )}
-          {!loadingProximos && proximos.length > 0 && (
-            <div className="relative flex items-center ml-auto">
-              <Search size={12} className="absolute left-2.5 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
-                placeholder="Buscar..."
-                className="pl-7 pr-6 py-1 rounded-lg text-xs border-none focus:outline-none focus:ring-1 focus:ring-accent bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 placeholder-gray-400 w-44"
-              />
-              {busqueda && (
-                <button onClick={() => setBusqueda('')} className="absolute right-2 text-gray-400 hover:text-gray-600">
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
-          {loadingProximos ? (
-            <div className="p-4 space-y-3">
-              {[...Array(5)].map((_, i) => <SkeletonRow key={i} />)}
-            </div>
-          ) : proximos.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-10">
-              No hay vencimientos en los próximos 7 días
-            </p>
-          ) : (() => {
-            const q = busqueda.toLowerCase();
-            const filtrados = q
-              ? proximos.filter(m =>
-                  m.titulo?.toLowerCase().includes(q) ||
-                  m.carpeta_nombre?.toLowerCase().includes(q)
-                )
-              : proximos;
-            if (filtrados.length === 0) return (
-              <p className="text-sm text-gray-400 text-center py-10">
-                Sin resultados para tu búsqueda
-              </p>
-            );
-            return filtrados.map(mov => (
-              <button
-                key={mov.id}
-                onClick={() => setDetalleMovId(mov.id)}
-                className="w-full flex items-center gap-3 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left cursor-pointer"
-              >
-                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${urgencyDotClass(mov.fecha_vencimiento)}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{mov.titulo}</p>
-                  {mov.carpeta_nombre && (
-                    <p className="text-[11px] text-gray-500 truncate">📁 {mov.carpeta_nombre}</p>
-                  )}
-                </div>
-                <span className={`text-xs flex-shrink-0 ${urgencyClasses(mov.fecha_vencimiento)}`}>
-                  {format(parseISO(mov.fecha_vencimiento), "d MMM yyyy", { locale: es })}
-                </span>
-                <ChevronRight size={14} className="text-gray-400 flex-shrink-0" />
-              </button>
-            ));
-          })()}
-        </div>
-
-        {/* Paginación */}
-        {!loadingProximos && totalPaginas > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 dark:border-gray-700">
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              Página {paginaVenc} de {totalPaginas} — {totalVenc} vencimientos
-            </span>
-            <div className="flex gap-1.5">
-              <button
-                disabled={paginaVenc === 1}
-                onClick={() => irPagina(paginaVenc - 1)}
-                className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <ChevronLeft size={13} /> Ant
-              </button>
-              <button
-                disabled={!hasMoreVenc}
-                onClick={() => irPagina(paginaVenc + 1)}
-                className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border border-gray-200 dark:border-gray-600 disabled:opacity-40 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Sig <ChevronRight size={13} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {detalleMovId && (
-        <MovimientoDetalleModal
-          movimientoId={detalleMovId}
-          onClose={() => setDetalleMovId(null)}
-          onEdit={cargarDatos}
-        />
-      )}
     </div>
   );
 };

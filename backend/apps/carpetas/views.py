@@ -14,7 +14,7 @@ from django.db.models import Q, Max
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.utils import timezone
-from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta, ParticipanteCarpeta
+from .models import Carpeta, CompartirCarpeta, EstadoCarpeta, TipoCarpeta, ObjetoCarpeta, ParticipanteCarpeta, HistorialEstadoMEV
 from apps.organismos.models import Organismo
 from .serializers import (
     CarpetaSerializer,
@@ -24,6 +24,7 @@ from .serializers import (
     ObjetoCarpetaSerializer,
     OrganismoSerializer,
     ParticipanteSerializer,
+    HistorialEstadoMEVSerializer,
 )
 from config.pagination import StandardPagination
 from apps.movimientos.utils import crear_notificacion
@@ -66,7 +67,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
     filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
-    ordering_fields = ['nombre', 'numero_expediente', 'fecha_inicio', 'estado__nombre', 'tipo__nombre', 'objeto__nombre', 'organismo__nombre', 'persona__apellido', 'compartida_con__username']
+    ordering_fields = ['nombre', 'numero_expediente', 'fecha_inicio', 'estado__nombre', 'tipo__nombre', 'objeto__nombre', 'organismo__nombre', 'persona__apellido', 'compartida_con__username', 'mev_estado', 'mev_fecha_estado']
     ordering = ['-fecha_inicio']
     filterset_fields = ['estado', 'tipo', 'objeto']
     search_fields = [
@@ -114,6 +115,10 @@ class CarpetaViewSet(viewsets.ModelViewSet):
                 ).distinct()
             except ValueError:
                 pass
+
+        mev_estado = self.request.query_params.get('mev_estado')
+        if mev_estado:
+            queryset = queryset.filter(mev_estado__icontains=mev_estado)
 
         return queryset
 
@@ -467,6 +472,32 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Error al descargar el documento de la MEV'}, status=status.HTTP_502_BAD_GATEWAY)
 
         return HttpResponse(contenido, content_type=content_type)
+
+    @action(detail=False, methods=['get'], url_path='informe_mev')
+    def informe_mev(self, request):
+        from django.db.models import Q as _Q
+        qs = HistorialEstadoMEV.objects.filter(
+            _Q(carpeta__propietario=request.user) |
+            _Q(carpeta__compartidos__usuario=request.user)
+        ).distinct().select_related('carpeta', 'carpeta__organismo')
+
+        organismo = request.query_params.get('organismo')
+        estado = request.query_params.get('estado')
+        fecha_desde = request.query_params.get('fecha_desde')
+        fecha_hasta = request.query_params.get('fecha_hasta')
+
+        if organismo:
+            qs = qs.filter(carpeta__organismo__nombre__icontains=organismo)
+        if estado:
+            qs = qs.filter(_Q(estado_anterior__icontains=estado) | _Q(estado_nuevo__icontains=estado))
+        if fecha_desde:
+            qs = qs.filter(fecha_cambio__date__gte=fecha_desde)
+        if fecha_hasta:
+            qs = qs.filter(fecha_cambio__date__lte=fecha_hasta)
+
+        qs = qs.order_by('carpeta__id', 'fecha_cambio')
+        serializer = HistorialEstadoMEVSerializer(qs, many=True)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['post'], url_path='compartir_multiples')
     def compartir_multiples(self, request):
