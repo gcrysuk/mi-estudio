@@ -113,6 +113,18 @@ CORS_ALLOW_ALL_ORIGINS = True  # Solo para desarrollo
 # Celery
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'encolar-sync-mev': {
+        'task': 'apps.carpetas.tasks.encolar_sync_mev',
+        'schedule': crontab(hour=6, minute=0),
+    },
+    'notificar-mev-estados': {
+        'task': 'apps.carpetas.tasks.notificar_mev_estados',
+        'schedule': crontab(hour=8, minute=0),
+    },
+}
 # Email configuration for password reset
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Para desarrollo
 # Para producción usar:

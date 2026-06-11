@@ -87,3 +87,83 @@ def encolar_sync_mev():
 
     logger.info('MEV: %d carpetas encoladas para sync', encoladas)
     return {'encoladas': encoladas}
+
+
+@shared_task(name='apps.carpetas.tasks.notificar_mev_estados')
+def notificar_mev_estados():
+    """
+    Tarea diaria: notifica sobre carpetas con mucho tiempo en estado MEV.
+      - A Despacho día 80  → alerta (vence en 90)
+      - En Letra  día 80  → alerta (vence en 90, 3 meses)
+      - En Letra  día 170 → alerta (vence en 180, 6 meses)
+    """
+    from datetime import timedelta
+    from django.db.models import Q
+    from django.utils import timezone
+    from apps.carpetas.models import Carpeta
+    from apps.carpetas.utils import qs_con_fecha_inicio_estado_mev
+    from apps.movimientos.utils import crear_notificacion
+
+    now = timezone.now()
+
+    carpetas_mev = qs_con_fecha_inicio_estado_mev(
+        Carpeta.objects
+        .filter(mev_url__isnull=False, activo=True)
+        .exclude(mev_url='')
+        .select_related('propietario')
+    )
+
+    def _ventana(dias):
+        return now - timedelta(days=dias + 1), now - timedelta(days=dias)
+
+    # A Despacho → alerta día 80
+    desde, hasta = _ventana(80)
+    for c in carpetas_mev.filter(
+        mev_estado__iexact='A Despacho',
+        fecha_inicio_estado__gte=desde,
+        fecha_inicio_estado__lt=hasta,
+    ):
+        dias = (now - c.fecha_inicio_estado).days
+        crear_notificacion(
+            c.propietario, 'mev_cambio_estado',
+            movimiento=None, carpeta=c,
+            mensaje=(
+                f"⏰ {c.nombre}: lleva {dias} días A Despacho, "
+                f"se cumplen 90 en {90 - dias} días"
+            ),
+        )
+
+    # En Letra → alerta día 80
+    for c in carpetas_mev.filter(
+        mev_estado__iexact='En Letra',
+        fecha_inicio_estado__gte=desde,
+        fecha_inicio_estado__lt=hasta,
+    ):
+        dias = (now - c.fecha_inicio_estado).days
+        crear_notificacion(
+            c.propietario, 'mev_cambio_estado',
+            movimiento=None, carpeta=c,
+            mensaje=(
+                f"⏰ {c.nombre}: lleva {dias} días En Letra, "
+                f"se cumplen 90 en {90 - dias} días (vencimiento 3 meses)"
+            ),
+        )
+
+    # En Letra → alerta día 170
+    desde170, hasta170 = _ventana(170)
+    for c in carpetas_mev.filter(
+        mev_estado__iexact='En Letra',
+        fecha_inicio_estado__gte=desde170,
+        fecha_inicio_estado__lt=hasta170,
+    ):
+        dias = (now - c.fecha_inicio_estado).days
+        crear_notificacion(
+            c.propietario, 'mev_cambio_estado',
+            movimiento=None, carpeta=c,
+            mensaje=(
+                f"⏰ {c.nombre}: lleva {dias} días En Letra, "
+                f"se cumplen 180 en {180 - dias} días (vencimiento 6 meses)"
+            ),
+        )
+
+    logger.info('notificar_mev_estados completado')

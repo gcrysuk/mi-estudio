@@ -156,6 +156,7 @@ class Carpeta(models.Model):
     # Integración MEV (Mesa de Entradas Virtual - SCBA)
     mev_url = models.URLField(max_length=500, blank=True, help_text="URL del expediente en la MEV")
     mev_ultimo_sync = models.DateTimeField(null=True, blank=True)
+    mev_primera_sync = models.DateTimeField(null=True, blank=True, verbose_name="Primera sincronización MEV")
     mev_estado = models.CharField(max_length=100, blank=True, default='', verbose_name="Estado en MEV")
     mev_fecha_estado = models.DateTimeField(null=True, blank=True, verbose_name="Fecha cambio estado MEV")
 
@@ -167,6 +168,20 @@ class Carpeta(models.Model):
     def __str__(self):
         return self.nombre
     
+    def fecha_inicio_estado_mev(self):
+        """Fecha desde la cual contar días en el estado MEV actual.
+        Usa la fecha del último cambio en HistorialEstadoMEV; si no hay historial,
+        cae a mev_primera_sync y luego a mev_ultimo_sync."""
+        ultimo = (
+            self.historial_estado_mev
+            .order_by('-fecha_cambio')
+            .values('fecha_cambio')
+            .first()
+        )
+        if ultimo:
+            return ultimo['fecha_cambio']
+        return self.mev_primera_sync or self.mev_ultimo_sync
+
     def generar_caratula(self):
         """Genera carátula automática si no existe"""
         partes = []

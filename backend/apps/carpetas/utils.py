@@ -1,6 +1,28 @@
 from .models import CarpetaInicializada, TipoCarpeta, ObjetoCarpeta
 
 
+def qs_con_fecha_inicio_estado_mev(qs):
+    """Anota un queryset de Carpeta con fecha_inicio_estado para contar días en estado MEV.
+    Lógica: último HistorialEstadoMEV.fecha_cambio → mev_primera_sync → mev_ultimo_sync."""
+    from django.db.models import OuterRef, Subquery
+    from django.db.models.functions import Coalesce
+    from .models import HistorialEstadoMEV
+
+    ultimo_historial = (
+        HistorialEstadoMEV.objects
+        .filter(carpeta=OuterRef('pk'))
+        .order_by('-fecha_cambio')
+        .values('fecha_cambio')[:1]
+    )
+    return qs.annotate(
+        fecha_inicio_estado=Coalesce(
+            Subquery(ultimo_historial),
+            'mev_primera_sync',
+            'mev_ultimo_sync',
+        )
+    )
+
+
 def inicializar_carpeta_para_usuario(carpeta, usuario):
     """
     Copia al usuario receptor los registros relacionados usados en la carpeta

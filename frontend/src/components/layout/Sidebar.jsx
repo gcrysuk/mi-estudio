@@ -16,7 +16,6 @@ import {
   LayoutList,
   ShieldCheck,
   UserCircle,
-  BarChart2,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 
@@ -24,7 +23,6 @@ const navItems = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard'    },
   { to: '/kanban',      icon: Kanban,          label: 'Kanban'       },
   { to: '/resumen',     icon: LayoutList,      label: 'Resumen'      },
-  { to: '/informes/mev', icon: BarChart2,      label: 'Informe MEV'  },
   { to: '/personas',    icon: Users,           label: 'Personas'     },
   { to: '/movimientos', icon: ClipboardList,   label: 'Movimientos'  },
   { to: '/carpetas',    icon: FolderOpen,      label: 'Carpetas'     },

@@ -473,6 +473,58 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
         return HttpResponse(contenido, content_type=content_type)
 
+    @action(detail=False, methods=['get'], url_path='mev_stats')
+    def mev_stats(self, request):
+        from datetime import timedelta
+        from django.db.models import OuterRef, Subquery, Q as _Q
+        from apps.movimientos.models import Movimiento
+        from .utils import qs_con_fecha_inicio_estado_mev
+
+        user = request.user
+        now = timezone.now()
+        hace_90d = now - timedelta(days=90)
+        hace_3m = now - timedelta(days=91)
+
+        if user.is_superuser:
+            carpetas_qs = Carpeta.objects.filter(activo=True)
+        else:
+            carpetas_qs = Carpeta.objects.filter(
+                _Q(propietario=user) | _Q(compartida_con=user),
+                activo=True,
+            )
+
+        carpetas_mev = qs_con_fecha_inicio_estado_mev(
+            carpetas_qs.filter(mev_url__isnull=False).exclude(mev_url='')
+        )
+
+        a_despacho_90 = carpetas_mev.filter(
+            mev_estado__iexact='A Despacho',
+            fecha_inicio_estado__lt=hace_90d,
+        ).count()
+
+        en_letra_90 = carpetas_mev.filter(
+            mev_estado__iexact='En Letra',
+            fecha_inicio_estado__lt=hace_90d,
+        ).count()
+
+        ultimo_mov = (
+            Movimiento.objects
+            .filter(carpeta=OuterRef('pk'), activo=True)
+            .order_by('-fecha_movimiento')
+            .values('fecha_movimiento')[:1]
+        )
+        inactivas_3m = carpetas_qs.annotate(
+            ultimo_movimiento=Subquery(ultimo_mov)
+        ).filter(
+            _Q(ultimo_movimiento__isnull=True) | _Q(ultimo_movimiento__lt=hace_3m)
+        ).count()
+
+        return Response({
+            'a_despacho_90': a_despacho_90,
+            'en_letra_90': en_letra_90,
+            'inactivas_3m': inactivas_3m,
+        })
+
     @action(detail=False, methods=['get'], url_path='informe_mev')
     def informe_mev(self, request):
         from django.db.models import Q as _Q

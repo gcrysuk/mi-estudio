@@ -19,6 +19,12 @@ MEV_LOGIN_URL = f'{MEV_BASE}/loguin.asp?familiadepto='
 ENCODING = 'latin-1'
 _UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 
+_ORGANISMO_PREFIJOS = (
+    'juzgado', 'cámara', 'camara', 'tribunal',
+    'fiscalía', 'fiscalia', 'defensoría', 'defensoria',
+    'secretaría', 'secretaria',
+)
+
 
 def _get_session(usuario: str, clave: str, depto: str):
     """
@@ -119,6 +125,49 @@ def _parse_estado_expediente(html: str) -> str:
         if texto.startswith('Estado:'):
             return texto.replace('Estado:', '').strip()[:100]
     return ''
+
+
+def _parse_datos_expediente(html: str) -> dict:
+    """
+    Extrae carátula, nro_expediente, organismo y departamento de la
+    página principal del expediente en la MEV.
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    datos = {}
+
+    # Carátula y número de expediente desde celdas fondoceleste
+    for td in soup.find_all('td', class_='fondoceleste'):
+        texto = td.get_text(strip=True)
+        tl = texto.lower()
+        if tl.startswith('carátula:') or tl.startswith('caratula:'):
+            valor = texto.split(':', 1)[1].strip()
+            if valor:
+                datos['caratula'] = valor[:200]
+        elif 'expediente' in tl and ':' in texto and 'caratula' not in tl:
+            valor = texto.split(':', 1)[1].strip()
+            if valor:
+                datos.setdefault('nro_expediente', valor[:50])
+
+    # Organismo y departamento desde la barra gris del encabezado
+    for tr in soup.find_all('tr'):
+        celdas = tr.find_all('td')
+        if len(celdas) < 2:
+            continue
+        textos = [td.get_text(strip=True) for td in celdas]
+
+        # La fila del header contiene "UsuarioMEV" o "Volver"
+        if not any('usuariomev' in t.lower() or 'volver' in t.lower() for t in textos):
+            continue
+
+        for t in textos:
+            tl = t.lower()
+            if any(tl.startswith(p) for p in _ORGANISMO_PREFIJOS):
+                datos['organismo'] = t[:200]
+            elif t and 'usuariomev' not in tl and 'volver' not in tl and len(t) > 3:
+                datos.setdefault('departamento', t[:100])
+        break
+
+    return datos
 
 
 def _parse_procesales(html: str) -> list[dict]:
@@ -270,6 +319,45 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
         logger.error('MEV fetch error carpeta %s: %s', carpeta.id, exc)
         return {'nuevos': 0, 'error': f'Error al acceder a la MEV: {str(exc)[:100]}'}
 
+    _es_primera_sync = not carpeta.mev_primera_sync
+
+    # ── Completar datos del expediente desde la MEV ──────────────────────────
+    from apps.organismos.models import Organismo
+    datos = _parse_datos_expediente(html)
+    campos_actualizados = []
+
+    if datos.get('caratula') and datos['caratula'] != carpeta.nombre:
+        carpeta.nombre = datos['caratula']
+        campos_actualizados.append('nombre')
+
+    if datos.get('nro_expediente') and datos['nro_expediente'] != carpeta.numero_expediente:
+        carpeta.numero_expediente = datos['nro_expediente']
+        campos_actualizados.append('numero_expediente')
+
+    if datos.get('organismo'):
+        organismo_obj = Organismo.objects.filter(
+            nombre__iexact=datos['organismo'],
+            propietario=carpeta.propietario,
+        ).first()
+        if organismo_obj is None:
+            organismo_obj = Organismo.objects.create(
+                nombre=datos['organismo'],
+                propietario=carpeta.propietario,
+                activo=True,
+            )
+        if carpeta.organismo is None or carpeta.organismo_id != organismo_obj.pk:
+            if carpeta.organismo is not None:
+                logger.info(
+                    "Organismo actualizado: '%s' → '%s' (carpeta %s)",
+                    carpeta.organismo.nombre, organismo_obj.nombre, carpeta.id,
+                )
+            carpeta.organismo = organismo_obj
+            campos_actualizados.append('organismo')
+
+    if campos_actualizados:
+        logger.info('MEV completó carpeta %s: %s', carpeta.id, ', '.join(campos_actualizados))
+        carpeta.save(update_fields=campos_actualizados)
+
     # ── Detectar cambio de estado del expediente ─────────────────────────────
     from .models import HistorialEstadoMEV
     estado_mev_actual = _parse_estado_expediente(html)
@@ -279,6 +367,19 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
             carpeta=carpeta,
             estado_anterior=estado_anterior,
             estado_nuevo=estado_mev_actual,
+        )
+        tipo_mev_estado, _ = TipoMovimiento.objects.get_or_create(
+            nombre='MEV',
+            propietario=None,
+            defaults={'color': '#6366f1', 'orden': 99},
+        )
+        Movimiento.objects.create(
+            carpeta=carpeta,
+            titulo=f"Cambio de estado MEV: {estado_anterior} → {estado_mev_actual}",
+            tipo=tipo_mev_estado,
+            descripcion=f"El expediente cambió de estado en la MEV.\nEstado anterior: {estado_anterior}\nEstado nuevo: {estado_mev_actual}",
+            fecha_movimiento=timezone.now(),
+            creado_por=carpeta.propietario,
         )
         carpeta.mev_estado = estado_mev_actual
         carpeta.mev_fecha_estado = timezone.now()
@@ -298,7 +399,11 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
 
     if not procesales:
         carpeta.mev_ultimo_sync = timezone.now()
-        carpeta.save(update_fields=['mev_ultimo_sync', 'mev_estado', 'mev_fecha_estado'])
+        _save_fields = ['mev_ultimo_sync', 'mev_estado', 'mev_fecha_estado']
+        if _es_primera_sync:
+            carpeta.mev_primera_sync = timezone.now()
+            _save_fields.append('mev_primera_sync')
+        carpeta.save(update_fields=_save_fields)
         return {'nuevos': 0, 'error': None}
 
     tipo_mev, _ = TipoMovimiento.objects.get_or_create(
@@ -380,7 +485,11 @@ def mev_sync_carpeta(carpeta, usuario: str, clave: str, depto: str) -> dict:
         nuevos += 1
 
     carpeta.mev_ultimo_sync = timezone.now()
-    carpeta.save(update_fields=['mev_ultimo_sync', 'mev_estado', 'mev_fecha_estado'])
+    _save_fields = ['mev_ultimo_sync', 'mev_estado', 'mev_fecha_estado']
+    if _es_primera_sync:
+        carpeta.mev_primera_sync = timezone.now()
+        _save_fields.append('mev_primera_sync')
+    carpeta.save(update_fields=_save_fields)
 
     if nuevos > 0:
         mov_label = 'movimiento' if nuevos == 1 else 'movimientos'
