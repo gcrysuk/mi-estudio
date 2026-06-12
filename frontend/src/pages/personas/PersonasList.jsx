@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import ImprimirLista from '../../components/print/ImprimirLista';
 import { useResizableColumns } from '../../hooks/useResizableColumns';
+import { hayFiltrosActivos } from '../../utils/filtros';
 
 const PL_INITIAL_WIDTHS = { denominacion: 260, documento: 130, tipo: 100 };
 import toast from 'react-hot-toast';
@@ -114,7 +115,7 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
   useEffect(() => { localStorage.setItem('personas_filtro_tipo', filters.tipo_persona); }, [filters.tipo_persona]);
   useEffect(() => { localStorage.setItem('personas_ordering', JSON.stringify(sortConfig)); }, [sortConfig]);
 
-  const hasActiveFilters = !!(searchTerm || filters.tipo_persona);
+  const hasActiveFilters = hayFiltrosActivos({ search: searchTerm, tipo_persona: filters.tipo_persona });
 
   useEffect(() => {
     if (formData.provincia) {
@@ -699,21 +700,23 @@ const PersonasList = ({ isModal = false, onGuardar, onCancelar }) => {
           </select>
 
           {hasActiveFilters && (
-            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
-              <Filter size={11} />
-              FILTROS ACTIVOS
-            </span>
+            <>
+              <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
+                <Filter size={11} />
+                FILTROS ACTIVOS
+              </span>
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilters({ tipo_persona: '' });
+                }}
+                className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
+              >
+                <X size={12} />
+                LIMPIAR
+              </button>
+            </>
           )}
-          <button
-            onClick={() => {
-              setSearchTerm('');
-              setFilters({ tipo_persona: '' });
-            }}
-            className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
-          >
-            <X size={12} />
-            LIMPIAR
-          </button>
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { Toaster } from "react-hot-toast";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ModalProvider } from "./contexts/ModalContext";
 import { UndoProvider } from "./context/UndoContext";
+import { HelpProvider } from "./contexts/HelpContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
@@ -25,6 +26,8 @@ import KanbanPage from "./pages/kanban/KanbanPage";
 import KanbanConfigPage from "./pages/kanban/KanbanConfigPage";
 import NotificacionesPage from "./pages/notificaciones/NotificacionesPage";
 import ResumenPage from "./pages/resumen/ResumenPage";
+import InformesPage from "./pages/informes/InformesPage";
+import InformeDemoraOrganismos from "./pages/informes/InformeDemoraOrganismos";
 import useAuthStore from "./stores/authStore";
 import ModalGlobal from './components/modals/ModalGlobal';
 
@@ -34,6 +37,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <HelpProvider>
       <UndoProvider>
       <ModalProvider>
         <Toaster
@@ -92,6 +96,8 @@ function App() {
               <Route path="/kanban/config" element={<KanbanConfigPage />} />
               <Route path="/notificaciones" element={<NotificacionesPage />} />
               <Route path="/resumen" element={<ResumenPage />} />
+              <Route path="/informes" element={<InformesPage />} />
+              <Route path="/informes/demora-organismos" element={<InformeDemoraOrganismos />} />
               <Route path="/perfil" element={<PerfilPage />} />
               <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
 
@@ -103,6 +109,7 @@ function App() {
 	<ModalGlobal />
       </ModalProvider>
       </UndoProvider>
+      </HelpProvider>
     </ThemeProvider>
   );
 }

@@ -103,7 +103,8 @@
       "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py migrate usuarios 2>&1\")",
       "PowerShell(wsl -d Ubuntu -e bash -c \"docker restart mi_estudio_web_local mi_estudio_celery_local 2>&1\")",
       "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py migrate movimientos 0024_movimiento_fecha_completado 2>&1\")",
-      "Bash(docker restart mi_estudio_web_local *)"
+      "Bash(docker restart mi_estudio_web_local *)",
+      "Bash(git *)"
     ]
   }
 }

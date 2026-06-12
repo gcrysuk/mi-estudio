@@ -20,6 +20,8 @@ import { getKanbanBoard, cambiarEstadoMovimiento } from '../../services/kanbanSe
 import MovimientoForm from '../movimientos/MovimientoForm'
 import MovimientoDetalleModal from '../../components/movimientos/MovimientoDetalleModal'
 import { useTheme } from '../../contexts/ThemeContext'
+import HelpTip from '../../components/HelpTip'
+import { HELP } from '../../constants/helpTexts'
 
 const COMPLEJIDAD_CONFIG = {
   alto:  { label: 'Alto',  className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
@@ -63,14 +65,16 @@ function KanbanCard({ movimiento, isDragging, onEdit, onVerDetalle }) {
       {!isDragging && (
         <div className="absolute top-1.5 right-1.5 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
           {onVerDetalle && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onVerDetalle(movimiento) }}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="p-0.5 rounded text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
-              title="Ver detalle"
-            >
-              <Eye size={13} />
-            </button>
+            <HelpTip texto={HELP.kanban_ver_detalle}>
+              <button
+                onClick={(e) => { e.stopPropagation(); onVerDetalle(movimiento) }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="p-0.5 rounded text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                title="Ver detalle"
+              >
+                <Eye size={13} />
+              </button>
+            </HelpTip>
           )}
           {onEdit && (
             <button

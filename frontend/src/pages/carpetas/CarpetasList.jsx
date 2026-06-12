@@ -33,6 +33,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import DetalleCarpetaModal from '../../components/carpetas/DetalleCarpetaModal';
 import ColumnSelector from '../../components/common/ColumnSelector';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import { hayFiltrosActivos } from '../../utils/filtros';
 
 const CarpetasList = () => {
   const [searchParams] = useSearchParams();
@@ -196,7 +197,10 @@ const CarpetasList = () => {
   useEffect(() => { localStorage.setItem('carpetas_filtro_compartida_con', filtroCompartidaCon); }, [filtroCompartidaCon]);
   useEffect(() => { localStorage.setItem('carpetas_page_size', String(pageSize)); }, [pageSize]);
 
-  const hasActiveFilters = !!(search || filters.estado || filters.tipo || diasSinMovimiento || filtroCompartidaCon);
+  const hasActiveFilters = hayFiltrosActivos({
+    search, estado: filters.estado, tipo: filters.tipo,
+    mev_estado: filters.mev_estado, diasSinMovimiento, filtroCompartidaCon,
+  });
 
   // Manejar tecla ESC para cerrar modales
   useEffect(() => {
@@ -593,24 +597,26 @@ const CarpetasList = () => {
           />
 
           {hasActiveFilters && (
-            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
-              <Filter size={11} />
-              FILTROS ACTIVOS
-            </span>
+            <>
+              <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
+                <Filter size={11} />
+                FILTROS ACTIVOS
+              </span>
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setDiasSinMovimiento('');
+                  setFiltroCompartidaCon('');
+                  setFilters({ estado: '', tipo: '', mev_estado: '' });
+                  if (estadoNombreParam) navigate('/carpetas', { replace: true });
+                }}
+                className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
+              >
+                <X size={12} />
+                LIMPIAR
+              </button>
+            </>
           )}
-          <button
-            onClick={() => {
-              setSearch('');
-              setDiasSinMovimiento('');
-              setFiltroCompartidaCon('');
-              setFilters({ estado: '', tipo: '', mev_estado: '' });
-              if (estadoNombreParam) navigate('/carpetas', { replace: true });
-            }}
-            className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
-          >
-            <X size={12} />
-            LIMPIAR
-          </button>
         </div>
       </div>
 

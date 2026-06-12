@@ -16,6 +16,7 @@ import {
   LayoutList,
   ShieldCheck,
   UserCircle,
+  BarChart3,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 
@@ -29,6 +30,7 @@ const navItems = [
   { to: '/organismos',  icon: Building2,       label: 'Organismos'   },
   { to: '/tipos',       icon: Tags,            label: 'Tipos'        },
   { to: '/calendario',  icon: Calendar,        label: 'Calendario'   },
+  { to: '/informes',    icon: BarChart3,       label: 'Informes'     },
   { to: '/papelera',    icon: Trash2,          label: 'Papelera'     },
 ]
 

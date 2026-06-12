@@ -1,13 +1,17 @@
 import { useRef, useState, useCallback } from 'react'
-import { Bell, Moon, Sun, Plus, Menu } from 'lucide-react'
+import { Bell, Moon, Sun, Plus, Menu, HelpCircle } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useNotificaciones } from '../../hooks/useNotificaciones'
 import PanelNotificaciones from '../notificaciones/PanelNotificaciones'
 import useClickOutside from '../../hooks/useClickOutside'
 import MovimientoForm from '../../pages/movimientos/MovimientoForm'
+import { useHelp } from '../../contexts/HelpContext'
+import HelpTip from '../HelpTip'
+import { HELP } from '../../constants/helpTexts'
 
 const Topbar = ({ onMobileMenuToggle }) => {
   const { theme, toggleTheme } = useTheme()
+  const { ayudaActiva, toggleAyuda } = useHelp()
   const { notificaciones, notificacionesSistema, count, marcarLeida, marcarLeidaSistema, marcarTodasLeidas } = useNotificaciones()
   const [panelOpen, setPanelOpen] = useState(false)
   const [showMovForm, setShowMovForm] = useState(false)
@@ -45,18 +49,20 @@ const Topbar = ({ onMobileMenuToggle }) => {
 
           {/* Campana con badge y panel */}
           <div ref={containerRef} className="relative">
-            <button
-              onClick={() => setPanelOpen(prev => !prev)}
-              className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              aria-label="Notificaciones"
-            >
-              <Bell size={20} />
-              {count > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-                  {count > 99 ? '99+' : count}
-                </span>
-              )}
-            </button>
+            <HelpTip texto={HELP.campanita}>
+              <button
+                onClick={() => setPanelOpen(prev => !prev)}
+                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Notificaciones"
+              >
+                <Bell size={20} />
+                {count > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                    {count > 99 ? '99+' : count}
+                  </span>
+                )}
+              </button>
+            </HelpTip>
 
             {panelOpen && (
               <PanelNotificaciones
@@ -69,6 +75,15 @@ const Topbar = ({ onMobileMenuToggle }) => {
               />
             )}
           </div>
+
+          {/* Toggle ayuda contextual */}
+          <button
+            onClick={toggleAyuda}
+            title={ayudaActiva ? 'Desactivar ayuda contextual' : 'Activar ayuda contextual'}
+            className={`p-2 rounded-lg transition-colors ${ayudaActiva ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+          >
+            <HelpCircle size={20} />
+          </button>
 
           {/* Tema */}
           <button

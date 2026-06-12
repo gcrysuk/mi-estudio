@@ -31,6 +31,9 @@ import ColumnSelector from '../common/ColumnSelector';
 import Pagination from '../ui/Pagination';
 import useClickOutside from '../../hooks/useClickOutside';
 import { useResizableColumns } from '../../hooks/useResizableColumns';
+import { hayFiltrosActivos } from '../../utils/filtros';
+import HelpTip from '../HelpTip';
+import { HELP } from '../../constants/helpTexts';
 
 const MT_INITIAL_WIDTHS = {
   titulo: 240, carpeta_nombre: 150, tipo_nombre: 110, estado_nombre: 130,
@@ -632,8 +635,7 @@ const MovimientosTable = ({
     if (hasTabFilter && onClearTabFilter) onClearTabFilter();
   };
 
-  const hasActiveFilters =
-    hasTabFilter || search || filters.tipo || filters.estado || filters.responsable || filters.creado_por || filters.modificado_por || filters.complejidad;
+  const hasActiveFilters = hasTabFilter || hayFiltrosActivos(filters) || hayFiltrosActivos({ search });
 
   const formatFecha = (fecha) =>
     fecha
@@ -739,18 +741,21 @@ const MovimientosTable = ({
         </div>
 
         {/* Complejidad */}
-        <div className="relative">
-          <select
-            value={filters.complejidad}
-            onChange={(e) => setFilter('complejidad', e.target.value)}
-            className={`appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${filters.complejidad ? 'border-accent ring-1 ring-accent text-accent' : 'border-gray-300 dark:border-gray-600'}`}
-          >
-            <option value="">Todas las complejidades</option>
-            <option value="alto">🔴 Alto</option>
-            <option value="medio">🟡 Medio</option>
-            <option value="bajo">🟢 Bajo</option>
-          </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+        <div className="flex items-center gap-1">
+          <div className="relative">
+            <select
+              value={filters.complejidad}
+              onChange={(e) => setFilter('complejidad', e.target.value)}
+              className={`appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent ${filters.complejidad ? 'border-accent ring-1 ring-accent text-accent' : 'border-gray-300 dark:border-gray-600'}`}
+            >
+              <option value="">Todas las complejidades</option>
+              <option value="alto">🔴 Alto</option>
+              <option value="medio">🟡 Medio</option>
+              <option value="bajo">🟢 Bajo</option>
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+          </div>
+          <HelpTip texto={HELP.movimientos_complejidad} />
         </div>
 
         {/* Responsable */}
@@ -778,10 +783,12 @@ const MovimientosTable = ({
         {/* Limpiar + badge */}
         {hasActiveFilters && (
           <>
-            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
-              <Filter size={11} />
-              FILTROS ACTIVOS
-            </span>
+            <HelpTip texto={HELP.movimientos_filtros_activos}>
+              <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
+                <Filter size={11} />
+                FILTROS ACTIVOS
+              </span>
+            </HelpTip>
             <button
               onClick={clearFilters}
               className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"

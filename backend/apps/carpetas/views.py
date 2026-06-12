@@ -558,6 +558,134 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             'inactivas_list': inactivas_list,
         })
 
+    @action(detail=False, methods=['get'], url_path='informe_demora_organismos')
+    def informe_demora_organismos(self, request):
+        """
+        Por organismo: transiciones cerradas A Despacho→En Letra, promedio,
+        y pico (máximo período A Despacho, incluyendo abiertos).
+        Ordenado por pico_dias DESC.
+        """
+        from collections import defaultdict
+        from django.db.models import Q as _Q
+        from .utils import qs_con_fecha_inicio_estado_mev
+
+        user = request.user
+        now = timezone.now()
+
+        # ── Scope del usuario ──────────────────────────────────────────────
+        if user.is_superuser:
+            carpetas_qs = Carpeta.objects.filter(activo=True)
+        else:
+            carpetas_qs = Carpeta.objects.filter(
+                _Q(propietario=user) | _Q(compartida_con=user),
+                activo=True,
+            ).distinct()
+
+        # Solo carpetas con organismo
+        carpetas_data = {
+            c['id']: c
+            for c in carpetas_qs.filter(organismo__isnull=False).values(
+                'id', 'nombre', 'organismo_id', 'organismo__nombre', 'mev_primera_sync'
+            )
+        }
+        if not carpetas_data:
+            return Response([])
+
+        # ── Historial completo, orden cronológico ──────────────────────────
+        historial = list(
+            HistorialEstadoMEV.objects
+            .filter(carpeta_id__in=carpetas_data.keys())
+            .order_by('carpeta_id', 'fecha_cambio')
+            .values('carpeta_id', 'estado_anterior', 'estado_nuevo', 'fecha_cambio')
+        )
+
+        # ── Períodos cerrados (A Despacho → En Letra) ─────────────────────
+        entry_despacho = {}   # carpeta_id → datetime de entrada
+        closed_periods = []
+
+        for h in historial:
+            cid   = h['carpeta_id']
+            nuevo = (h['estado_nuevo'] or '').strip().lower()
+            ant   = (h['estado_anterior'] or '').strip().lower()
+            fecha = h['fecha_cambio']
+
+            if nuevo == 'a despacho':
+                entry_despacho[cid] = fecha
+            elif nuevo == 'en letra' and ant == 'a despacho':
+                if cid in entry_despacho:
+                    entrada = entry_despacho.pop(cid)
+                else:
+                    c = carpetas_data.get(cid, {})
+                    if c.get('mev_primera_sync'):
+                        entrada = c['mev_primera_sync']
+                    else:
+                        continue  # no hay fecha de entrada → descartar
+                dias = max((fecha - entrada).days, 0)
+                closed_periods.append({
+                    'carpeta_id': cid,
+                    'carpeta_nombre': carpetas_data[cid]['nombre'],
+                    'dias': dias,
+                    'fecha_inicio': entrada,
+                    'abierto': False,
+                })
+
+        # ── Períodos abiertos (estado actual A Despacho) ───────────────────
+        open_periods = []
+        for c in qs_con_fecha_inicio_estado_mev(
+            carpetas_qs.filter(mev_estado__iexact='A Despacho', organismo__isnull=False)
+        ).values('id', 'nombre', 'organismo_id', 'organismo__nombre', 'fecha_inicio_estado'):
+            if not c['fecha_inicio_estado']:
+                continue
+            open_periods.append({
+                'carpeta_id': c['id'],
+                'carpeta_nombre': c['nombre'],
+                'organismo_id': c['organismo_id'],
+                'organismo_nombre': c['organismo__nombre'] or '',
+                'dias': max((now - c['fecha_inicio_estado']).days, 0),
+                'fecha_inicio': c['fecha_inicio_estado'],
+                'abierto': True,
+            })
+
+        # ── Agrupar por organismo ──────────────────────────────────────────
+        by_org = defaultdict(lambda: {'nombre': '', 'cerrados': [], 'abiertos': []})
+
+        for p in closed_periods:
+            c = carpetas_data.get(p['carpeta_id'])
+            if not c or not c['organismo_id']:
+                continue
+            oid = c['organismo_id']
+            by_org[oid]['nombre'] = c['organismo__nombre'] or ''
+            by_org[oid]['cerrados'].append(p)
+
+        for p in open_periods:
+            oid = p['organismo_id']
+            by_org[oid]['nombre'] = p['organismo_nombre']
+            by_org[oid]['abiertos'].append(p)
+
+        # ── Métricas por organismo ─────────────────────────────────────────
+        result = []
+        for oid, data in by_org.items():
+            cerrados  = data['cerrados']
+            todos     = cerrados + data['abiertos']
+            pico      = max(todos, key=lambda p: p['dias'])
+            fi        = pico['fecha_inicio']
+            result.append({
+                'organismo_id':       oid,
+                'organismo_nombre':   data['nombre'],
+                'transiciones':       len(cerrados),
+                'promedio_dias':      round(
+                    sum(p['dias'] for p in cerrados) / len(cerrados), 1
+                ) if cerrados else None,
+                'pico_dias':          pico['dias'],
+                'pico_fecha':         fi.isoformat() if fi else None,
+                'pico_carpeta_id':    pico['carpeta_id'],
+                'pico_carpeta_nombre': pico['carpeta_nombre'],
+                'pico_abierto':       pico['abierto'],
+            })
+
+        result.sort(key=lambda r: r['pico_dias'], reverse=True)
+        return Response(result)
+
     @action(detail=False, methods=['get'], url_path='informe_mev')
     def informe_mev(self, request):
         from django.db.models import Q as _Q

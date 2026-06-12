@@ -12,6 +12,8 @@ import MovimientoForm from '../movimientos/MovimientoForm'
 import CarpetaForm from '../../components/carpetas/CarpetaForm'
 import MovimientosTable from '../../components/movimientos/MovimientosTable'
 import CompartirCarpetaModal from '../../components/carpetas/CompartirCarpetaModal'
+import HelpTip from '../../components/HelpTip'
+import { HELP } from '../../constants/helpTexts'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (fecha, opts) =>
@@ -195,6 +197,7 @@ const CarpetaDetail = () => {
                 {carpeta.dias_sin_movimiento === 0
                   ? 'Movimiento hoy'
                   : `${carpeta.dias_sin_movimiento} días sin movimiento`}
+                <HelpTip texto={HELP.carpeta_dias_sin_movimiento} />
               </span>
             )}
             {carpeta.compartida_con_count > 0 && (
@@ -207,15 +210,17 @@ const CarpetaDetail = () => {
 
         <div className="flex items-center gap-2 overflow-x-auto flex-nowrap sm:flex-wrap sm:justify-end pb-1 sm:pb-0 flex-shrink-0 w-full sm:w-auto">
           {carpeta.mev_url && (
-            <button
-              onClick={handleSyncMev}
-              disabled={syncingMev}
-              title={carpeta.mev_ultimo_sync ? `Último sync: ${new Date(carpeta.mev_ultimo_sync).toLocaleString('es-AR')}` : 'Sin sincronización previa'}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 uppercase"
-            >
-              <RefreshCw size={13} className={syncingMev ? 'animate-spin' : ''} />
-              {syncingMev ? 'Sincronizando...' : 'Sincronizar MEV'}
-            </button>
+            <HelpTip texto={HELP.carpeta_sync_mev}>
+              <button
+                onClick={handleSyncMev}
+                disabled={syncingMev}
+                title={carpeta.mev_ultimo_sync ? `Último sync: ${new Date(carpeta.mev_ultimo_sync).toLocaleString('es-AR')}` : 'Sin sincronización previa'}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 uppercase"
+              >
+                <RefreshCw size={13} className={syncingMev ? 'animate-spin' : ''} />
+                {syncingMev ? 'Sincronizando...' : 'Sincronizar MEV'}
+              </button>
+            </HelpTip>
           )}
           <button
             onClick={() => setShowReporte(true)}

@@ -21,6 +21,7 @@ import api from '../../services/api';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { useUndo } from '../../hooks/useUndo';
 import OrganismoForm from '../../components/organismos/OrganismoForm';
+import { hayFiltrosActivos } from '../../utils/filtros';
 
 const OrganismosList = () => {
   const [organismos, setOrganismos] = useState([]);
@@ -47,7 +48,7 @@ const OrganismosList = () => {
   useEffect(() => { localStorage.setItem('organismos_busqueda', searchTerm); }, [searchTerm]);
   useEffect(() => { localStorage.setItem('organismos_ordering', JSON.stringify(sortConfig)); }, [sortConfig]);
 
-  const hasActiveFilters = !!searchTerm;
+  const hasActiveFilters = hayFiltrosActivos({ search: searchTerm });
 
   useEffect(() => {
     const handleEsc = (e) => {
@@ -232,18 +233,20 @@ const OrganismosList = () => {
             />
           </div>
           {hasActiveFilters && (
-            <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
-              <Filter size={11} />
-              FILTROS ACTIVOS
-            </span>
+            <>
+              <span className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg shadow-sm border border-yellow-500 whitespace-nowrap">
+                <Filter size={11} />
+                FILTROS ACTIVOS
+              </span>
+              <button
+                onClick={() => setSearchTerm('')}
+                className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
+              >
+                <X size={12} />
+                LIMPIAR
+              </button>
+            </>
           )}
-          <button
-            onClick={() => setSearchTerm('')}
-            className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
-          >
-            <X size={12} />
-            LIMPIAR
-          </button>
         </div>
       </div>
 
