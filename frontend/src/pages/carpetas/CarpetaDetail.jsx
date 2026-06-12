@@ -293,6 +293,7 @@ const CarpetaDetail = () => {
         <MovimientosTable
           baseFetchUrl={getFetchUrl()}
           baseParams={getBaseParams()}
+          baseParamsIsContext={true}
           showCarpetaColumn={false}
           emptyMessage="No hay movimientos en esta carpeta"
           refreshKey={refreshKey}

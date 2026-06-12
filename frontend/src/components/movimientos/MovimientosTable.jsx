@@ -455,6 +455,7 @@ const STORAGE_KEY = 'movimientos_columnas';
 const MovimientosTable = ({
   baseFetchUrl,
   baseParams = {},
+  baseParamsIsContext = false,
   showCarpetaColumn = true,
   emptyMessage = 'No se encontraron movimientos',
   refreshKey = 0,
@@ -623,7 +624,7 @@ const MovimientosTable = ({
 
   const setFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
 
-  const hasTabFilter = Object.keys(baseParams).length > 0;
+  const hasTabFilter = !baseParamsIsContext && Object.keys(baseParams).length > 0;
 
   const clearFilters = () => {
     setFilters({ tipo: '', estado: '', responsable: '', creado_por: '', modificado_por: '', complejidad: '' });

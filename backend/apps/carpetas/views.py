@@ -497,15 +497,19 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             carpetas_qs.filter(mev_url__isnull=False).exclude(mev_url='')
         )
 
-        a_despacho_90 = carpetas_mev.filter(
+        despacho_qs = carpetas_mev.filter(
             mev_estado__iexact='A Despacho',
             fecha_inicio_estado__lt=hace_90d,
-        ).count()
+        ).order_by('fecha_inicio_estado').values(
+            'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'fecha_inicio_estado'
+        )
 
-        en_letra_90 = carpetas_mev.filter(
+        letra_qs = carpetas_mev.filter(
             mev_estado__iexact='En Letra',
             fecha_inicio_estado__lt=hace_90d,
-        ).count()
+        ).order_by('fecha_inicio_estado').values(
+            'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'fecha_inicio_estado'
+        )
 
         ultimo_mov = (
             Movimiento.objects
@@ -513,16 +517,45 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             .order_by('-fecha_movimiento')
             .values('fecha_movimiento')[:1]
         )
-        inactivas_3m = carpetas_qs.annotate(
+        inactivas_qs = carpetas_qs.annotate(
             ultimo_movimiento=Subquery(ultimo_mov)
         ).filter(
             _Q(ultimo_movimiento__isnull=True) | _Q(ultimo_movimiento__lt=hace_3m)
-        ).count()
+        ).order_by('ultimo_movimiento').values(
+            'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'ultimo_movimiento'
+        )
+
+        def dias_desde(dt):
+            if dt is None:
+                return None
+            d = dt.date() if hasattr(dt, 'date') else dt
+            return (now.date() - d).days
+
+        def serialize(rows, date_field):
+            result = []
+            for c in rows:
+                fecha = c[date_field]
+                result.append({
+                    'id': c['id'],
+                    'nombre': c['nombre'],
+                    'numero_expediente': c['numero_expediente'] or '',
+                    'organismo_nombre': c['organismo__nombre'] or '',
+                    'fecha': fecha.isoformat() if fecha else None,
+                    'dias': dias_desde(fecha),
+                })
+            return result
+
+        despacho_list = serialize(despacho_qs, 'fecha_inicio_estado')
+        letra_list = serialize(letra_qs, 'fecha_inicio_estado')
+        inactivas_list = serialize(inactivas_qs, 'ultimo_movimiento')
 
         return Response({
-            'a_despacho_90': a_despacho_90,
-            'en_letra_90': en_letra_90,
-            'inactivas_3m': inactivas_3m,
+            'a_despacho_90': len(despacho_list),
+            'en_letra_90': len(letra_list),
+            'inactivas_3m': len(inactivas_list),
+            'despacho_list': despacho_list,
+            'letra_list': letra_list,
+            'inactivas_list': inactivas_list,
         })
 
     @action(detail=False, methods=['get'], url_path='informe_mev')
