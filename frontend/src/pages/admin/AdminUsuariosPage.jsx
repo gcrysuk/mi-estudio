@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { Search, RefreshCw, ShieldCheck, KeyRound, UserX, UserCheck, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../services/api'
-import { useTheme } from '../../contexts/ThemeContext'
 
 const PLAN_LABELS = { free: 'Free', pro: 'Pro', enterprise: 'Enterprise' }
 const PLAN_COLORS = { free: 'bg-gray-100 text-gray-600', pro: 'bg-blue-100 text-blue-700', enterprise: 'bg-purple-100 text-purple-700' }
@@ -14,7 +13,6 @@ function fmt(d) {
 }
 
 export default function AdminUsuariosPage() {
-  const { dark } = useTheme()
   const [usuarios, setUsuarios] = useState([])
   const [count, setCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -97,13 +95,13 @@ export default function AdminUsuariosPage() {
       <div className="flex items-center gap-2">
         <ShieldCheck size={22} className="text-accent" />
         <h1 className="text-xl font-bold uppercase">Administración de Usuarios</h1>
-        <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${dark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-500'}`}>
+        <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300">
           {count} usuario{count !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Filtros */}
-      <div className={`p-3 rounded-lg shadow flex flex-wrap gap-2 ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className={`p-3 rounded-lg shadow flex flex-wrap gap-2 bg-white dark:bg-gray-800`}>
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
           <input
@@ -111,7 +109,7 @@ export default function AdminUsuariosPage() {
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
             placeholder="Buscar por nombre, email o usuario..."
-            className={`w-full pl-7 pr-3 py-1.5 text-sm rounded-lg border ${dark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}
+            className="w-full pl-7 pr-3 py-1.5 text-sm rounded-lg border bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600"
           />
         </div>
         <select value={filtroPlan} onChange={e => { setFiltroPlan(e.target.value); setPage(1) }}
@@ -128,7 +126,7 @@ export default function AdminUsuariosPage() {
           <option value="inactivo" className="dark:bg-gray-800 dark:text-gray-100">Inactivos</option>
           <option value="no_verificado" className="dark:bg-gray-800 dark:text-gray-100">Sin verificar</option>
         </select>
-        <button onClick={cargar} className={`p-1.5 rounded-lg ${dark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}><RefreshCw size={14} /></button>
+        <button onClick={cargar} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><RefreshCw size={14} /></button>
       </div>
 
       {/* Tabla */}
@@ -234,12 +232,12 @@ export default function AdminUsuariosPage() {
       {/* Modal contraseña temporal */}
       {resetModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-xl shadow-xl p-6 max-w-sm w-full ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="rounded-xl shadow-xl p-6 max-w-sm w-full bg-white dark:bg-gray-800">
             <h3 className="font-bold mb-3">Contraseña restablecida</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Contraseña temporal para <strong>{resetModal.username}</strong>:
             </p>
-            <div className={`font-mono text-lg text-center py-2 px-4 rounded ${dark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+            <div className="font-mono text-lg text-center py-2 px-4 rounded bg-gray-100 dark:bg-gray-700">
               {tempPwd}
             </div>
             <p className="text-xs text-gray-500 mt-2">Se envió por email al usuario.</p>
@@ -256,7 +254,7 @@ export default function AdminUsuariosPage() {
       {/* Modal confirmación desactivar */}
       {desactivarModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`rounded-xl shadow-xl p-6 max-w-sm w-full ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className="rounded-xl shadow-xl p-6 max-w-sm w-full bg-white dark:bg-gray-800">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle size={18} className="text-red-500" />
@@ -274,7 +272,7 @@ export default function AdminUsuariosPage() {
               <button
                 onClick={() => setDesactivarModal(null)}
                 disabled={!!desactivandoId}
-                className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${dark ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-100'} disabled:opacity-50`}
+                className="flex-1 py-2 rounded-lg border text-sm font-medium transition-colors border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-50"
               >
                 Cancelar
               </button>
