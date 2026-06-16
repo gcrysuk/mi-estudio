@@ -44,7 +44,9 @@ function clearSession() {
   localStorage.removeItem('access_token')
   localStorage.removeItem('refresh_token')
   localStorage.removeItem('auth-storage')
-  window.location.href = '/login'
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login'
+  }
 }
 
 // Interceptor para manejar 401 con refresh de token

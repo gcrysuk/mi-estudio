@@ -164,11 +164,11 @@ export default function AdminUsuariosPage() {
                       value={u.plan}
                       onChange={e => cambiarPlan(u, e.target.value)}
                       disabled={!u.activo}
-                      className={`text-xs px-1.5 py-0.5 rounded ${PLAN_COLORS[u.plan] || PLAN_COLORS.free} border-0 cursor-pointer disabled:cursor-not-allowed`}
+                      className={`text-xs px-1.5 py-0.5 rounded ${PLAN_COLORS[u.plan] || PLAN_COLORS.free} border-0 cursor-pointer disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600`}
                     >
-                      <option value="free">Free</option>
-                      <option value="pro">Pro</option>
-                      <option value="enterprise">Enterprise</option>
+                      <option value="free" className="dark:bg-gray-800 dark:text-gray-100">Free</option>
+                      <option value="pro" className="dark:bg-gray-800 dark:text-gray-100">Pro</option>
+                      <option value="enterprise" className="dark:bg-gray-800 dark:text-gray-100">Enterprise</option>
                     </select>
                   </td>
                   <td className={td}>
