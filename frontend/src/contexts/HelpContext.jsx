@@ -1,19 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import api from '../services/api';
+import useAuthStore from '../stores/authStore';
 
 const HelpContext = createContext({ ayudaActiva: true, toggleAyuda: () => {} });
 
 const LS_KEY = 'ayuda_contextual';
 
 export const HelpProvider = ({ children }) => {
-  // localStorage como fuente inmediata; servidor como fuente autoritativa
   const [ayudaActiva, setAyudaActiva] = useState(
     () => localStorage.getItem(LS_KEY) !== 'false'
   );
-  // Ref para poder mergear notificacion_config sin doble GET en el toggle
   const notifConfigRef = useRef({});
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     api.get('/usuarios/perfil/')
       .then(res => {
         const config = res.data?.notificacion_config ?? {};
@@ -24,7 +25,7 @@ export const HelpProvider = ({ children }) => {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [isAuthenticated]);
 
   const toggleAyuda = useCallback(() => {
     setAyudaActiva(prev => {

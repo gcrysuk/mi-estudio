@@ -89,8 +89,8 @@ export default function AdminUsuariosPage() {
     } catch { toast.error('Error al restablecer contraseña') }
   }
 
-  const th = `px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider ${dark ? 'text-gray-400' : 'text-gray-500'}`
-  const td = `px-3 py-2.5 text-sm ${dark ? 'text-gray-300' : 'text-gray-700'}`
+  const th = `px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400`
+  const td = `px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300`
 
   return (
     <div className="p-4 space-y-4">
@@ -115,27 +115,27 @@ export default function AdminUsuariosPage() {
           />
         </div>
         <select value={filtroPlan} onChange={e => { setFiltroPlan(e.target.value); setPage(1) }}
-          className={`px-2 py-1.5 text-xs rounded-lg border ${dark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-          <option value="">Todos los planes</option>
-          <option value="free">Free</option>
-          <option value="pro">Pro</option>
-          <option value="enterprise">Enterprise</option>
+          className="px-2 py-1.5 text-xs rounded-lg border bg-gray-50 border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600">
+          <option value="" className="dark:bg-gray-800 dark:text-gray-100">Todos los planes</option>
+          <option value="free" className="dark:bg-gray-800 dark:text-gray-100">Free</option>
+          <option value="pro" className="dark:bg-gray-800 dark:text-gray-100">Pro</option>
+          <option value="enterprise" className="dark:bg-gray-800 dark:text-gray-100">Enterprise</option>
         </select>
         <select value={filtroEstado} onChange={e => { setFiltroEstado(e.target.value); setPage(1) }}
-          className={`px-2 py-1.5 text-xs rounded-lg border ${dark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-          <option value="">Todos los estados</option>
-          <option value="activo">Activos</option>
-          <option value="inactivo">Inactivos</option>
-          <option value="no_verificado">Sin verificar</option>
+          className="px-2 py-1.5 text-xs rounded-lg border bg-gray-50 border-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600">
+          <option value="" className="dark:bg-gray-800 dark:text-gray-100">Todos los estados</option>
+          <option value="activo" className="dark:bg-gray-800 dark:text-gray-100">Activos</option>
+          <option value="inactivo" className="dark:bg-gray-800 dark:text-gray-100">Inactivos</option>
+          <option value="no_verificado" className="dark:bg-gray-800 dark:text-gray-100">Sin verificar</option>
         </select>
         <button onClick={cargar} className={`p-1.5 rounded-lg ${dark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}><RefreshCw size={14} /></button>
       </div>
 
       {/* Tabla */}
-      <div className={`rounded-lg shadow overflow-hidden ${dark ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className="rounded-lg shadow overflow-hidden bg-white dark:bg-gray-800">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className={dark ? 'bg-gray-900' : 'bg-gray-50'}>
+            <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th className={th}>Nombre</th>
                 <th className={th}>Usuario</th>
@@ -146,13 +146,13 @@ export default function AdminUsuariosPage() {
                 <th className={`${th} text-right`}>Acciones</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${dark ? 'divide-gray-700' : 'divide-gray-100'}`}>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
                 <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">Cargando...</td></tr>
               ) : usuarios.length === 0 ? (
                 <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">Sin resultados</td></tr>
               ) : usuarios.map(u => (
-                <tr key={u.id} className={`${dark ? 'hover:bg-gray-750' : 'hover:bg-gray-50'} ${!u.activo ? (dark ? 'opacity-60' : 'opacity-70') : ''}`}>
+                <tr key={u.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${!u.activo ? 'opacity-60' : ''}`}>
                   <td className={td}>
                     <span className="font-medium">{u.apellido}, {u.nombre}</span>
                     {u.is_superuser && <span className="ml-1 text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded">admin</span>}
