@@ -1,6 +1,7 @@
 # config/settings/base.py
 import dj_database_url
 import os
+from decimal import Decimal
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'apps.events',
     'apps.dashboard',
     'apps.usuarios',
+    'apps.billing',
 ]
 
 MIDDLEWARE = [
@@ -166,6 +168,8 @@ CELERY_BEAT_SCHEDULE = {
 
 # MEV (Mesa de Entradas Virtual - SCBA)
 MEV_ENCRYPTION_KEY = os.getenv('MEV_ENCRYPTION_KEY', '')
+
+PRECIO_MENSUAL = Decimal(os.getenv('PRECIO_MENSUAL', '28000'))
 
 # Email — usa SMTP si EMAIL_HOST_USER está configurado, consola como fallback
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Mi Estudio <noreply@miestudio.com>')
