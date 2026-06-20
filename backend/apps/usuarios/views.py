@@ -399,51 +399,6 @@ class PerfilView(APIView):
         return Response({'ok': True})
 
 
-# ── Credenciales MEV ─────────────────────────────────────────────────────────
-
-class PerfilMevView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        try:
-            p = request.user.perfil
-        except PerfilUsuario.DoesNotExist:
-            return Response({'error': 'Perfil no encontrado.'}, status=404)
-        return Response({
-            'mev_usuario': p.mev_usuario,
-            'mev_depto': p.mev_depto,
-            'tiene_clave': bool(p.mev_clave),
-        })
-
-    def patch(self, request):
-        try:
-            p = request.user.perfil
-        except PerfilUsuario.DoesNotExist:
-            return Response({'error': 'Perfil no encontrado.'}, status=404)
-
-        from django.conf import settings as dj_settings
-        key = getattr(dj_settings, 'MEV_ENCRYPTION_KEY', '')
-        if not key:
-            return Response({'error': 'MEV_ENCRYPTION_KEY no configurada en el servidor.'}, status=503)
-
-        if 'mev_usuario' in request.data:
-            p.mev_usuario = request.data['mev_usuario'].strip()
-        if 'mev_depto' in request.data:
-            p.mev_depto = request.data['mev_depto'].strip()
-        if 'mev_clave' in request.data and request.data['mev_clave']:
-            import logging as _logging
-            _logger = _logging.getLogger(__name__)
-            _logger.warning('MEV clave recibida longitud: %d, repr: %s',
-                            len(request.data['mev_clave']),
-                            repr(request.data['mev_clave'][:5]))
-            from cryptography.fernet import Fernet
-            fernet = Fernet(key.encode() if isinstance(key, str) else key)
-            p.mev_clave = fernet.encrypt(request.data['mev_clave'].encode()).decode()
-
-        p.save(update_fields=['mev_usuario', 'mev_depto', 'mev_clave'])
-        return Response({'ok': True})
-
-
 # ── Cambiar contraseña ────────────────────────────────────────────────────────
 
 class CambiarPasswordView(APIView):

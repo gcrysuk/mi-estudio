@@ -104,7 +104,23 @@
       "PowerShell(wsl -d Ubuntu -e bash -c \"docker restart mi_estudio_web_local mi_estudio_celery_local 2>&1\")",
       "PowerShell(wsl -d Ubuntu -e bash -c \"docker exec mi_estudio_web_local python manage.py migrate movimientos 0024_movimiento_fecha_completado 2>&1\")",
       "Bash(docker restart mi_estudio_web_local *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && source venv/bin/activate 2>/dev/null; DJANGO_SETTINGS_MODULE=config.settings.local python manage.py makemigrations billing 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && source venv/bin/activate && DJANGO_SETTINGS_MODULE=config.settings.local python manage.py makemigrations billing 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && DJANGO_SETTINGS_MODULE=config.settings.local venv/bin/python manage.py makemigrations billing 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && venv/bin/python -c 'import django; print\\(django.__file__\\); import rest_framework; print\\(rest_framework.__file__\\)' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && venv/bin/python -c 'import sys; print\\([p for p in sys.path]\\)' 2>&1 && ls /home/focus/mi_estudio/backend/venv/lib/python3.12/site-packages/django/db/migrations/ | head -10\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"ls /home/focus/mi_estudio/backend/venv/lib/python3.12/site-packages/django/db/migrations/\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && docker ps --filter name=backend --format 'table {{.Names}}\\\\t{{.Status}}' 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"docker ps --format 'table {{.Names}}\\\\t{{.Status}}' 2>&1 | head -20\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && docker-compose -f docker-compose.local.yml exec web python manage.py makemigrations billing 2>&1\")",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/focus/mi_estudio/backend && docker-compose -f docker-compose.local.yml exec -T web python manage.py makemigrations billing 2>&1\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(venv/bin/python --version)",
+      "Bash(/c/Python313/python *)",
+      "Bash(where wsl *)",
+      "Bash(wsl.exe -l -v)",
+      "Bash(wsl.exe *)"
     ]
   }
 }

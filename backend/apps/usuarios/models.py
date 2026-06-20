@@ -57,11 +57,6 @@ class PerfilUsuario(models.Model):
     token_verificacion = models.CharField(max_length=64, blank=True)
     fecha_token = models.DateTimeField(null=True, blank=True)
 
-    # Integración MEV (Mesa de Entradas Virtual - SCBA)
-    mev_usuario = models.CharField(max_length=100, blank=True)
-    mev_clave = models.TextField(blank=True, help_text="Clave encriptada con Fernet")
-    mev_depto = models.CharField(max_length=100, blank=True)
-
     # Estado y auditoría
     activo = models.BooleanField(default=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)

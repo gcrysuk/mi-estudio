@@ -1,35 +1,8 @@
 import { useState, useEffect } from 'react'
-import { User, Lock, Save, Scale, Eye, EyeOff } from 'lucide-react'
+import { User, Lock, Save, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../services/api'
 import { useTheme } from '../../contexts/ThemeContext'
-
-const MEV_DEPTOS = [
-  { value: 'aa',  label: 'TODOS los Deptos' },
-  { value: 'AZ',  label: 'Azul' },
-  { value: 'BB',  label: 'Bahía Blanca' },
-  { value: 'DO',  label: 'Dolores' },
-  { value: 'JU',  label: 'Junín' },
-  { value: 'LM',  label: 'La Matanza' },
-  { value: 'LP',  label: 'La Plata' },
-  { value: 'LZ',  label: 'Lomas de Zamora' },
-  { value: 'MP',  label: 'Mar del Plata' },
-  { value: 'ME',  label: 'Mercedes' },
-  { value: 'MR',  label: 'Moreno - Gral. Rodriguez' },
-  { value: 'MO',  label: 'Moron' },
-  { value: 'NE',  label: 'Necochea' },
-  { value: 'OL',  label: 'Olavarría' },
-  { value: 'PE',  label: 'Pergamino' },
-  { value: 'QU',  label: 'Quilmes' },
-  { value: 'SI',  label: 'San Isidro' },
-  { value: 'SM',  label: 'San Martín' },
-  { value: 'SN',  label: 'San Nicolas' },
-  { value: 'TN',  label: 'Tandil' },
-  { value: 'TL',  label: 'Trenque Lauquen' },
-  { value: 'TY',  label: 'Tres Arroyos' },
-  { value: 'ZC',  label: 'Zarate/Campana' },
-  { value: 'PAZ', label: 'Justicia de PAZ' },
-]
 
 const INPUT = "w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-60 disabled:cursor-not-allowed"
 const LABEL = "block text-xs font-medium mb-1 uppercase text-foreground"
@@ -68,9 +41,6 @@ export default function PerfilPage() {
   const [form, setForm] = useState({})
   const [pwd, setPwd] = useState({ password_nueva: '', password_nueva2: '' })
   const [errPwd, setErrPwd] = useState({})
-  const [mev, setMev] = useState({ mev_usuario: '', mev_clave: '', mev_depto: '' })
-  const [mevTieneClave, setMevTieneClave] = useState(false)
-  const [savingMev, setSavingMev] = useState(false)
   const [notifConfig, setNotifConfig] = useState({})
   const [savingNotif, setSavingNotif] = useState(false)
 
@@ -83,13 +53,6 @@ export default function PerfilPage() {
       })
       .catch(() => toast.error('Error al cargar perfil'))
       .finally(() => setLoading(false))
-
-    api.get('/usuarios/perfil/mev/')
-      .then(res => {
-        setMev({ mev_usuario: res.data.mev_usuario || '', mev_clave: '', mev_depto: res.data.mev_depto || '' })
-        setMevTieneClave(res.data.tiene_clave)
-      })
-      .catch(() => {})
   }, [])
 
   const handleSave = async (e) => {
@@ -127,21 +90,6 @@ export default function PerfilPage() {
       toast.success('Configuración de notificaciones guardada')
     } catch { toast.error('Error al guardar') }
     finally { setSavingNotif(false) }
-  }
-
-  const handleSaveMev = async (e) => {
-    e.preventDefault()
-    setSavingMev(true)
-    try {
-      await api.patch('/usuarios/perfil/mev/', mev)
-      setMevTieneClave(true)
-      setMev(m => ({ ...m, mev_clave: '' }))
-      toast.success('Credenciales MEV guardadas')
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Error al guardar credenciales MEV')
-    } finally {
-      setSavingMev(false)
-    }
   }
 
   return (
@@ -241,52 +189,6 @@ export default function PerfilPage() {
           >
             <Save size={14} />
             {saving ? 'Guardando...' : 'Guardar cambios'}
-          </button>
-        </div>
-      </form>
-
-      {/* Credenciales MEV */}
-      <form onSubmit={handleSaveMev} className={`p-4 rounded-lg shadow space-y-3 bg-white dark:bg-dark-surface`}>
-        <h2 className="text-sm font-bold uppercase mb-3 text-gray-500 flex items-center gap-2">
-          <Scale size={14} /> Configuración MEV
-        </h2>
-        <p className="text-xs text-gray-400">
-          Tus credenciales se guardan de forma encriptada y se usan para sincronizar expedientes desde la Mesa de Entradas Virtual (SCBA).
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={LABEL}>Usuario MEV</label>
-            <input
-              type="text"
-              value={mev.mev_usuario}
-              onChange={e => setMev(m => ({ ...m, mev_usuario: e.target.value }))}
-              className={INPUT}
-              placeholder="Tu usuario del MEV"
-              maxLength={10}
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className={LABEL}>
-              Contraseña MEV{mevTieneClave && <span className="text-green-500 normal-case font-normal ml-1">(guardada)</span>}
-            </label>
-            <PasswordInput
-              value={mev.mev_clave}
-              onChange={e => setMev(m => ({ ...m, mev_clave: e.target.value }))}
-              placeholder={mevTieneClave ? '••••••••' : 'Contraseña MEV'}
-              autoComplete="new-password"
-            />
-          </div>
-          {/* Departamento judicial — oculto de la vista */}
-        </div>
-        <div className="flex justify-end pt-1">
-          <button
-            type="submit"
-            disabled={savingMev}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50"
-          >
-            <Save size={14} />
-            {savingMev ? 'Guardando...' : 'Guardar credenciales MEV'}
           </button>
         </div>
       </form>
