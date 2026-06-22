@@ -73,6 +73,23 @@ services:
       - mi_estudio_network
     command: celery -A config worker -l info --concurrency 2
 
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mi_estudio_celery_beat_prod
+    restart: always
+    env_file:
+      - .env.prod
+    volumes:
+      - ./backend/media:/app/media
+      - ./backend/logs:/app/logs
+    depends_on:
+      - web
+      - redis
+    networks:
+      - mi_estudio_network
+    command: celery -A config beat -l info
   frontend:
     build:
       context: ./frontend

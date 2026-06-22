@@ -159,7 +159,13 @@ CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_TIMEZONE = 'America/Argentina/Buenos_Aires'
 
-CELERY_BEAT_SCHEDULE = {}
+from celery.schedules import crontab  # noqa: E402
+CELERY_BEAT_SCHEDULE = {
+    'leer-mails-mev-cada-15-min': {
+        'task': 'apps.mev_ingest.tasks.leer_mails_mev_task',
+        'schedule': crontab(minute='*/15'),
+    },
+}
 
 PRECIO_MENSUAL = Decimal(os.getenv('PRECIO_MENSUAL', '28000'))
 
