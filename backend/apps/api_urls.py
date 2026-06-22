@@ -7,4 +7,5 @@ urlpatterns = [
     path('movimientos/', include('apps.movimientos.urls')),
     path('usuarios/', include('apps.usuarios.urls')),
     path('organismos/', include('apps.organismos.urls')),
+    path('mev-ingest/', include('apps.mev_ingest.urls')),
 ]

@@ -406,7 +406,7 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave, nombreInicial = '' }) =>
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-medium mb-0.5 uppercase">URL EN MEV <span className="normal-case font-normal text-gray-400">(opcional)</span></label>
+              <label className="block text-xs font-medium mb-0.5 uppercase">Link MEV <span className="normal-case font-normal text-gray-400">(opcional)</span></label>
               <input
                 type="url"
                 value={formData.mev_url}
@@ -414,11 +414,6 @@ const CarpetaForm = ({ carpeta = null, onClose, onSave, nombreInicial = '' }) =>
                 className="w-full px-3 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 placeholder="https://mev.scba.gov.ar/procesales.asp?nidCausa=..."
               />
-              {formData.mev_url && (
-                <p className="text-[10px] text-indigo-500 mt-0.5">
-                  MEV configurada — se sincronizará automáticamente a las 8:00 AM
-                </p>
-              )}
             </div>
           </div>
 

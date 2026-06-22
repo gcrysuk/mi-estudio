@@ -32,17 +32,6 @@ const MovimientosGlobal = () => {
     setFiltro(key);
   }, [searchParams]);
 
-  useEffect(() => {
-    let lastSync = Date.now()
-    const interval = setInterval(() => {
-      if (window._mev_last_sync && window._mev_last_sync > lastSync) {
-        lastSync = window._mev_last_sync
-        setRefreshKey(k => k + 1)
-      }
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
-
   const activeFiltro = FILTROS.find(f => f.key === filtro) ?? FILTROS[0];
 
   const handleFiltro = (key) => {

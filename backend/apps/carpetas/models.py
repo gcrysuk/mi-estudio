@@ -154,7 +154,7 @@ class Carpeta(models.Model):
     ultima_actualizacion = models.DateTimeField(auto_now=True)
 
     # Integración MEV (Mesa de Entradas Virtual - SCBA)
-    mev_url = models.URLField(max_length=500, blank=True, help_text="URL del expediente en la MEV")
+    mev_url = models.URLField(max_length=500, blank=True, help_text="Enlace al expediente en la MEV (se abre manualmente)")
     mev_ultimo_sync = models.DateTimeField(null=True, blank=True)
     mev_primera_sync = models.DateTimeField(null=True, blank=True, verbose_name="Primera sincronización MEV")
     mev_estado = models.CharField(max_length=100, blank=True, default='', verbose_name="Estado en MEV")

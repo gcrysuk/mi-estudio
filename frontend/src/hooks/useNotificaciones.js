@@ -18,15 +18,7 @@ export function useNotificaciones() {
         api.get('/movimientos/notificaciones_sistema/?no_leidas=true'),
       ]);
       setNotificaciones(resVenc.data.results ?? resVenc.data ?? []);
-      const nuevasSistema = resSist.data.results ?? [];
-      setNotificacionesSistema(prev => {
-        const prevIds = new Set(prev.map(n => n.id));
-        const hayMevNueva = nuevasSistema.some(
-          n => (n.tipo === 'mev_nuevo_movimiento' || n.tipo === 'mev_cambio_estado') && !prevIds.has(n.id)
-        );
-        if (hayMevNueva) window._mev_last_sync = Date.now();
-        return nuevasSistema;
-      });
+      setNotificacionesSistema(resSist.data.results ?? []);
     } catch {
       // silencioso
     }

@@ -9,8 +9,6 @@ export const HELP = {
     'Carpetas sin ningún movimiento registrado en los últimos 3 meses. Hacé click para ver el listado.',
 
   // Carpeta — detalle
-  carpeta_sync_mev:
-    'Trae los últimos movimientos desde la MEV y actualiza el estado del expediente.',
   carpeta_dias_sin_movimiento:
     'Días transcurridos desde el último movimiento registrado en esta carpeta.',
 

@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, FolderOpen, Hash, User, Building2, Scale,
   FileText, Calendar, Clock, AlertCircle, Edit,
-  Plus, Users, Share2, RefreshCw, FileDown,
+  Plus, Users, Share2, FileDown, ExternalLink,
 } from 'lucide-react'
 import ReporteCarpeta from '../../components/print/ReporteCarpeta'
 import toast from 'react-hot-toast'
@@ -51,22 +51,9 @@ const CarpetaDetail = () => {
   const [showCarpetaForm, setShowCarpetaForm] = useState(false)
   const [showCompartir, setShowCompartir]     = useState(false)
   const [refreshKey, setRefreshKey]           = useState(0)
-  const [syncingMev, setSyncingMev]           = useState(false)
   const [showReporte, setShowReporte]         = useState(false)
 
   useEffect(() => { fetchCarpeta() }, [id])
-
-  useEffect(() => {
-    let lastSync = Date.now()
-    const interval = setInterval(() => {
-      if (window._mev_last_sync && window._mev_last_sync > lastSync) {
-        lastSync = window._mev_last_sync
-        fetchCarpeta()
-        setRefreshKey(k => k + 1)
-      }
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
 
   const fetchCarpeta = async () => {
     setLoadingCarpeta(true)
@@ -77,27 +64,6 @@ const CarpetaDetail = () => {
       toast.error('Error al cargar la carpeta')
     } finally {
       setLoadingCarpeta(false)
-    }
-  }
-
-  const handleSyncMev = async () => {
-    setSyncingMev(true)
-    try {
-      const res = await api.post(`/carpetas/${id}/sync_mev/`)
-      const { encolado, nuevos, error } = res.data
-      if (encolado) {
-        toast.success('Sincronización iniciada — recibirás una notificación con el resultado')
-      } else if (error) {
-        toast.error(`MEV: ${error}`)
-      } else {
-        toast.success(nuevos > 0 ? `${nuevos} nuevo${nuevos !== 1 ? 's' : ''} movimiento${nuevos !== 1 ? 's' : ''} importado${nuevos !== 1 ? 's' : ''}` : 'Sin novedades en la MEV')
-        if (nuevos > 0) setRefreshKey(k => k + 1)
-        fetchCarpeta()
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Error al sincronizar con la MEV')
-    } finally {
-      setSyncingMev(false)
     }
   }
 
@@ -210,17 +176,14 @@ const CarpetaDetail = () => {
 
         <div className="flex items-center gap-2 overflow-x-auto flex-nowrap sm:flex-wrap sm:justify-end pb-1 sm:pb-0 flex-shrink-0 w-full sm:w-auto">
           {carpeta.mev_url && (
-            <HelpTip texto={HELP.carpeta_sync_mev}>
-              <button
-                onClick={handleSyncMev}
-                disabled={syncingMev}
-                title={carpeta.mev_ultimo_sync ? `Último sync: ${new Date(carpeta.mev_ultimo_sync).toLocaleString('es-AR')}` : 'Sin sincronización previa'}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-60 uppercase"
-              >
-                <RefreshCw size={13} className={syncingMev ? 'animate-spin' : ''} />
-                {syncingMev ? 'Sincronizando...' : 'Sincronizar MEV'}
-              </button>
-            </HelpTip>
+            <a
+              href={carpeta.mev_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors uppercase"
+            >
+              <ExternalLink size={13} /> Abrir en MEV ↗
+            </a>
           )}
           <button
             onClick={() => setShowReporte(true)}

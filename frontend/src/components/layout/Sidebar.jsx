@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   UserCircle,
   BarChart3,
+  Mail,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
 
@@ -31,6 +32,7 @@ const navItems = [
   { to: '/tipos',       icon: Tags,            label: 'Tipos'        },
   { to: '/calendario',  icon: Calendar,        label: 'Calendario'   },
   { to: '/informes',    icon: BarChart3,       label: 'Informes'     },
+  { to: '/notificaciones-mev', icon: Mail,      label: 'Notif. MEV'  },
   { to: '/papelera',    icon: Trash2,          label: 'Papelera'     },
 ]
 

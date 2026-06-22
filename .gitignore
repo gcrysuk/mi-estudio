@@ -68,3 +68,5 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+bajar_mail_mev.py
+mails_mev/

@@ -25,6 +25,7 @@ import PapeleraPage from "./pages/papelera/PapeleraPage";
 import KanbanPage from "./pages/kanban/KanbanPage";
 import KanbanConfigPage from "./pages/kanban/KanbanConfigPage";
 import NotificacionesPage from "./pages/notificaciones/NotificacionesPage";
+import NotificacionesMEVPage from "./pages/notificaciones/NotificacionesMEVPage";
 import ResumenPage from "./pages/resumen/ResumenPage";
 import InformesPage from "./pages/informes/InformesPage";
 import InformeDemoraOrganismos from "./pages/informes/InformeDemoraOrganismos";
@@ -95,6 +96,7 @@ function App() {
               <Route path="/kanban" element={<KanbanPage />} />
               <Route path="/kanban/config" element={<KanbanConfigPage />} />
               <Route path="/notificaciones" element={<NotificacionesPage />} />
+              <Route path="/notificaciones-mev" element={<NotificacionesMEVPage />} />
               <Route path="/resumen" element={<ResumenPage />} />
               <Route path="/informes" element={<InformesPage />} />
               <Route path="/informes/demora-organismos" element={<InformeDemoraOrganismos />} />

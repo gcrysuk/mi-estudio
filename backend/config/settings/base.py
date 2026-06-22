@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'apps.dashboard',
     'apps.usuarios',
     'apps.billing',
+    'apps.mev_ingest',
 ]
 
 MIDDLEWARE = [
@@ -158,16 +159,7 @@ CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 CELERY_TIMEZONE = 'America/Argentina/Buenos_Aires'
 
-from celery.schedules import crontab  # noqa: E402
-CELERY_BEAT_SCHEDULE = {
-    'encolar-sync-mev-cada-hora': {
-        'task': 'apps.carpetas.tasks.encolar_sync_mev',
-        'schedule': crontab(minute=0),
-    },
-}
-
-# MEV (Mesa de Entradas Virtual - SCBA)
-MEV_ENCRYPTION_KEY = os.getenv('MEV_ENCRYPTION_KEY', '')
+CELERY_BEAT_SCHEDULE = {}
 
 PRECIO_MENSUAL = Decimal(os.getenv('PRECIO_MENSUAL', '28000'))
 
@@ -187,3 +179,9 @@ if os.getenv('EMAIL_HOST_USER'):
     EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# IMAP de la casilla recolectora de notificaciones MEV (Donweb)
+MEV_IMAP_HOST = os.getenv('MEV_IMAP_HOST', '')
+MEV_IMAP_PORT = int(os.getenv('MEV_IMAP_PORT', '993'))
+MEV_IMAP_USER = os.getenv('MEV_IMAP_USER', '')
+MEV_IMAP_PASS = os.getenv('MEV_IMAP_PASS', '')
