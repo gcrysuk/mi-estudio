@@ -1,11 +1,30 @@
 import { useState, useEffect } from 'react'
-import { User, Lock, Save, Eye, EyeOff } from 'lucide-react'
+import { User, Lock, Save, Eye, EyeOff, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../services/api'
 import { useTheme } from '../../contexts/ThemeContext'
 
 const INPUT = "w-full px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent disabled:opacity-60 disabled:cursor-not-allowed"
 const LABEL = "block text-xs font-medium mb-1 uppercase text-foreground"
+const BTN_PRIMARY = "flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
+
+const ESTADO_BADGE = {
+  trial: { label: 'Trial activo', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  activo: { label: 'Activo', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  moroso: { label: 'Pago pendiente', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+  suspendido: { label: 'Cuenta suspendida', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+}
+
+function formatFecha(str) {
+  if (!str) return ''
+  const [y, m, d] = str.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function formatMonto(n) {
+  if (n === null || n === undefined) return ''
+  return new Intl.NumberFormat('es-AR').format(Math.round(Number(n)))
+}
 
 function PasswordInput({ value, onChange, placeholder, required, autoComplete }) {
   const [show, setShow] = useState(false)
@@ -43,6 +62,10 @@ export default function PerfilPage() {
   const [errPwd, setErrPwd] = useState({})
   const [notifConfig, setNotifConfig] = useState({})
   const [savingNotif, setSavingNotif] = useState(false)
+  const [planEstado, setPlanEstado] = useState(null)
+  const [loadingPlan, setLoadingPlan] = useState(true)
+  const [errorPlan, setErrorPlan] = useState(false)
+  const [activando, setActivando] = useState(false)
 
   useEffect(() => {
     api.get('/usuarios/perfil/')
@@ -54,6 +77,27 @@ export default function PerfilPage() {
       .catch(() => toast.error('Error al cargar perfil'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    api.get('/billing/suscripcion/estado/')
+      .then(res => setPlanEstado(res.data))
+      .catch(() => setErrorPlan(true))
+      .finally(() => setLoadingPlan(false))
+  }, [])
+
+  const handleActivarSuscripcion = async () => {
+    setActivando(true)
+    try {
+      const res = await api.post('/billing/suscripcion/iniciar/')
+      if (res.data?.init_point) {
+        window.location.href = res.data.init_point
+      }
+    } catch {
+      toast.error('No se pudo iniciar la suscripción')
+    } finally {
+      setActivando(false)
+    }
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -274,6 +318,90 @@ export default function PerfilPage() {
           </button>
         </div>
       </form>
+
+      {/* Mi Plan */}
+      {loadingPlan ? (
+        <div className="p-4 rounded-lg shadow bg-white dark:bg-dark-surface flex justify-center items-center py-8">
+          <Loader2 size={22} className="animate-spin text-accent" />
+        </div>
+      ) : !errorPlan && planEstado && ESTADO_BADGE[planEstado.estado] && (
+        <div className="p-4 rounded-lg shadow space-y-3 bg-white dark:bg-dark-surface">
+          <h2 className="text-sm font-bold uppercase mb-1 text-gray-500">Mi Plan</h2>
+
+          <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase ${ESTADO_BADGE[planEstado.estado].className}`}>
+            {ESTADO_BADGE[planEstado.estado].label}
+          </span>
+
+          {planEstado.estado === 'trial' && (
+            <div className="space-y-3">
+              <p className="text-sm">
+                Tu período de prueba vence el <strong>{formatFecha(planEstado.trial_hasta)}</strong>
+              </p>
+              <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div
+                  className="h-full bg-accent"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, 100 - Math.ceil((new Date(planEstado.trial_hasta) - new Date()) / 86400000) / 90 * 100))}%`,
+                  }}
+                />
+              </div>
+              {planEstado.tiene_mp ? (
+                <p className="text-sm text-green-600 dark:text-green-400">✓ Tarjeta registrada</p>
+              ) : (
+                <button
+                  onClick={handleActivarSuscripcion}
+                  disabled={activando}
+                  className={BTN_PRIMARY}
+                >
+                  {activando && <Loader2 size={14} className="animate-spin" />}
+                  {activando ? 'Redirigiendo...' : 'Activar suscripción'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {planEstado.estado === 'activo' && (
+            <div className="space-y-1 text-sm">
+              {planEstado.proximo_cobro && <p>Próximo cobro: <strong>{formatFecha(planEstado.proximo_cobro)}</strong></p>}
+              <p>Monto: <strong>${formatMonto(planEstado.monto_mensual)} ARS / mes</strong></p>
+              {planEstado.ultimo_cobro && <p>Último cobro: <strong>{formatFecha(planEstado.ultimo_cobro)}</strong></p>}
+            </div>
+          )}
+
+          {planEstado.estado === 'moroso' && (
+            <div className="space-y-3">
+              <p className="text-sm">
+                Hubo un problema con tu último pago. Por favor actualizá tu método de pago.
+              </p>
+              <button
+                onClick={handleActivarSuscripcion}
+                disabled={activando}
+                className={BTN_PRIMARY}
+              >
+                {activando && <Loader2 size={14} className="animate-spin" />}
+                {activando ? 'Redirigiendo...' : 'Actualizar tarjeta'}
+              </button>
+              <p className="text-xs text-gray-400">
+                Tenés 30 días para regularizar antes de que se suspenda tu cuenta
+              </p>
+            </div>
+          )}
+
+          {planEstado.estado === 'suspendido' && (
+            <div className="space-y-3">
+              <p className="text-sm">Tu cuenta está suspendida por falta de pago.</p>
+              <button
+                onClick={handleActivarSuscripcion}
+                disabled={activando}
+                className={BTN_PRIMARY}
+              >
+                {activando && <Loader2 size={14} className="animate-spin" />}
+                {activando ? 'Redirigiendo...' : 'Reactivar suscripción'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
