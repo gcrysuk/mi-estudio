@@ -165,6 +165,18 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.mev_ingest.tasks.leer_mails_mev_task',
         'schedule': crontab(minute='*/15'),
     },
+    'chequear-trials': {
+        'task': 'apps.billing.tasks.chequear_trials_vencidos',
+        'schedule': crontab(hour=8, minute=0),
+    },
+    'chequear-morosos': {
+        'task': 'apps.billing.tasks.chequear_morosos',
+        'schedule': crontab(hour=8, minute=5),
+    },
+    'avisar-trial': {
+        'task': 'apps.billing.tasks.avisar_trial_por_vencer',
+        'schedule': crontab(hour=8, minute=10),
+    },
 }
 
 PRECIO_MENSUAL = Decimal(os.getenv('PRECIO_MENSUAL', '28000'))
