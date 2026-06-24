@@ -8,4 +8,5 @@ urlpatterns = [
     path('usuarios/', include('apps.usuarios.urls')),
     path('organismos/', include('apps.organismos.urls')),
     path('mev-ingest/', include('apps.mev_ingest.urls')),
+    path('billing/', include('apps.billing.urls')),
 ]

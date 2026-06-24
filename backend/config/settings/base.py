@@ -191,3 +191,10 @@ MEV_IMAP_HOST = os.getenv('MEV_IMAP_HOST', '')
 MEV_IMAP_PORT = int(os.getenv('MEV_IMAP_PORT', '993'))
 MEV_IMAP_USER = os.getenv('MEV_IMAP_USER', '')
 MEV_IMAP_PASS = os.getenv('MEV_IMAP_PASS', '')
+
+# Mercado Pago - Suscripciones
+MP_ACCESS_TOKEN = os.getenv('MP_ACCESS_TOKEN', '')
+MP_PUBLIC_KEY = os.getenv('MP_PUBLIC_KEY', '')
+MP_CLIENT_ID = os.getenv('MP_CLIENT_ID', '')
+MP_CLIENT_SECRET = os.getenv('MP_CLIENT_SECRET', '')
+MP_WEBHOOK_SECRET = os.getenv('MP_WEBHOOK_SECRET', '')
