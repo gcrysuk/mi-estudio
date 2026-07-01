@@ -70,3 +70,6 @@ Thumbs.db
 htmlcov/
 bajar_mail_mev.py
 mails_mev/
+backend/backend/
+*probe*.py
+probe_root.txt

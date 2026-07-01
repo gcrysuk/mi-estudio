@@ -101,8 +101,9 @@ class MovimientoViewSet(viewsets.ModelViewSet):
 
     def filter_queryset(self, queryset):
         estado_nombre = self.request.query_params.get('estado_nombre')
+        ordering = self.request.query_params.get('ordering')
         result = super().filter_queryset(queryset)
-        if estado_nombre:
+        if estado_nombre and not ordering:
             result = result.order_by(F('fecha_vencimiento').asc(nulls_last=True))
         return result
 

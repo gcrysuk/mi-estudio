@@ -188,7 +188,11 @@
       "PowerShell(wsl -e bash -lc \"cd /home/focus/mi_estudio/backend && DJANGO_SETTINGS_MODULE=config.settings.local venv/bin/python manage.py migrate mev_ingest 2>&1\")",
       "Bash(python manage.py makemigrations mev_ingest)",
       "Bash(./venv/bin/python -c \"import django; print\\(django.VERSION\\)\")",
-      "Bash(command -v wsl.exe)"
+      "Bash(command -v wsl.exe)",
+      "Bash(python manage.py check)",
+      "Bash(venv/bin/python3 *)",
+      "Bash(grep -rln \"billing\" config/*.py mi_estudio_backend/*.py)",
+      "Bash(npx eslint *)"
     ]
   }
 }

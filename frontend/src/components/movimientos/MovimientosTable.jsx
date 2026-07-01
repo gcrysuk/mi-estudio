@@ -19,7 +19,7 @@ function renderDescripcion(texto) {
 }
 import {
   Search, X, Edit, Trash2, Calendar, Clock,
-  FolderOpen, AlertCircle, ChevronDown, ChevronUp, Plus, Filter,
+  FolderOpen, AlertCircle, ChevronDown, ChevronUp, Plus, Filter, ArrowUpDown,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
@@ -29,6 +29,9 @@ import MovimientoDetalleModal from './MovimientoDetalleModal';
 import ConfirmDialog from '../ui/ConfirmDialog';
 import ColumnSelector from '../common/ColumnSelector';
 import Pagination from '../ui/Pagination';
+import BottomSheet from '../ui/BottomSheet';
+import MobileFilterSheet from '../filters/MobileFilterSheet';
+import FilterChips from '../filters/FilterChips';
 import useClickOutside from '../../hooks/useClickOutside';
 import { useResizableColumns } from '../../hooks/useResizableColumns';
 import { hayFiltrosActivos } from '../../utils/filtros';
@@ -455,6 +458,31 @@ const DEFAULT_COLUMNS = {
 
 const STORAGE_KEY = 'movimientos_columnas';
 
+// Columnas ordenables ofrecidas en el bottom sheet "Ordenar" (mobile).
+// Reutiliza las mismas claves de SORT_FIELD_MAP / handleSort que los
+// encabezados de la tabla en desktop — ningún mecanismo nuevo de ordering.
+const ORDER_OPTIONS = [
+  { key: 'titulo',            label: 'Título' },
+  { key: 'carpeta_nombre',    label: 'Carpeta' },
+  { key: 'tipo_nombre',       label: 'Tipo' },
+  { key: 'estado_nombre',     label: 'Estado' },
+  { key: 'complejidad',       label: 'Complejidad' },
+  { key: 'fecha_movimiento',  label: 'Fecha' },
+  { key: 'fecha_vencimiento', label: 'Vencimiento' },
+  { key: 'tiempo_trabajo',    label: 'Tiempo' },
+  { key: 'responsable',       label: 'Responsable' },
+  { key: 'creado_por',        label: 'Creado por' },
+  { key: 'modificado_por',    label: 'Modificado por' },
+  { key: 'fecha_completado',  label: 'Completado' },
+];
+
+const COMPLEJIDAD_FILTRO_LABELS = { alto: '🔴 Alto', medio: '🟡 Medio', bajo: '🟢 Bajo' };
+const COMPLEJIDAD_OPCIONES = [
+  { value: 'alto', label: '🔴 Alto' },
+  { value: 'medio', label: '🟡 Medio' },
+  { value: 'bajo', label: '🟢 Bajo' },
+];
+
 const MovimientosTable = ({
   baseFetchUrl,
   baseParams = {},
@@ -463,7 +491,12 @@ const MovimientosTable = ({
   emptyMessage = 'No se encontraron movimientos',
   refreshKey = 0,
   onClearTabFilter = null,
+  quickFiltro = null,
+  quickFiltros = [],
+  onQuickFiltro = null,
 }) => {
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [mobileSortOpen, setMobileSortOpen]       = useState(false);
   const [searchParams] = useSearchParams();
   const [movimientos, setMovimientos]         = useState([]);
   const [loading, setLoading]                 = useState(true);
@@ -637,6 +670,28 @@ const MovimientosTable = ({
 
   const hasActiveFilters = hasTabFilter || hayFiltrosActivos(filters) || hayFiltrosActivos({ search });
 
+  // Chips de filtros activos (mobile) — combina el filtro rápido (si viene de
+  // MovimientosGlobal) con los filtros detallados que ya vive en este componente.
+  const activeQuickFiltro = quickFiltros.find((f) => f.key === quickFiltro);
+  const mobileChips = [
+    ...(activeQuickFiltro && activeQuickFiltro.key !== 'todos'
+      ? [{ id: 'quick', label: activeQuickFiltro.label, onRemove: () => onQuickFiltro?.('todos') }]
+      : []),
+    ...(search ? [{ id: 'search', label: `"${search}"`, onRemove: () => setSearch('') }] : []),
+    ...(filters.tipo
+      ? [{ id: 'tipo', label: tipos.find((t) => String(t.id) === String(filters.tipo))?.nombre ?? 'Tipo', onRemove: () => setFilter('tipo', '') }]
+      : []),
+    ...(filters.estado
+      ? [{ id: 'estado', label: estados.find((e) => String(e.id) === String(filters.estado))?.nombre ?? 'Estado', onRemove: () => setFilter('estado', '') }]
+      : []),
+    ...(filters.complejidad
+      ? [{ id: 'complejidad', label: COMPLEJIDAD_FILTRO_LABELS[filters.complejidad] ?? filters.complejidad, onRemove: () => setFilter('complejidad', '') }]
+      : []),
+    ...(filters.responsable ? [{ id: 'responsable', label: `Responsable: ${filters.responsable}`, onRemove: () => setFilter('responsable', '') }] : []),
+    ...(filters.creado_por ? [{ id: 'creado_por', label: `Creado por: ${filters.creado_por}`, onRemove: () => setFilter('creado_por', '') }] : []),
+    ...(filters.modificado_por ? [{ id: 'modificado_por', label: `Modificado por: ${filters.modificado_por}`, onRemove: () => setFilter('modificado_por', '') }] : []),
+  ];
+
   const formatFecha = (fecha) =>
     fecha
       ? new Date(fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -695,8 +750,8 @@ const MovimientosTable = ({
     />
 
     <div className="space-y-2">
-      {/* Barra de filtros */}
-      <div className="bg-white dark:bg-dark-surface rounded-lg shadow p-3 flex flex-wrap gap-2 items-center">
+      {/* Barra de filtros — solo desktop/tablet (>= md) */}
+      <div className="hidden md:flex bg-white dark:bg-dark-surface rounded-lg shadow p-3 flex-wrap gap-2 items-center">
         {/* Búsqueda general (server-side via ?search=) */}
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
@@ -807,6 +862,79 @@ const MovimientosTable = ({
           />
         </div>
       </div>
+
+      {/* Barra compacta Filtrar/Ordenar — solo mobile (< md), estilo Mercado Libre */}
+      <div className="md:hidden bg-white dark:bg-dark-surface rounded-lg shadow p-3 flex gap-2">
+        <button
+          onClick={() => setMobileFiltersOpen(true)}
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium uppercase"
+        >
+          <Filter size={15} />
+          Filtrar{mobileChips.length > 0 ? ` (${mobileChips.length})` : ''}
+        </button>
+        <button
+          onClick={() => setMobileSortOpen(true)}
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium uppercase"
+        >
+          <ArrowUpDown size={15} />
+          Ordenar
+        </button>
+      </div>
+
+      {/* Chips de filtros activos — solo mobile */}
+      <FilterChips chips={mobileChips} className="md:hidden" />
+
+      {/* Bottom sheet de filtros — mobile. Componente genérico, reutilizable
+          por otros listados (Carpetas, Personas, Notif. MEV, etc.) */}
+      <MobileFilterSheet
+        open={mobileFiltersOpen}
+        onClose={() => setMobileFiltersOpen(false)}
+        title="Filtrar movimientos"
+        quickFilters={
+          quickFiltros.length > 0
+            ? { label: 'Filtros rápidos', value: quickFiltro, options: quickFiltros, onChange: onQuickFiltro }
+            : null
+        }
+        fields={[
+          { key: 'search', type: 'search', label: 'Búsqueda', value: search, onChange: setSearch, placeholder: 'Buscar en movimientos...' },
+          { key: 'tipo', type: 'select', label: 'Tipo', value: filters.tipo, onChange: (v) => setFilter('tipo', v), placeholder: 'Todos los tipos', options: tipos.map((t) => ({ value: t.id, label: t.nombre })) },
+          { key: 'estado', type: 'select', label: 'Estado', value: filters.estado, onChange: (v) => setFilter('estado', v), placeholder: 'Todos los estados', options: estados.map((e) => ({ value: e.id, label: e.nombre })) },
+          { key: 'complejidad', type: 'select', label: 'Complejidad', value: filters.complejidad, onChange: (v) => setFilter('complejidad', v), placeholder: 'Todas las complejidades', options: COMPLEJIDAD_OPCIONES },
+          { key: 'responsable', type: 'text', label: 'Responsable', value: filters.responsable, onChange: (v) => setFilter('responsable', v), placeholder: 'Filtrar responsable...' },
+          { key: 'creado_por', type: 'text', label: 'Creado por', value: filters.creado_por, onChange: (v) => setFilter('creado_por', v), placeholder: 'Filtrar creado por...' },
+          { key: 'modificado_por', type: 'text', label: 'Modificado por', value: filters.modificado_por, onChange: (v) => setFilter('modificado_por', v), placeholder: 'Filtrar modificado por...' },
+        ]}
+        onClear={clearFilters}
+      />
+
+      {/* Bottom sheet de ordenamiento — mobile. Reutiliza handleSort/SortIcon,
+          el mismo mecanismo de ordering que los encabezados clickeables. */}
+      <BottomSheet open={mobileSortOpen} onClose={() => setMobileSortOpen(false)}>
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-bold uppercase">Ordenar por</h2>
+            <button onClick={() => setMobileSortOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+              <X size={18} />
+            </button>
+          </div>
+          {ORDER_OPTIONS.map(({ key, label }) => {
+            const campo = SORT_FIELD_MAP[key];
+            const activo = ordering === campo || ordering === `-${campo}`;
+            return (
+              <button
+                key={key}
+                onClick={() => handleSort(key)}
+                className={`w-full flex items-center justify-between px-3 py-3 rounded-lg text-sm transition-colors ${
+                  activo ? 'bg-accent/10 text-accent font-semibold' : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                {label}
+                <SortIcon columnKey={key} />
+              </button>
+            );
+          })}
+        </div>
+      </BottomSheet>
 
       {/* Tabla */}
       {loading ? (

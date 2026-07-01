@@ -67,8 +67,9 @@ const MovimientosGlobal = () => {
         </div>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white dark:bg-dark-surface p-3 rounded-lg shadow flex flex-wrap gap-2 items-center">
+      {/* Filtros — solo desktop/tablet (>= md). En mobile, MovimientosTable
+          reemplaza esto por la barra compacta Filtrar/Ordenar + bottom sheet. */}
+      <div className="hidden md:flex bg-white dark:bg-dark-surface p-3 rounded-lg shadow flex-wrap gap-2 items-center">
         {FILTROS.map(({ key, label, color }) => (
           <button
             key={key}
@@ -95,9 +96,9 @@ const MovimientosGlobal = () => {
         )}
       </div>
 
-      {/* Active filter badge */}
+      {/* Active filter badge — solo desktop/tablet, en mobile lo reemplazan los chips */}
       {filtro !== 'todos' && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+        <p className="hidden md:block text-xs text-gray-500 dark:text-gray-400 px-1">
           Mostrando:{' '}
           <span className="bg-accent/10 text-accent px-2 py-0.5 rounded-full font-medium">
             {activeFiltro.label}
@@ -111,6 +112,9 @@ const MovimientosGlobal = () => {
         showCarpetaColumn={true}
         refreshKey={refreshKey}
         onClearTabFilter={() => handleFiltro('todos')}
+        quickFiltro={filtro}
+        quickFiltros={FILTROS}
+        onQuickFiltro={handleFiltro}
       />
 
       {newModalOpen && (

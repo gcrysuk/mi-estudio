@@ -8,17 +8,20 @@ const POLL_MS = 10 * 1000;
 export function useNotificaciones() {
   const [notificaciones, setNotificaciones] = useState([]);
   const [notificacionesSistema, setNotificacionesSistema] = useState([]);
+  const [mevPendientesCount, setMevPendientesCount] = useState(0);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
   const refetch = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const [resVenc, resSist] = await Promise.all([
+      const [resVenc, resSist, resMev] = await Promise.all([
         api.get('/movimientos/notificaciones/pendientes/'),
         api.get('/movimientos/notificaciones_sistema/?no_leidas=true'),
+        api.get('/mev-ingest/pendientes_count/'),
       ]);
       setNotificaciones(resVenc.data.results ?? resVenc.data ?? []);
       setNotificacionesSistema(resSist.data.results ?? []);
+      setMevPendientesCount(resMev.data.count ?? 0);
     } catch {
       // silencioso
     }
@@ -34,6 +37,7 @@ export function useNotificaciones() {
     if (!isAuthenticated) {
       setNotificaciones([]);
       setNotificacionesSistema([]);
+      setMevPendientesCount(0);
     }
   }, [isAuthenticated]);
 
@@ -72,6 +76,7 @@ export function useNotificaciones() {
     notificaciones,
     notificacionesSistema,
     count: notificaciones.length + notificacionesSistema.length,
+    mevPendientesCount,
     marcarLeida,
     marcarLeidaSistema,
     marcarTodasLeidas,

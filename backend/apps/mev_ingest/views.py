@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.filters import OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.carpetas.models import Carpeta
@@ -16,10 +16,21 @@ class NotificacionMEVRecibidaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificacionMEVRecibidaSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['estado_procesamiento']
-    ordering_fields = ['fecha_recepcion', 'creado']
+    search_fields = ['caratula', 'nro_causa', 'organismo']
+    ordering_fields = [
+        'nro_causa', 'caratula', 'estado', 'fecha_proveido',
+        'fecha_recepcion', 'estado_procesamiento', 'creado',
+    ]
     ordering = ['-fecha_recepcion']
+
+    @action(detail=False, methods=['get'], url_path='pendientes_count')
+    def pendientes_count(self, request):
+        count = NotificacionMEVRecibida.objects.filter(
+            estado_procesamiento__in=['sin_match', 'pendiente']
+        ).count()
+        return Response({'count': count})
 
     @action(detail=True, methods=['post'])
     def asignar(self, request, pk=None):

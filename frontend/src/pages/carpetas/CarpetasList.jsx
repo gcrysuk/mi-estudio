@@ -513,7 +513,7 @@ const CarpetasList = () => {
 
       {/* Filtros y búsqueda */}
       <div className="bg-white dark:bg-dark-surface p-3 rounded-lg shadow">
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           {/* Buscador general */}
           <div className="relative flex-1">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />

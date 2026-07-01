@@ -1,7 +1,6 @@
 import { useRef, useState, useCallback } from 'react'
 import { Bell, Moon, Sun, Plus, Menu, HelpCircle } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
-import { useNotificaciones } from '../../hooks/useNotificaciones'
 import PanelNotificaciones from '../notificaciones/PanelNotificaciones'
 import useClickOutside from '../../hooks/useClickOutside'
 import MovimientoForm from '../../pages/movimientos/MovimientoForm'
@@ -9,10 +8,10 @@ import { useHelp } from '../../contexts/HelpContext'
 import HelpTip from '../HelpTip'
 import { HELP } from '../../constants/helpTexts'
 
-const Topbar = ({ onMobileMenuToggle }) => {
+const Topbar = ({ onMobileMenuToggle, notif }) => {
   const { theme, toggleTheme } = useTheme()
   const { ayudaActiva, toggleAyuda } = useHelp()
-  const { notificaciones, notificacionesSistema, count, marcarLeida, marcarLeidaSistema, marcarTodasLeidas } = useNotificaciones()
+  const { notificaciones, notificacionesSistema, count, marcarLeida, marcarLeidaSistema, marcarTodasLeidas } = notif
   const [panelOpen, setPanelOpen] = useState(false)
   const [showMovForm, setShowMovForm] = useState(false)
 

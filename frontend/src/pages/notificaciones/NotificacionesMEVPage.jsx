@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Search, ExternalLink } from 'lucide-react';
+import { Mail, Search, ExternalLink, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -12,6 +12,26 @@ const ESTADO_BADGE = {
   sin_match: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400',
   procesado: 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400',
   error: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400',
+};
+
+const ESTADOS_PROCESAMIENTO = [
+  { value: 'pendiente', label: 'Pendiente' },
+  { value: 'asignado',  label: 'Asignado'  },
+  { value: 'sin_match', label: 'Sin match' },
+  { value: 'procesado', label: 'Procesado' },
+  { value: 'error',     label: 'Error'     },
+];
+
+// Mapea la columna de UI al campo de ordering que expone el backend
+// (ordering_fields en apps/mev_ingest/views.py). El filtro de estado se
+// envía siempre junto al ordering en la misma request (mismo mecanismo
+// que ya funciona en Movimientos vía el filtro por desplegable).
+const SORT_FIELD_MAP = {
+  nro_causa:           'nro_causa',
+  caratula:             'caratula',
+  estado:               'estado',
+  fecha_proveido:       'fecha_proveido',
+  estado_procesamiento: 'estado_procesamiento',
 };
 
 const fecha = (value) => {
@@ -85,22 +105,55 @@ function AsignarCarpeta({ notif, onAsignado }) {
 export default function NotificacionesMEVPage() {
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('');
+  const [ordering, setOrdering] = useState('');
 
   const fetchNotificaciones = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get('/mev-ingest/');
+      const params = {};
+      if (search) params.search = search;
+      if (filtroEstado) params.estado_procesamiento = filtroEstado;
+      if (ordering) params.ordering = ordering;
+      const res = await api.get('/mev-ingest/', { params });
       setNotificaciones(res.data.results ?? res.data);
     } catch {
       toast.error('Error al cargar notificaciones MEV');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, filtroEstado, ordering]);
 
   useEffect(() => {
     fetchNotificaciones();
   }, [fetchNotificaciones]);
+
+  const handleSort = (uiKey) => {
+    const campo = SORT_FIELD_MAP[uiKey];
+    if (!campo) return;
+    setOrdering((prev) => (prev === campo ? `-${campo}` : campo));
+  };
+
+  const SortIcon = ({ columnKey }) => {
+    const campo = SORT_FIELD_MAP[columnKey];
+    if (!campo) return null;
+    if (ordering === campo) return <ChevronUp size={13} className="inline ml-1" />;
+    if (ordering === `-${campo}`) return <ChevronDown size={13} className="inline ml-1" />;
+    return null;
+  };
+
+  const TH = ({ columnKey, children }) => (
+    <th
+      onClick={() => handleSort(columnKey)}
+      className="px-3 py-2 text-left cursor-pointer select-none hover:text-accent"
+    >
+      {children}<SortIcon columnKey={columnKey} />
+    </th>
+  );
+
+  const hayFiltrosActivos = search || filtroEstado;
+  const limpiarFiltros = () => { setSearch(''); setFiltroEstado(''); };
 
   return (
     <div className="min-h-full bg-gray-100 dark:bg-gray-900">
@@ -112,6 +165,46 @@ export default function NotificacionesMEVPage() {
           </h1>
         </div>
 
+        {/* Barra de filtros */}
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow p-3 flex flex-wrap gap-2 items-center mb-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por carátula, causa u organismo..."
+              className={`w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-accent ${search ? 'border-accent ring-1 ring-accent' : 'border-gray-300 dark:border-gray-600'}`}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div className="relative">
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className={`appearance-none pl-3 pr-8 py-1.5 text-sm rounded-lg border bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:ring-1 focus:ring-accent ${filtroEstado ? 'border-accent ring-1 ring-accent text-accent' : 'border-gray-300 dark:border-gray-600'}`}
+            >
+              <option value="">Todos los estados</option>
+              {ESTADOS_PROCESAMIENTO.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+          </div>
+
+          {hayFiltrosActivos && (
+            <button
+              onClick={limpiarFiltros}
+              className="px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center gap-1 text-white font-bold text-xs shadow-sm transition-colors"
+            >
+              <X size={12} /> LIMPIAR
+            </button>
+          )}
+        </div>
+
         <div className="rounded-xl shadow overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400 text-sm">
@@ -121,18 +214,19 @@ export default function NotificacionesMEVPage() {
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Mail size={36} strokeWidth={1} className="text-gray-300 dark:text-gray-600" />
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                No hay notificaciones MEV recibidas
+                {hayFiltrosActivos ? 'Ningún resultado coincide con el filtro aplicado' : 'No hay notificaciones MEV recibidas'}
               </p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700/50 text-[11px] uppercase text-gray-500 dark:text-gray-400">
                 <tr>
-                  <th className="px-3 py-2 text-left">Causa</th>
-                  <th className="px-3 py-2 text-left">Carátula</th>
-                  <th className="px-3 py-2 text-left">Estado MEV</th>
-                  <th className="px-3 py-2 text-left">Fecha</th>
-                  <th className="px-3 py-2 text-left">Procesamiento</th>
+                  <TH columnKey="nro_causa">Causa</TH>
+                  <TH columnKey="caratula">Carátula</TH>
+                  <TH columnKey="estado">Estado MEV</TH>
+                  <TH columnKey="fecha_proveido">Fecha</TH>
+                  <TH columnKey="estado_procesamiento">Procesamiento</TH>
                   <th className="px-3 py-2 text-left">Acción</th>
                 </tr>
               </thead>
@@ -175,6 +269,7 @@ export default function NotificacionesMEVPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

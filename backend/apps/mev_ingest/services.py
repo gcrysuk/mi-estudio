@@ -5,6 +5,7 @@ import re
 import unicodedata
 from email.policy import default as email_default_policy
 from email.utils import parsedate_to_datetime
+from html import escape as escape_html
 
 from django.conf import settings
 from django.db import transaction
@@ -13,6 +14,7 @@ from django.utils import timezone
 from apps.carpetas.models import Carpeta, HistorialEstadoMEV
 from apps.movimientos.models import Movimiento, TipoMovimiento
 from apps.movimientos.utils import crear_notificacion
+from apps.organismos.models import Organismo
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,34 @@ def normalizar_numero_expediente(valor: str) -> str:
     valor = unicodedata.normalize('NFKC', valor)
     match = re.match(r'\s*(\d+)', valor)
     return match.group(1) if match else ''
+
+
+def texto_plano_a_html(texto: str) -> str:
+    """Convierte texto plano (líneas separadas por \\n) al HTML que produce
+    Quill (getSemanticHTML) al editar un movimiento a mano: cada línea no
+    vacía envuelta en <p>, sin separadores entre ellas. Replica exactamente
+    textoAHtml() de frontend/src/pages/movimientos/MovimientoForm.jsx para que
+    el movimiento se vea igual sin necesidad de editarlo. Escapa & < > para no
+    romper el markup ni inyectar HTML del cuerpo del mail."""
+    if not texto:
+        return ''
+    lineas = [linea for linea in texto.split('\n') if linea.strip()]
+    return ''.join(f'<p>{escape_html(linea, quote=False)}</p>' for linea in lineas)
+
+
+def _resolver_numero_expediente(actual: str, nuevo: str) -> str:
+    """Decide qué valor guardar en carpeta.numero_expediente a partir del
+    nro_causa del mail, sin degradar un valor ya guardado más específico
+    (ej. carpeta '29948 - 07', mail '29948': se mantiene el de la carpeta,
+    ya que el match sólo usa el prefijo numérico y no se pierde nada)."""
+    if not nuevo:
+        return actual
+    if not actual:
+        return nuevo
+    mismo_expediente = normalizar_numero_expediente(actual) == normalizar_nro_causa(nuevo)
+    if mismo_expediente and len(nuevo.strip()) < len(actual.strip()):
+        return actual
+    return nuevo
 
 
 def buscar_carpeta_match(nro_causa: str):
@@ -68,18 +98,55 @@ def aplicar_notificacion(notif):
         with transaction.atomic():
             carpeta = notif.carpeta
 
+            # La MEV es la fuente de verdad: sincronizar nombre, expediente y
+            # organismo de la carpeta con los datos del mail, aunque ya tengan
+            # valor. Se aplica tanto en match automático como en asignación manual.
+            campos_actualizados = []
+
+            if notif.caratula and carpeta.nombre != notif.caratula:
+                carpeta.nombre = notif.caratula
+                campos_actualizados.append('nombre')
+
+            if notif.nro_causa:
+                nuevo_numero = _resolver_numero_expediente(carpeta.numero_expediente, notif.nro_causa)
+                if nuevo_numero != carpeta.numero_expediente:
+                    carpeta.numero_expediente = nuevo_numero
+                    campos_actualizados.append('numero_expediente')
+
+            if notif.organismo and notif.organismo.strip():
+                organismo_obj = Organismo.objects.filter(
+                    propietario=carpeta.propietario, nombre__iexact=notif.organismo
+                ).first()
+                if organismo_obj is None:
+                    organismo_obj, _ = Organismo.objects.get_or_create(
+                        nombre=notif.organismo,
+                        propietario=carpeta.propietario,
+                        defaults={'activo': True},
+                    )
+                if carpeta.organismo_id != organismo_obj.id:
+                    carpeta.organismo = organismo_obj
+                    campos_actualizados.append('organismo')
+
+            if campos_actualizados:
+                carpeta.save(update_fields=campos_actualizados)
+                logger.info(
+                    'aplicar_notificacion: carpeta %s actualizada desde MEV (campos: %s)',
+                    carpeta.id, campos_actualizados,
+                )
+
             tipo_mev, _ = TipoMovimiento.objects.get_or_create(
                 nombre='MEV',
                 propietario=None,
                 defaults={'color': '#6366f1', 'orden': 99},
             )
 
+            cuerpo_html = texto_plano_a_html(notif.cuerpo_proveido)
             movimiento = Movimiento.objects.create(
                 carpeta=carpeta,
                 tipo=tipo_mev,
                 titulo=notif.descripcion or notif.estado or 'Notificación MEV',
-                descripcion=notif.cuerpo_proveido,
-                transcripcion=notif.cuerpo_proveido,
+                descripcion=cuerpo_html,
+                transcripcion=cuerpo_html,
                 fecha_movimiento=notif.fecha_proveido,
                 creado_por=carpeta.propietario,
             )

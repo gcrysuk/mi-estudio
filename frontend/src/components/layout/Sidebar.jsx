@@ -36,7 +36,7 @@ const navItems = [
   { to: '/papelera',    icon: Trash2,          label: 'Papelera'     },
 ]
 
-const Sidebar = ({ mobileOpen = false, onClose }) => {
+const Sidebar = ({ mobileOpen = false, onClose, mevPendientesCount = 0 }) => {
   const { logout, user } = useAuthStore()
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
@@ -101,28 +101,38 @@ const Sidebar = ({ mobileOpen = false, onClose }) => {
 
       {/* Nav */}
       <nav className="flex-1 py-3 space-y-0.5 overflow-hidden">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            title={!isExpanded ? label : undefined}
-            onClick={() => onClose?.()}
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-2.5 mx-2 rounded-lg transition-colors text-sm ${
-                isExpanded ? 'px-3' : 'px-0 justify-center'
-              } ${
-                isActive
-                  ? 'bg-accent text-white'
-                  : 'text-gray-300 hover:bg-gray-800'
-              }`
-            }
-          >
-            <Icon size={18} className="flex-shrink-0" />
-            {isExpanded && (
-              <span className="whitespace-nowrap">{label}</span>
-            )}
-          </NavLink>
-        ))}
+        {navItems.map(({ to, icon: Icon, label }) => {
+          const badgeCount = to === '/notificaciones-mev' ? mevPendientesCount : 0
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              title={!isExpanded ? label : undefined}
+              onClick={() => onClose?.()}
+              className={({ isActive }) =>
+                `flex items-center gap-3 py-2.5 mx-2 rounded-lg transition-colors text-sm ${
+                  isExpanded ? 'px-3' : 'px-0 justify-center'
+                } ${
+                  isActive
+                    ? 'bg-accent text-white'
+                    : 'text-gray-300 hover:bg-gray-800'
+                }`
+              }
+            >
+              <span className="relative flex-shrink-0">
+                <Icon size={18} />
+                {badgeCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
+              </span>
+              {isExpanded && (
+                <span className={`whitespace-nowrap ${badgeCount > 0 ? 'font-bold' : ''}`}>{label}</span>
+              )}
+            </NavLink>
+          )
+        })}
       </nav>
 
       {/* Footer */}
