@@ -4,11 +4,13 @@ import logging
 import re
 import unicodedata
 from email.policy import default as email_default_policy
-from email.utils import parsedate_to_datetime
+from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 from html import escape as escape_html
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.carpetas.models import Carpeta, HistorialEstadoMEV
@@ -17,6 +19,8 @@ from apps.movimientos.utils import crear_notificacion
 from apps.organismos.models import Organismo
 
 logger = logging.getLogger(__name__)
+
+User = get_user_model()
 
 
 def normalizar_nro_causa(valor: str) -> str:
@@ -67,17 +71,25 @@ def _resolver_numero_expediente(actual: str, nuevo: str) -> str:
     return nuevo
 
 
-def buscar_carpeta_match(nro_causa: str):
-    """Busca, en todas las carpetas del estudio, la que coincide por número de
-    expediente normalizado. Retorna (carpeta, cantidad_candidatas): la carpeta
-    es None si hay 0 o más de un match (queda para revisión manual), y
-    cantidad_candidatas indica cuántas carpetas coincidieron."""
+def buscar_carpeta_match(nro_causa: str, usuario):
+    """Busca, entre las carpetas del abogado dado (propias o compartidas con
+    él), la que coincide por número de expediente normalizado. El match está
+    restringido a ese abogado para no cruzar expedientes duplicados entre
+    distintos abogados de la misma casilla compartida. Retorna
+    (carpeta, cantidad_candidatas): la carpeta es None si hay 0 o más de un
+    match (queda para revisión manual), y cantidad_candidatas indica cuántas
+    carpetas coincidieron."""
     nro_normalizado = normalizar_nro_causa(nro_causa)
-    if not nro_normalizado:
+    if not nro_normalizado or usuario is None:
         return None, 0
 
+    carpetas_usuario = Carpeta.objects.filter(
+        Q(propietario=usuario) | Q(compartida_con=usuario),
+        activo=True,
+    ).exclude(numero_expediente='').distinct()
+
     candidatas = []
-    for carpeta in Carpeta.objects.filter(activo=True).exclude(numero_expediente=''):
+    for carpeta in carpetas_usuario:
         if normalizar_numero_expediente(carpeta.numero_expediente) == nro_normalizado:
             candidatas.append(carpeta)
 
@@ -196,6 +208,33 @@ def _aware(dt):
     return timezone.make_aware(dt) if timezone.is_naive(dt) else dt
 
 
+def _extraer_destinatario(msg) -> str:
+    """Determina el email del abogado destinatario original de un mail MEV
+    reenviado a través de la casilla recolectora compartida. Prioridad:
+    1) 'To' si no es la casilla recolectora (reenvío automático de Gmail
+       preserva el 'To' original). 2) Si 'To' es la casilla, 'Delivered-To'
+       (reenvío manual). 3) Si no hay, el primer email de 'X-Forwarded-For'
+       que no sea la casilla."""
+    casilla = (settings.MEV_IMAP_USER or '').strip().lower()
+
+    _, to_addr = parseaddr(msg.get('To', ''))
+    to_addr = to_addr.strip().lower()
+    if to_addr and to_addr != casilla:
+        return to_addr
+
+    _, delivered_addr = parseaddr(msg.get('Delivered-To', ''))
+    delivered_addr = delivered_addr.strip().lower()
+    if delivered_addr and delivered_addr != casilla:
+        return delivered_addr
+
+    for _, addr in getaddresses([msg.get('X-Forwarded-For', '')]):
+        addr = addr.strip().lower()
+        if addr and addr != casilla:
+            return addr
+
+    return ''
+
+
 def _procesar_mensaje_mev(imap, num, dry_run, solo_leer, contadores):
     from apps.mev_ingest.models import NotificacionMEVRecibida
     from apps.mev_ingest.parser import parse_mail_mev
@@ -228,6 +267,9 @@ def _procesar_mensaje_mev(imap, num, dry_run, solo_leer, contadores):
     except (TypeError, ValueError):
         fecha_recepcion = timezone.now()
 
+    destinatario = _extraer_destinatario(msg)
+    usuario = User.objects.filter(email__iexact=destinatario).first() if destinatario else None
+
     notif = NotificacionMEVRecibida.objects.create(
         message_id=message_id or f'sin-message-id-{timezone.now().timestamp()}',
         remitente=msg.get('From', ''),
@@ -241,12 +283,20 @@ def _procesar_mensaje_mev(imap, num, dry_run, solo_leer, contadores):
         fecha_proveido=_aware(datos['fecha']),
         cuerpo_proveido=datos['cuerpo_proveido'],
         raw_html=html,
+        destinatario=destinatario,
+        usuario=usuario,
     )
+
+    if usuario is None:
+        notif.estado_procesamiento = 'no_reconocido'
+        notif.save()
+        contadores['no_reconocido'] += 1
+        return notif
 
     if solo_leer:
         return notif
 
-    carpeta, candidatas_count = buscar_carpeta_match(notif.nro_causa)
+    carpeta, candidatas_count = buscar_carpeta_match(notif.nro_causa, usuario)
     if carpeta:
         notif.carpeta = carpeta
         notif.estado_procesamiento = 'asignado'
@@ -267,6 +317,40 @@ def _procesar_mensaje_mev(imap, num, dry_run, solo_leer, contadores):
     return notif
 
 
+def reintentar_sin_match(dry_run, contadores):
+    """Recorre las notificaciones que quedaron en estado 'sin_match' en
+    corridas anteriores y reintenta el match: si ahora existe la carpeta
+    correspondiente (ej. llegó el mail antes de que se cargara la carpeta),
+    la asigna y aplica. Si sigue sin match único, sólo actualiza el conteo
+    de candidatas. Sólo se reintentan las que ya tienen un abogado
+    identificado (usuario no nulo); las 'no_reconocido' quedan para revisión
+    de admin."""
+    from apps.mev_ingest.models import NotificacionMEVRecibida
+
+    pendientes = NotificacionMEVRecibida.objects.filter(
+        estado_procesamiento='sin_match', usuario__isnull=False,
+    )
+    for notif in pendientes:
+        carpeta, candidatas_count = buscar_carpeta_match(notif.nro_causa, notif.usuario)
+        if carpeta:
+            notif.carpeta = carpeta
+            notif.estado_procesamiento = 'asignado'
+            notif.carpetas_candidatas_count = candidatas_count
+            notif.save()
+            contadores['rematcheados'] += 1
+            contadores['asignados'] += 1
+
+            if not dry_run:
+                aplicar_notificacion(notif)
+                if notif.estado_procesamiento == 'procesado':
+                    contadores['procesados'] += 1
+                elif notif.estado_procesamiento == 'error':
+                    contadores['error'] += 1
+        elif candidatas_count != notif.carpetas_candidatas_count:
+            notif.carpetas_candidatas_count = candidatas_count
+            notif.save(update_fields=['carpetas_candidatas_count'])
+
+
 def ejecutar_ingesta_mev(dry_run=False, solo_leer=False):
     """Lee la casilla IMAP recolectora de notificaciones MEV, las parsea y
     aplica a la carpeta correspondiente. Función central usada tanto por el
@@ -274,7 +358,8 @@ def ejecutar_ingesta_mev(dry_run=False, solo_leer=False):
     para no duplicar la lógica de ingesta."""
     contadores = {
         'leidos': 0, 'nuevos': 0, 'asignados': 0,
-        'sin_match': 0, 'procesados': 0, 'error': 0,
+        'sin_match': 0, 'procesados': 0, 'error': 0, 'rematcheados': 0,
+        'no_reconocido': 0,
     }
 
     try:
@@ -297,6 +382,12 @@ def ejecutar_ingesta_mev(dry_run=False, solo_leer=False):
                 _procesar_mensaje_mev(imap, num, dry_run, solo_leer, contadores)
             except Exception as exc:
                 logger.error('Error procesando mensaje MEV: %s', exc)
+
+        if not solo_leer:
+            try:
+                reintentar_sin_match(dry_run, contadores)
+            except Exception as exc:
+                logger.error('Error reintentando sin_match: %s', exc)
     finally:
         try:
             imap.close()

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -8,6 +9,7 @@ class NotificacionMEVRecibida(models.Model):
         ('sin_match', 'Sin match'),
         ('procesado', 'Procesado'),
         ('error', 'Error'),
+        ('no_reconocido', 'No reconocido'),
     ]
 
     message_id = models.CharField(max_length=255, unique=True)
@@ -22,6 +24,19 @@ class NotificacionMEVRecibida(models.Model):
     descripcion = models.TextField(blank=True)
     fecha_proveido = models.DateTimeField(null=True, blank=True)
     cuerpo_proveido = models.TextField(blank=True)
+
+    destinatario = models.CharField(
+        max_length=255, blank=True,
+        help_text="Email del abogado destinatario original del mail (antes del reenvío a la casilla compartida).",
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notificaciones_mev',
+        help_text="Abogado dueño de la notificación, identificado por 'destinatario'.",
+    )
 
     carpeta = models.ForeignKey(
         'carpetas.Carpeta',
