@@ -247,6 +247,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
                 'carpeta_compartida',
                 actor=actor,
                 movimiento=None,
+                carpeta=carpeta,
                 mensaje=f"{actor.get_full_name() or actor.username} te compartió la carpeta '{carpeta.nombre}' con acceso de {acceso}.",
             )
 
@@ -392,6 +393,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
                 _Q(propietario=user) | _Q(compartida_con=user),
                 activo=True,
             )
+        carpetas_qs = carpetas_qs.exclude(estado__nombre__iexact='ARCHIVADA')
 
         carpetas_mev = qs_con_fecha_inicio_estado_mev(
             carpetas_qs.filter(mev_url__isnull=False).exclude(mev_url='')
@@ -480,6 +482,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
                 _Q(propietario=user) | _Q(compartida_con=user),
                 activo=True,
             ).distinct()
+        carpetas_qs = carpetas_qs.exclude(estado__nombre__iexact='ARCHIVADA')
 
         # Solo carpetas con organismo
         carpetas_data = {
@@ -643,6 +646,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
                         'carpeta_compartida',
                         actor=actor,
                         movimiento=None,
+                        carpeta=carpeta,
                         mensaje=f"{actor.get_full_name() or actor.username} te compartió la carpeta '{carpeta.nombre}' con acceso de {acceso}.",
                     )
             except Carpeta.DoesNotExist:

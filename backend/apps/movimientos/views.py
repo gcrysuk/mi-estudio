@@ -55,21 +55,21 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.is_superuser:
-            return Movimiento.objects.filter(activo=True).select_related(
-                'carpeta', 'tipo', 'estado', 'creado_por'
+            queryset = Movimiento.objects.filter(activo=True).select_related(
+                'carpeta', 'tipo', 'estado', 'creado_por', 'responsable', 'modificado_por'
             )
+        else:
+            carpetas_accesibles = Carpeta.objects.filter(
+                Q(propietario=user) | Q(compartida_con=user) | Q(es_publico=True),
+                activo=True,
+            ).values_list('id', flat=True)
 
-        carpetas_accesibles = Carpeta.objects.filter(
-            Q(propietario=user) | Q(compartida_con=user) | Q(es_publico=True),
-            activo=True,
-        ).values_list('id', flat=True)
-
-        queryset = Movimiento.objects.filter(
-            Q(carpeta_id__in=carpetas_accesibles) |
-            Q(carpeta__isnull=True, creado_por=user) |
-            Q(responsable=user),
-            activo=True,
-        ).select_related('carpeta', 'tipo', 'estado', 'creado_por', 'responsable', 'modificado_por')
+            queryset = Movimiento.objects.filter(
+                Q(carpeta_id__in=carpetas_accesibles) |
+                Q(carpeta__isnull=True, creado_por=user) |
+                Q(responsable=user),
+                activo=True,
+            ).select_related('carpeta', 'tipo', 'estado', 'creado_por', 'responsable', 'modificado_por')
 
         carpeta_id = self.request.query_params.get('carpeta')
         if carpeta_id:
@@ -82,6 +82,30 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         estado_nombre = self.request.query_params.get('estado_nombre')
         if estado_nombre:
             queryset = queryset.filter(estado__nombre__iexact=estado_nombre)
+
+        responsable = self.request.query_params.get('responsable')
+        if responsable:
+            queryset = queryset.filter(
+                Q(responsable__username__icontains=responsable) |
+                Q(responsable__first_name__icontains=responsable) |
+                Q(responsable__last_name__icontains=responsable)
+            )
+
+        creado_por = self.request.query_params.get('creado_por')
+        if creado_por:
+            queryset = queryset.filter(
+                Q(creado_por__username__icontains=creado_por) |
+                Q(creado_por__first_name__icontains=creado_por) |
+                Q(creado_por__last_name__icontains=creado_por)
+            )
+
+        modificado_por = self.request.query_params.get('modificado_por')
+        if modificado_por:
+            queryset = queryset.filter(
+                Q(modificado_por__username__icontains=modificado_por) |
+                Q(modificado_por__first_name__icontains=modificado_por) |
+                Q(modificado_por__last_name__icontains=modificado_por)
+            )
 
         vence_hoy = self.request.query_params.get('vence_hoy')
         if vence_hoy:

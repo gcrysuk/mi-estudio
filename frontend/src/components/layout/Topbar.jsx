@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Bell, Moon, Sun, Plus, Menu, HelpCircle } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import PanelNotificaciones from '../notificaciones/PanelNotificaciones'
@@ -17,6 +17,15 @@ const Topbar = ({ onMobileMenuToggle, notif }) => {
 
   const containerRef = useRef(null)
   useClickOutside(containerRef, useCallback(() => setPanelOpen(false), []))
+
+  useEffect(() => {
+    if (!panelOpen) return
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setPanelOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [panelOpen])
 
   const handleMarcarTodas = async () => {
     await marcarTodasLeidas()

@@ -80,7 +80,7 @@ const PanelNotificaciones = ({
           )}
         </div>
 
-        <div className="overflow-y-auto max-h-[440px]">
+        <div className="overflow-y-auto overscroll-contain max-h-[440px]">
           {totalCount === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-400">
               <Bell size={28} strokeWidth={1.2} />
