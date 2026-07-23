@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell, UserCheck, RefreshCw, Folder, Scale, CheckCheck, Trash2,
-  ExternalLink, Circle, CheckCircle, ChevronDown, AlertTriangle,
+  ExternalLink, Circle, CheckCircle, ChevronDown, AlertTriangle, Link2,
 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -19,6 +19,8 @@ const FILTROS = [
   { key: 'mev_nuevo_movimiento', label: 'MEV' },
   { key: 'mev_cambio_estado',   label: 'MEV estado' },
   { key: 'mev_error',           label: 'MEV error' },
+  { key: 'mev_sin_match',       label: 'MEV sin asignar' },
+  { key: 'mev_procesado',       label: 'MEV procesado' },
 ];
 
 const TIPO_META = {
@@ -28,6 +30,8 @@ const TIPO_META = {
   mev_nuevo_movimiento: { icon: Scale,         color: 'text-indigo-500', bg: 'bg-indigo-500/10', badge: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', label: 'MEV' },
   mev_cambio_estado:    { icon: Scale,         color: 'text-indigo-500', bg: 'bg-indigo-500/10', badge: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400', label: 'MEV estado' },
   mev_error:            { icon: AlertTriangle, color: 'text-red-500',    bg: 'bg-red-500/10',    badge: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400',           label: 'MEV error' },
+  mev_sin_match:        { icon: Link2,   color: 'text-orange-500', bg: 'bg-orange-500/10', badge: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400', label: 'MEV sin asignar' },
+  mev_procesado:        { icon: Scale,   color: 'text-green-500',  bg: 'bg-green-500/10',  badge: 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400',   label: 'MEV procesado' },
 };
 
 function buildDestino(notif) {
@@ -70,7 +74,7 @@ export default function NotificacionesPage() {
 
       const res = url
         ? await api.get(url, { params: {} })
-        : await api.get('/movimientos/notificaciones_sistema/todas/', { params });
+        : await api.get('/movimientos/notificaciones_sistema/feed/', { params });
 
       const data = res.data;
       const results = data.results ?? data;
@@ -92,10 +96,14 @@ export default function NotificacionesPage() {
     fetchNotificaciones();
   }, [fetchNotificaciones]);
 
-  const handleMarcarLeida = async (id) => {
+  const handleMarcarLeida = async (notif) => {
     try {
-      await api.patch(`/movimientos/notificaciones_sistema/${id}/marcar_leida/`);
-      setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: true } : n));
+      await api.patch('/movimientos/notificaciones_sistema/feed_marcar_leida/', {
+        origen: notif.origen, id: notif.id,
+      });
+      setNotificaciones(prev => prev.map(n =>
+        (n.origen === notif.origen && n.id === notif.id) ? { ...n, leida: true } : n
+      ));
     } catch {
       toast.error('Error al marcar');
     }
@@ -121,7 +129,7 @@ export default function NotificacionesPage() {
 
   const handleMarcarTodas = async () => {
     try {
-      await api.patch('/movimientos/notificaciones_sistema/marcar_todas_leidas/');
+      await api.patch('/movimientos/notificaciones_sistema/feed_marcar_todas_leidas/');
       setNotificaciones(prev => prev.map(n => ({ ...n, leida: true })));
       toast.success('Todas marcadas como leídas');
     } catch {
@@ -132,7 +140,7 @@ export default function NotificacionesPage() {
   const handleEliminarLeidas = async () => {
     try {
       await api.delete('/movimientos/notificaciones_sistema/eliminar_todas/');
-      setNotificaciones(prev => prev.filter(n => !n.leida));
+      setNotificaciones(prev => prev.filter(n => !(n.origen === 'sistema' && n.leida)));
       toast.success('Notificaciones leídas eliminadas');
     } catch {
       toast.error('Error al eliminar');
@@ -140,7 +148,7 @@ export default function NotificacionesPage() {
   };
 
   const noLeidas = notificaciones.filter(n => !n.leida).length;
-  const leidas = notificaciones.filter(n => n.leida).length;
+  const leidas = notificaciones.filter(n => n.origen === 'sistema' && n.leida).length;
 
   return (
     <div className="min-h-full bg-gray-100 dark:bg-gray-900">
@@ -216,7 +224,12 @@ export default function NotificacionesPage() {
                 const IconComp = meta.icon;
                 const actorNombre = notif.actor_detalle?.nombre_completo || notif.actor_detalle?.username || '';
                 const destino = buildDestino(notif);
+                const esSinMatch = notif.origen === 'mev' && notif.tipo === 'mev_sin_match';
                 const handleVer = async () => {
+                  if (esSinMatch) {
+                    navigate('/notificaciones-mev?estado_procesamiento=sin_match');
+                    return;
+                  }
                   if (notif.movimiento) {
                     try {
                       const res = await api.get(`/movimientos/${notif.movimiento}/`);
@@ -231,7 +244,7 @@ export default function NotificacionesPage() {
 
                 return (
                   <li
-                    key={notif.id}
+                    key={`${notif.origen}-${notif.id}`}
                     className={`px-3 sm:px-5 py-3 sm:py-4 transition-colors ${
                       !notif.leida
                         ? 'bg-blue-50/50 dark:bg-blue-900/10'
@@ -270,7 +283,7 @@ export default function NotificacionesPage() {
 
                         <div className="flex items-center gap-3 mt-1">
                           <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                            {relativo(notif.fecha_creacion)}
+                            {relativo(notif.fecha)}
                           </span>
                           {notif.carpeta_nombre && (
                             <span className="text-[11px] truncate max-w-[140px] text-gray-400 dark:text-gray-500" title={notif.carpeta_nombre}>
@@ -282,32 +295,36 @@ export default function NotificacionesPage() {
                         {/* Acciones */}
                         <div className="flex items-center gap-3 mt-2">
                           {notif.leida ? (
-                            <button
-                              onClick={() => handleMarcarNoLeida(notif.id)}
-                              className="flex items-center gap-1 text-[11px] uppercase transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                            >
-                              <Circle size={11} /> No leída
-                            </button>
+                            notif.origen === 'sistema' && (
+                              <button
+                                onClick={() => handleMarcarNoLeida(notif.id)}
+                                className="flex items-center gap-1 text-[11px] uppercase transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                              >
+                                <Circle size={11} /> No leída
+                              </button>
+                            )
                           ) : (
                             <button
-                              onClick={() => handleMarcarLeida(notif.id)}
+                              onClick={() => handleMarcarLeida(notif)}
                               className="flex items-center gap-1 text-[11px] uppercase transition-colors text-gray-400 dark:text-gray-500 hover:text-accent"
                             >
                               <CheckCircle size={11} /> Leída
                             </button>
                           )}
-                          <button
-                            onClick={() => handleEliminar(notif.id)}
-                            className="flex items-center gap-1 text-[11px] uppercase text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 size={11} /> Eliminar
-                          </button>
-                          {(notif.movimiento || destino) && (
+                          {notif.origen === 'sistema' && (
+                            <button
+                              onClick={() => handleEliminar(notif.id)}
+                              className="flex items-center gap-1 text-[11px] uppercase text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 size={11} /> Eliminar
+                            </button>
+                          )}
+                          {(esSinMatch || notif.movimiento || destino) && (
                             <button
                               onClick={handleVer}
                               className="ml-auto flex items-center gap-1 text-[11px] uppercase font-medium text-accent hover:opacity-75 transition-opacity"
                             >
-                              Ver <ExternalLink size={11} />
+                              {esSinMatch ? 'Asignar' : 'Ver'} <ExternalLink size={11} />
                             </button>
                           )}
                         </div>

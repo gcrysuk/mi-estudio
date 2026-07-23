@@ -13,12 +13,12 @@ class NotificacionMEVRecibidaSerializer(serializers.ModelSerializer):
             'organismo', 'nro_causa', 'caratula', 'estado', 'descripcion',
             'fecha_proveido', 'destinatario', 'usuario', 'usuario_nombre',
             'carpeta', 'carpeta_nombre', 'estado_procesamiento',
-            'carpetas_candidatas_count', 'movimiento_creado', 'error_detalle', 'creado',
+            'carpetas_candidatas_count', 'movimiento_creado', 'error_detalle', 'creado', 'leida',
         ]
         read_only_fields = [
             'id', 'message_id', 'remitente', 'asunto', 'fecha_recepcion',
             'organismo', 'nro_causa', 'caratula', 'estado', 'descripcion',
             'fecha_proveido', 'destinatario', 'usuario', 'carpeta_nombre',
             'estado_procesamiento', 'carpetas_candidatas_count', 'movimiento_creado',
-            'error_detalle', 'creado',
+            'error_detalle', 'creado', 'leida',
         ]

@@ -67,6 +67,10 @@ class NotificacionMEVRecibida(models.Model):
     raw_html = models.TextField(blank=True)
     error_detalle = models.TextField(null=True, blank=True)
     creado = models.DateTimeField(auto_now_add=True)
+    leida = models.BooleanField(
+        default=False,
+        help_text="Leída en la campanita de notificaciones (independiente de estado_procesamiento).",
+    )
 
     class Meta:
         ordering = ['-fecha_recepcion']

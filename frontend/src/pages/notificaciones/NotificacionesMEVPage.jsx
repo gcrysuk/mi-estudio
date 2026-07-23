@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Mail, Search, ExternalLink, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -103,10 +103,11 @@ function AsignarCarpeta({ notif, onAsignado }) {
 }
 
 export default function NotificacionesMEVPage() {
+  const [searchParams] = useSearchParams();
   const [notificaciones, setNotificaciones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState(() => searchParams.get('estado_procesamiento') || '');
   const [ordering, setOrdering] = useState('');
 
   const fetchNotificaciones = useCallback(async () => {

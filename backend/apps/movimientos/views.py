@@ -13,6 +13,7 @@ from .models import Movimiento, TipoMovimiento, EstadoMovimiento, NotificacionMo
 from .serializers import MovimientoSerializer, TipoMovimientoSerializer, EstadoMovimientoSerializer, NotificacionSerializer, KanbanConfigSerializer, NotificacionSistemaSerializer
 from .utils import crear_notificacion
 from apps.carpetas.models import Carpeta, CompartirCarpeta
+from apps.mev_ingest.models import NotificacionMEVRecibida
 from config.pagination import StandardPagination
 
 
@@ -769,6 +770,65 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         return Response({'minuta': minuta})
 
 
+MEV_TIPO_FEED = {
+    'sin_match': 'mev_sin_match',
+    'procesado': 'mev_procesado',
+}
+
+
+def _mev_es_admin(user):
+    return user.is_staff or user.is_superuser
+
+
+def _serializar_sistema_feed(n):
+    carpeta_id = n.carpeta_id or (n.movimiento.carpeta_id if n.movimiento_id else None)
+    carpeta_nombre = None
+    if n.carpeta_id:
+        carpeta_nombre = n.carpeta.nombre
+    elif n.movimiento_id and n.movimiento.carpeta_id:
+        carpeta_nombre = n.movimiento.carpeta.nombre
+    return {
+        'id': n.id,
+        'origen': 'sistema',
+        'tipo': n.tipo,
+        'mensaje': n.mensaje,
+        'fecha': n.fecha_creacion,
+        'leida': n.leida,
+        'movimiento': n.movimiento_id,
+        'movimiento_titulo': n.movimiento.titulo if n.movimiento_id else None,
+        'carpeta_id': carpeta_id,
+        'carpeta_nombre': carpeta_nombre,
+        'estado_procesamiento': None,
+        'actor_detalle': {
+            'id': n.actor_id,
+            'username': n.actor.username,
+            'nombre_completo': n.actor.get_full_name() or n.actor.username,
+        } if n.actor_id else None,
+    }
+
+
+def _serializar_mev_feed(n):
+    referencia = n.caratula or n.asunto or n.nro_causa or 'MEV'
+    if n.estado_procesamiento == 'sin_match':
+        mensaje = f"Notificación MEV sin asignar: {referencia}"
+    else:
+        mensaje = f"Notificación MEV procesada: {referencia}"
+    return {
+        'id': n.id,
+        'origen': 'mev',
+        'tipo': MEV_TIPO_FEED.get(n.estado_procesamiento, 'mev_procesado'),
+        'mensaje': mensaje,
+        'fecha': n.fecha_recepcion,
+        'leida': n.leida,
+        'movimiento': n.movimiento_creado_id,
+        'movimiento_titulo': n.movimiento_creado.titulo if n.movimiento_creado_id else None,
+        'carpeta_id': n.carpeta_id,
+        'carpeta_nombre': n.carpeta.nombre if n.carpeta_id else None,
+        'estado_procesamiento': n.estado_procesamiento,
+        'actor_detalle': None,
+    }
+
+
 class NotificacionSistemaViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = NotificacionSistemaSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -802,6 +862,91 @@ class NotificacionSistemaViewSet(viewsets.ReadOnlyModelViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    def _mev_queryset(self, request):
+        qs = NotificacionMEVRecibida.objects.filter(
+            estado_procesamiento__in=['sin_match', 'procesado']
+        ).select_related('carpeta', 'movimiento_creado', 'usuario')
+        if not _mev_es_admin(request.user):
+            qs = qs.filter(usuario=request.user)
+        return qs
+
+    @action(detail=False, methods=['get'], url_path='feed')
+    def feed(self, request):
+        sistema_qs = self.get_queryset().select_related('carpeta')
+        mev_qs = self._mev_queryset(request)
+
+        no_leidas_count = sistema_qs.filter(leida=False).count() + mev_qs.filter(leida=False).count()
+
+        tipo = request.query_params.get('tipo')
+        leida = request.query_params.get('leida')
+        no_leidas = request.query_params.get('no_leidas') == 'true'
+
+        if leida is not None:
+            leida_bool = leida.lower() == 'true'
+            sistema_qs = sistema_qs.filter(leida=leida_bool)
+            mev_qs = mev_qs.filter(leida=leida_bool)
+        elif no_leidas:
+            sistema_qs = sistema_qs.filter(leida=False)
+            mev_qs = mev_qs.filter(leida=False)
+
+        if tipo in MEV_TIPO_FEED.values():
+            estado_procesamiento = next(k for k, v in MEV_TIPO_FEED.items() if v == tipo)
+            sistema_qs = sistema_qs.none()
+            mev_qs = mev_qs.filter(estado_procesamiento=estado_procesamiento)
+        elif tipo:
+            sistema_qs = sistema_qs.filter(tipo=tipo)
+            mev_qs = mev_qs.none()
+
+        combinado = (
+            [_serializar_sistema_feed(n) for n in sistema_qs]
+            + [_serializar_mev_feed(n) for n in mev_qs]
+        )
+        combinado.sort(key=lambda item: item['fecha'], reverse=True)
+
+        try:
+            page_size = min(int(request.query_params.get('page_size', 20)), 50)
+        except ValueError:
+            page_size = 20
+        try:
+            page_num = max(int(request.query_params.get('page', 1)), 1)
+        except ValueError:
+            page_num = 1
+
+        start = (page_num - 1) * page_size
+        end = start + page_size
+        resultados = combinado[start:end]
+
+        next_url = None
+        if end < len(combinado):
+            query = request.GET.copy()
+            query['page'] = str(page_num + 1)
+            next_url = request.build_absolute_uri('?' + query.urlencode())
+
+        return Response({
+            'count': len(combinado),
+            'no_leidas_count': no_leidas_count,
+            'next': next_url,
+            'results': resultados,
+        })
+
+    @action(detail=False, methods=['patch'], url_path='feed_marcar_leida')
+    def feed_marcar_leida(self, request):
+        origen = request.data.get('origen')
+        item_id = request.data.get('id')
+        if origen == 'mev':
+            updated = self._mev_queryset(request).filter(pk=item_id).update(leida=True)
+        else:
+            updated = self.get_queryset().filter(pk=item_id).update(leida=True)
+        if not updated:
+            return Response({'detail': 'No encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'ok': True})
+
+    @action(detail=False, methods=['patch'], url_path='feed_marcar_todas_leidas')
+    def feed_marcar_todas_leidas(self, request):
+        self.get_queryset().filter(leida=False).update(leida=True)
+        self._mev_queryset(request).filter(leida=False).update(leida=True)
+        return Response({'ok': True})
 
     @action(detail=True, methods=['patch'], url_path='marcar_leida')
     def marcar_leida(self, request, pk=None):

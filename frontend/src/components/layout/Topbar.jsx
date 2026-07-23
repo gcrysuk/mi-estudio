@@ -11,7 +11,7 @@ import { HELP } from '../../constants/helpTexts'
 const Topbar = ({ onMobileMenuToggle, notif }) => {
   const { theme, toggleTheme } = useTheme()
   const { ayudaActiva, toggleAyuda } = useHelp()
-  const { notificaciones, notificacionesSistema, count, marcarLeida, marcarLeidaSistema, marcarTodasLeidas } = notif
+  const { notificaciones, feed, count, marcarLeida, marcarLeidaFeed, marcarTodasLeidas } = notif
   const [panelOpen, setPanelOpen] = useState(false)
   const [showMovForm, setShowMovForm] = useState(false)
 
@@ -75,9 +75,9 @@ const Topbar = ({ onMobileMenuToggle, notif }) => {
             {panelOpen && (
               <PanelNotificaciones
                 notificaciones={notificaciones}
-                notificacionesSistema={notificacionesSistema}
+                feed={feed}
                 onMarcarLeida={marcarLeida}
-                onMarcarLeidaSistema={marcarLeidaSistema}
+                onMarcarLeidaFeed={marcarLeidaFeed}
                 onMarcarTodas={handleMarcarTodas}
                 onClose={() => setPanelOpen(false)}
               />

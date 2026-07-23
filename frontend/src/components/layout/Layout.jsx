@@ -22,7 +22,6 @@ const Layout = () => {
       <Sidebar
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        mevPendientesCount={notif.mevPendientesCount}
       />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Topbar onMobileMenuToggle={() => setMobileOpen(prev => !prev)} notif={notif} />

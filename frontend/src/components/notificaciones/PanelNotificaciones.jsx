@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check, ExternalLink, CheckCheck, UserCheck, RefreshCw, Folder, Scale, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Bell, Check, ExternalLink, CheckCheck, UserCheck, RefreshCw, Folder, Scale, ArrowRight, AlertTriangle, Link2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -22,6 +22,8 @@ const TIPO_META = {
   mev_nuevo_movimiento:{ icon: <Scale size={12} />,         color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
   mev_cambio_estado:   { icon: <Scale size={12} />,         color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
   mev_error:           { icon: <AlertTriangle size={12} />, color: 'text-red-500',    bg: 'bg-red-500/10'    },
+  mev_sin_match:       { icon: <Link2 size={12} />,     color: 'text-orange-500', bg: 'bg-orange-500/10' },
+  mev_procesado:       { icon: <Scale size={12} />,     color: 'text-green-500',  bg: 'bg-green-500/10'  },
 };
 
 function Avatar({ nombre }) {
@@ -35,17 +37,22 @@ function Avatar({ nombre }) {
 
 const PanelNotificaciones = ({
   notificaciones,
-  notificacionesSistema = [],
+  feed = [],
   onMarcarLeida,
-  onMarcarLeidaSistema,
+  onMarcarLeidaFeed,
   onMarcarTodas,
   onClose,
 }) => {
   const navigate = useNavigate();
   const [movimientoSeleccionadoId, setMovimientoSeleccionadoId] = useState(null);
-  const totalCount = notificaciones.length + notificacionesSistema.length;
+  const totalCount = notificaciones.length + feed.length;
 
   const handleVer = (notif) => {
+    if (notif.origen === 'mev' && notif.tipo === 'mev_sin_match') {
+      navigate('/notificaciones-mev?estado_procesamiento=sin_match');
+      onClose();
+      return;
+    }
     if (notif.movimiento) {
       setMovimientoSeleccionadoId(notif.movimiento);
       return;
@@ -88,17 +95,19 @@ const PanelNotificaciones = ({
             </div>
           ) : (
             <>
-              {notificacionesSistema.length > 0 && (
+              {feed.length > 0 && (
                 <div>
                   <p className="px-4 py-1.5 text-[10px] font-bold uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-700">
                     Actividad del sistema
                   </p>
                   <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {notificacionesSistema.map((notif) => {
+                    {feed.map((notif) => {
                       const meta = TIPO_META[notif.tipo] ?? TIPO_META.asignacion;
                       const actorNombre = notif.actor_detalle?.nombre_completo || notif.actor_detalle?.username || '';
+                      const esSinMatch = notif.origen === 'mev' && notif.tipo === 'mev_sin_match';
+                      const puedeVer = esSinMatch || notif.movimiento || notif.carpeta_id;
                       return (
-                        <li key={notif.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <li key={`${notif.origen}-${notif.id}`} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                           <div className="flex items-start gap-3">
                             {actorNombre ? (
                               <Avatar nombre={actorNombre} />
@@ -112,20 +121,20 @@ const PanelNotificaciones = ({
                               {notif.carpeta_nombre && (
                                 <p className="text-[11px] text-gray-500 truncate mt-0.5">{notif.carpeta_nombre}</p>
                               )}
-                              <p className="text-[11px] text-gray-400 mt-0.5">{relativo(notif.fecha_creacion)}</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5">{relativo(notif.fecha)}</p>
                               <div className="flex items-center gap-2 mt-1.5">
                                 <button
-                                  onClick={() => onMarcarLeidaSistema?.(notif.id)}
+                                  onClick={() => onMarcarLeidaFeed?.(notif)}
                                   className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-accent transition-colors uppercase"
                                 >
                                   <Check size={11} /> Leída
                                 </button>
-                                {(notif.movimiento || notif.carpeta_id) && (
+                                {puedeVer && (
                                   <button
                                     onClick={() => handleVer(notif)}
                                     className="flex items-center gap-1 text-[11px] text-accent hover:text-accent-hover transition-colors uppercase"
                                   >
-                                    <ExternalLink size={11} /> Ver
+                                    <ExternalLink size={11} /> {esSinMatch ? 'Asignar' : 'Ver'}
                                   </button>
                                 )}
                               </div>

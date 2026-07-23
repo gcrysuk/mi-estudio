@@ -7,21 +7,20 @@ const POLL_MS = 10 * 1000;
 
 export function useNotificaciones() {
   const [notificaciones, setNotificaciones] = useState([]);
-  const [notificacionesSistema, setNotificacionesSistema] = useState([]);
-  const [mevPendientesCount, setMevPendientesCount] = useState(0);
+  const [feed, setFeed] = useState([]);
+  const [feedNoLeidasCount, setFeedNoLeidasCount] = useState(0);
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
   const refetch = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const [resVenc, resSist, resMev] = await Promise.all([
+      const [resVenc, resFeed] = await Promise.all([
         api.get('/movimientos/notificaciones/pendientes/'),
-        api.get('/movimientos/notificaciones_sistema/?no_leidas=true'),
-        api.get('/mev-ingest/pendientes_count/'),
+        api.get('/movimientos/notificaciones_sistema/feed/?no_leidas=true'),
       ]);
       setNotificaciones(resVenc.data.results ?? resVenc.data ?? []);
-      setNotificacionesSistema(resSist.data.results ?? []);
-      setMevPendientesCount(resMev.data.count ?? 0);
+      setFeed(resFeed.data.results ?? []);
+      setFeedNoLeidasCount(resFeed.data.no_leidas_count ?? 0);
     } catch {
       // silencioso
     }
@@ -36,8 +35,8 @@ export function useNotificaciones() {
   useEffect(() => {
     if (!isAuthenticated) {
       setNotificaciones([]);
-      setNotificacionesSistema([]);
-      setMevPendientesCount(0);
+      setFeed([]);
+      setFeedNoLeidasCount(0);
     }
   }, [isAuthenticated]);
 
@@ -50,10 +49,14 @@ export function useNotificaciones() {
     }
   }, []);
 
-  const marcarLeidaSistema = useCallback(async (id) => {
+  const marcarLeidaFeed = useCallback(async (item) => {
     try {
-      await api.patch(`/movimientos/notificaciones_sistema/${id}/marcar_leida/`);
-      setNotificacionesSistema(prev => prev.filter(n => n.id !== id));
+      await api.patch('/movimientos/notificaciones_sistema/feed_marcar_leida/', {
+        origen: item.origen,
+        id: item.id,
+      });
+      setFeed(prev => prev.filter(n => !(n.origen === item.origen && n.id === item.id)));
+      setFeedNoLeidasCount(prev => Math.max(0, prev - 1));
     } catch {
       toast.error('Error al marcar notificación');
     }
@@ -63,10 +66,11 @@ export function useNotificaciones() {
     try {
       await Promise.all([
         ...notificaciones.map(n => api.post(`/movimientos/notificaciones/${n.id}/marcar_leida/`)),
-        api.patch('/movimientos/notificaciones_sistema/marcar_todas_leidas/'),
+        api.patch('/movimientos/notificaciones_sistema/feed_marcar_todas_leidas/'),
       ]);
       setNotificaciones([]);
-      setNotificacionesSistema([]);
+      setFeed([]);
+      setFeedNoLeidasCount(0);
     } catch {
       //
     }
@@ -74,11 +78,10 @@ export function useNotificaciones() {
 
   return {
     notificaciones,
-    notificacionesSistema,
-    count: notificaciones.length + notificacionesSistema.length,
-    mevPendientesCount,
+    feed,
+    count: notificaciones.length + feedNoLeidasCount,
     marcarLeida,
-    marcarLeidaSistema,
+    marcarLeidaFeed,
     marcarTodasLeidas,
     refetch,
   };
