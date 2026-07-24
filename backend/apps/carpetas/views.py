@@ -413,18 +413,19 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'fecha_inicio_estado'
         )
 
-        ultimo_mov = (
+        ultimo_mov_mev = (
             Movimiento.objects
-            .filter(carpeta=OuterRef('pk'), activo=True)
+            .filter(carpeta=OuterRef('pk'), activo=True, tipo__nombre__iexact='MEV')
             .order_by('-fecha_movimiento')
             .values('fecha_movimiento')[:1]
         )
         inactivas_qs = carpetas_qs.annotate(
-            ultimo_movimiento=Subquery(ultimo_mov)
+            ultimo_movimiento_mev=Subquery(ultimo_mov_mev)
         ).filter(
-            _Q(ultimo_movimiento__isnull=True) | _Q(ultimo_movimiento__lt=hace_3m)
-        ).order_by('ultimo_movimiento').values(
-            'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'ultimo_movimiento'
+            ultimo_movimiento_mev__isnull=False,
+            ultimo_movimiento_mev__lt=hace_3m,
+        ).order_by('ultimo_movimiento_mev').values(
+            'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'ultimo_movimiento_mev'
         )
 
         def dias_desde(dt):
@@ -449,7 +450,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
         despacho_list = serialize(despacho_qs, 'fecha_inicio_estado')
         letra_list = serialize(letra_qs, 'fecha_inicio_estado')
-        inactivas_list = serialize(inactivas_qs, 'ultimo_movimiento')
+        inactivas_list = serialize(inactivas_qs, 'ultimo_movimiento_mev')
 
         return Response({
             'a_despacho_90': len(despacho_list),
