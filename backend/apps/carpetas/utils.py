@@ -1,5 +1,38 @@
 from .models import CarpetaInicializada, TipoCarpeta, ObjetoCarpeta
 
+DEFAULT_DASHBOARD_UMBRALES = {
+    'a_despacho': {'valor': 90, 'unidad': 'dias'},
+    'en_letra': {'valor': 90, 'unidad': 'dias'},
+    'inactivas': {'valor': 3, 'unidad': 'meses'},
+}
+
+
+def umbral_dashboard(perfil_umbrales, clave):
+    """Combina el umbral guardado por el usuario para `clave` con el default,
+    tolerando configuración parcial o ausente."""
+    umbral = dict(DEFAULT_DASHBOARD_UMBRALES[clave])
+    guardado = (perfil_umbrales or {}).get(clave)
+    if isinstance(guardado, dict):
+        umbral.update({k: v for k, v in guardado.items() if k in ('valor', 'unidad')})
+    return umbral
+
+
+def fecha_corte_umbral(umbral, ahora=None):
+    """Convierte {'valor': int, 'unidad': 'dias'|'meses'|'anios'} en la fecha de corte
+    (ahora menos ese umbral). Usa relativedelta para meses/años por precisión de calendario."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from dateutil.relativedelta import relativedelta
+
+    ahora = ahora or timezone.now()
+    valor = umbral.get('valor', 90)
+    unidad = umbral.get('unidad', 'dias')
+    if unidad == 'meses':
+        return ahora - relativedelta(months=valor)
+    if unidad == 'anios':
+        return ahora - relativedelta(years=valor)
+    return ahora - timedelta(days=valor)
+
 
 def qs_con_fecha_inicio_estado_mev(qs):
     """Anota un queryset de Carpeta con fecha_inicio_estado para contar días en estado MEV.

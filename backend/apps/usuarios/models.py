@@ -4,6 +4,14 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+def default_dashboard_umbrales():
+    return {
+        'a_despacho': {'valor': 90, 'unidad': 'dias'},
+        'en_letra': {'valor': 90, 'unidad': 'dias'},
+        'inactivas': {'valor': 3, 'unidad': 'meses'},
+    }
+
+
 class PerfilUsuario(models.Model):
     CONDICION_FISCAL_CHOICES = [
         ('monotributista', 'Monotributista'),
@@ -40,6 +48,11 @@ class PerfilUsuario(models.Model):
         default=dict,
         blank=True,
         verbose_name="Configuración de notificaciones",
+    )
+    dashboard_umbrales = models.JSONField(
+        default=default_dashboard_umbrales,
+        blank=True,
+        verbose_name="Umbrales de las tarjetas del dashboard",
     )
 
     # Cuenta / acceso

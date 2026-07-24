@@ -11,7 +11,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from .models import PerfilUsuario
+from .models import PerfilUsuario, default_dashboard_umbrales
 from .serializers import UserSerializer
 
 User = get_user_model()
@@ -340,6 +340,9 @@ class PerfilView(APIView):
         'notificacion_config',
     ]
 
+    UMBRAL_KEYS = {'a_despacho', 'en_letra', 'inactivas'}
+    UNIDADES_VALIDAS = {'dias', 'meses', 'anios'}
+
     def get(self, request):
         user = request.user
         try:
@@ -371,6 +374,7 @@ class PerfilView(APIView):
             'domicilio_electronico': p.domicilio_electronico,
             'notificaciones_email': p.notificaciones_email,
             'notificacion_config': p.notificacion_config or {},
+            'dashboard_umbrales': p.dashboard_umbrales or default_dashboard_umbrales(),
             'tiene_password': user.has_usable_password(),
         })
 
@@ -380,6 +384,28 @@ class PerfilView(APIView):
             p = user.perfil
         except PerfilUsuario.DoesNotExist:
             return Response({'error': 'Perfil no encontrado.'}, status=404)
+
+        if 'dashboard_umbrales' in request.data:
+            nuevo = request.data['dashboard_umbrales']
+            if not isinstance(nuevo, dict):
+                return Response({'error': 'dashboard_umbrales debe ser un objeto.'}, status=400)
+            actual = dict(p.dashboard_umbrales or default_dashboard_umbrales())
+            for clave, val in nuevo.items():
+                if clave not in self.UMBRAL_KEYS:
+                    return Response({'error': f'Umbral desconocido: {clave}'}, status=400)
+                if not isinstance(val, dict) or 'valor' not in val or 'unidad' not in val:
+                    return Response({'error': f'Umbral {clave} inválido.'}, status=400)
+                try:
+                    valor = int(val['valor'])
+                except (TypeError, ValueError):
+                    return Response({'error': f'Valor inválido para {clave}.'}, status=400)
+                if valor <= 0:
+                    return Response({'error': f'El valor de {clave} debe ser mayor a 0.'}, status=400)
+                unidad = val['unidad']
+                if unidad not in self.UNIDADES_VALIDAS:
+                    return Response({'error': f'Unidad inválida para {clave}.'}, status=400)
+                actual[clave] = {'valor': valor, 'unidad': unidad}
+            p.dashboard_umbrales = actual
 
         for campo in self.CAMPOS_EDITABLES:
             if campo in request.data:

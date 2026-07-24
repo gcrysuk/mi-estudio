@@ -376,15 +376,19 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='mev_stats')
     def mev_stats(self, request):
-        from datetime import timedelta
         from django.db.models import OuterRef, Subquery, Q as _Q
         from apps.movimientos.models import Movimiento
-        from .utils import qs_con_fecha_inicio_estado_mev
+        from .utils import qs_con_fecha_inicio_estado_mev, umbral_dashboard, fecha_corte_umbral
 
         user = request.user
         now = timezone.now()
-        hace_90d = now - timedelta(days=90)
-        hace_3m = now - timedelta(days=91)
+        perfil_umbrales = getattr(getattr(user, 'perfil', None), 'dashboard_umbrales', None)
+        umbral_despacho = umbral_dashboard(perfil_umbrales, 'a_despacho')
+        umbral_letra = umbral_dashboard(perfil_umbrales, 'en_letra')
+        umbral_inactivas = umbral_dashboard(perfil_umbrales, 'inactivas')
+        corte_despacho = fecha_corte_umbral(umbral_despacho, now)
+        corte_letra = fecha_corte_umbral(umbral_letra, now)
+        corte_inactivas = fecha_corte_umbral(umbral_inactivas, now)
 
         if user.is_superuser:
             carpetas_qs = Carpeta.objects.filter(activo=True)
@@ -401,14 +405,14 @@ class CarpetaViewSet(viewsets.ModelViewSet):
 
         despacho_qs = carpetas_mev.filter(
             mev_estado__iexact='A Despacho',
-            fecha_inicio_estado__lt=hace_90d,
+            fecha_inicio_estado__lt=corte_despacho,
         ).order_by('fecha_inicio_estado').values(
             'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'fecha_inicio_estado'
         )
 
         letra_qs = carpetas_mev.filter(
             mev_estado__iexact='En Letra',
-            fecha_inicio_estado__lt=hace_90d,
+            fecha_inicio_estado__lt=corte_letra,
         ).order_by('fecha_inicio_estado').values(
             'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'fecha_inicio_estado'
         )
@@ -423,7 +427,7 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             ultimo_movimiento_mev=Subquery(ultimo_mov_mev)
         ).filter(
             ultimo_movimiento_mev__isnull=False,
-            ultimo_movimiento_mev__lt=hace_3m,
+            ultimo_movimiento_mev__lt=corte_inactivas,
         ).order_by('ultimo_movimiento_mev').values(
             'id', 'nombre', 'numero_expediente', 'organismo__nombre', 'ultimo_movimiento_mev'
         )
@@ -459,6 +463,11 @@ class CarpetaViewSet(viewsets.ModelViewSet):
             'despacho_list': despacho_list,
             'letra_list': letra_list,
             'inactivas_list': inactivas_list,
+            'umbrales': {
+                'a_despacho': umbral_despacho,
+                'en_letra': umbral_letra,
+                'inactivas': umbral_inactivas,
+            },
         })
 
     @action(detail=False, methods=['get'], url_path='informe_demora_organismos')

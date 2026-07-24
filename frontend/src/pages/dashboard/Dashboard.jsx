@@ -1,7 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Clock, FolderOpen, ListTodo, Scale, FileText, Archive, X } from 'lucide-react';
+import { AlertCircle, Clock, FolderOpen, ListTodo, Scale, FileText, Archive, X, Settings } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
+
+const UNIDAD_LABELS = {
+  dias: { singular: 'DÍA', plural: 'DÍAS' },
+  meses: { singular: 'MES', plural: 'MESES' },
+  anios: { singular: 'AÑO', plural: 'AÑOS' },
+};
+
+const DEFAULT_UMBRALES = {
+  a_despacho: { valor: 90, unidad: 'dias' },
+  en_letra: { valor: 90, unidad: 'dias' },
+  inactivas: { valor: 3, unidad: 'meses' },
+};
+
+const formatUmbral = (umbral) => {
+  const { valor, unidad } = umbral || {};
+  const u = UNIDAD_LABELS[unidad] || UNIDAD_LABELS.dias;
+  return `+${valor} ${valor === 1 ? u.singular : u.plural}`;
+};
 
 const SkeletonCard = () => (
   <div className="rounded-2xl shadow-lg p-6 bg-gray-200 dark:bg-gray-700 animate-pulse h-36" />
@@ -45,7 +64,8 @@ const CARDS = [
 const MEV_CARDS = [
   {
     key: 'a_despacho_90',
-    label: 'A DESPACHO +90 DÍAS',
+    umbralKey: 'a_despacho',
+    labelBase: 'A DESPACHO',
     sub: 'sin cambio de estado en la MEV',
     icon: Scale,
     gradient: 'from-violet-500 to-purple-600',
@@ -54,7 +74,8 @@ const MEV_CARDS = [
   },
   {
     key: 'en_letra_90',
-    label: 'EN LETRA +90 DÍAS',
+    umbralKey: 'en_letra',
+    labelBase: 'EN LETRA',
     sub: 'sin cambio de estado en la MEV',
     icon: FileText,
     gradient: 'from-orange-500 to-rose-500',
@@ -63,7 +84,8 @@ const MEV_CARDS = [
   },
   {
     key: 'inactivas_3m',
-    label: 'CARPETAS INACTIVAS +3 MESES',
+    umbralKey: 'inactivas',
+    labelBase: 'CARPETAS INACTIVAS',
     sub: 'sin movimientos de ningún tipo',
     icon: Archive,
     gradient: 'from-slate-500 to-gray-600',
@@ -133,6 +155,63 @@ const CarpetasModal = ({ title, dateLabel, list, onClose }) => (
   </div>
 );
 
+const UmbralPopover = ({ umbral, saving, onSave, onClose }) => {
+  const [valor, setValor] = useState(String(umbral?.valor ?? ''));
+  const [unidad, setUnidad] = useState(umbral?.unidad || 'dias');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const n = parseInt(valor, 10);
+    if (!n || n <= 0) {
+      toast.error('El valor debe ser un número mayor a 0.');
+      return;
+    }
+    onSave(n, unidad);
+  };
+
+  return (
+    <div
+      className="absolute z-30 top-11 right-2 w-56 rounded-xl shadow-2xl bg-white dark:bg-dark-surface text-gray-800 dark:text-gray-100 p-3 text-left cursor-default"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-bold uppercase tracking-wide">Umbral</p>
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <X size={16} />
+        </button>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-2">
+        <div className="flex gap-2">
+          <input
+            type="number"
+            min="1"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className="w-16 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+            autoFocus
+          />
+          <select
+            value={unidad}
+            onChange={(e) => setUnidad(e.target.value)}
+            className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+          >
+            <option value="dias">Días</option>
+            <option value="meses">Meses</option>
+            <option value="anios">Años</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          disabled={saving}
+          className="w-full px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium disabled:opacity-50"
+        >
+          {saving ? 'Guardando...' : 'Guardar'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
@@ -140,6 +219,16 @@ const Dashboard = () => {
   const [mevStats, setMevStats] = useState(null);
   const [loadingMev, setLoadingMev] = useState(true);
   const [modal, setModal] = useState(null);
+  const [configCard, setConfigCard] = useState(null);
+  const [savingUmbral, setSavingUmbral] = useState(false);
+
+  const fetchMevStats = () => {
+    setLoadingMev(true);
+    return api.get('/carpetas/mev_stats/')
+      .then(res => setMevStats(res.data))
+      .catch(() => {})
+      .finally(() => setLoadingMev(false));
+  };
 
   useEffect(() => {
     setLoadingStats(true);
@@ -148,11 +237,7 @@ const Dashboard = () => {
       .catch(() => {})
       .finally(() => setLoadingStats(false));
 
-    setLoadingMev(true);
-    api.get('/carpetas/mev_stats/')
-      .then(res => setMevStats(res.data))
-      .catch(() => {})
-      .finally(() => setLoadingMev(false));
+    fetchMevStats();
   }, []);
 
   const handleCardClick = (to) => {
@@ -170,11 +255,27 @@ const Dashboard = () => {
 
   const openMevModal = (card) => {
     if (!mevStats) return;
+    const umbral = mevStats.umbrales?.[card.umbralKey] || DEFAULT_UMBRALES[card.umbralKey];
     setModal({
-      title: card.label,
+      title: `${card.labelBase} ${formatUmbral(umbral)}`,
       dateLabel: card.dateLabel,
       list: mevStats[card.listKey] ?? [],
     });
+  };
+
+  const guardarUmbral = async (card, valor, unidad) => {
+    setSavingUmbral(true);
+    try {
+      await api.patch('/usuarios/perfil/', {
+        dashboard_umbrales: { [card.umbralKey]: { valor, unidad } },
+      });
+      setConfigCard(null);
+      await fetchMevStats();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'No se pudo guardar el umbral.');
+    } finally {
+      setSavingUmbral(false);
+    }
   };
 
   return (
@@ -210,28 +311,60 @@ const Dashboard = () => {
         <h2 className="text-sm font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">MEV</h2>
         <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3">
           {MEV_CARDS.map((card) => {
-            const { key, label, sub, icon: Icon, gradient } = card;
+            const { key, umbralKey, labelBase, sub, icon: Icon, gradient } = card;
+            const umbral = mevStats?.umbrales?.[umbralKey] || DEFAULT_UMBRALES[umbralKey];
+            const label = `${labelBase} ${formatUmbral(umbral)}`;
             return loadingMev ? (
               <SkeletonCard key={key} />
             ) : (
-              <button
+              <div
                 key={key}
-                onClick={() => openMevModal(card)}
-                className={`bg-gradient-to-br ${gradient} rounded-2xl shadow-lg p-4 sm:p-6 text-white text-left cursor-pointer hover:scale-105 transition-transform duration-200 focus:outline-none`}
+                className={`relative bg-gradient-to-br ${gradient} rounded-2xl shadow-lg text-white hover:scale-105 transition-transform duration-200`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold uppercase tracking-widest opacity-90">{label}</p>
-                    <p className="text-3xl sm:text-5xl font-bold leading-none">{mevStats?.[key] ?? 0}</p>
-                    <p className="text-sm opacity-80">{sub}</p>
+                <button
+                  type="button"
+                  onClick={() => openMevModal(card)}
+                  aria-label={label}
+                  className="absolute inset-0 rounded-2xl focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfigCard(configCard === key ? null : key);
+                  }}
+                  className="absolute z-10 top-2 right-2 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition-colors"
+                  aria-label={`Configurar umbral de ${labelBase}`}
+                >
+                  <Settings size={16} />
+                </button>
+                <div className="p-4 sm:p-6 pointer-events-none">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 pr-4">
+                      <p className="text-xs font-bold uppercase tracking-widest opacity-90">{label}</p>
+                      <p className="text-3xl sm:text-5xl font-bold leading-none">{mevStats?.[key] ?? 0}</p>
+                      <p className="text-sm opacity-80">{sub}</p>
+                    </div>
+                    <Icon size={40} className="opacity-20 flex-shrink-0" />
                   </div>
-                  <Icon size={40} className="opacity-20 flex-shrink-0" />
                 </div>
-              </button>
+                {configCard === key && (
+                  <UmbralPopover
+                    umbral={umbral}
+                    saving={savingUmbral}
+                    onSave={(valor, unidad) => guardarUmbral(card, valor, unidad)}
+                    onClose={() => setConfigCard(null)}
+                  />
+                )}
+              </div>
             );
           })}
         </div>
       </div>
+
+      {configCard && (
+        <div className="fixed inset-0 z-20" onClick={() => setConfigCard(null)} />
+      )}
 
       {modal && (
         <CarpetasModal
