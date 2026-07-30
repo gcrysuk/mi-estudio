@@ -239,9 +239,9 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         movimiento.delete()
         return Response({'ok': True})
     
-    @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='tipos')
+    @action(detail=False, methods=['get', 'post'], url_path='tipos')
     def tipos_movimiento(self, request):
-        """CRUD para tipos de movimiento"""
+        """Listado y alta de tipos de movimiento"""
         user = request.user
 
         if request.method == 'GET':
@@ -260,49 +260,44 @@ class MovimientoViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(nombre__icontains=search)
             return Response(TipoMovimientoSerializer(queryset, many=True).data)
 
-        elif request.method == 'POST':
-            serializer = TipoMovimientoSerializer(data=request.data)
-            if serializer.is_valid():
-                ultimo = TipoMovimiento.objects.filter(propietario=user).aggregate(
-                    max_orden=Max('orden')
-                )['max_orden'] or 0
-                serializer.save(propietario=user, orden=ultimo + 1)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # POST
+        serializer = TipoMovimientoSerializer(data=request.data)
+        if serializer.is_valid():
+            ultimo = TipoMovimiento.objects.filter(propietario=user).aggregate(
+                max_orden=Max('orden')
+            )['max_orden'] or 0
+            serializer.save(propietario=user, orden=ultimo + 1)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        elif request.method == 'PUT':
-            tipo_id = request.data.get('id')
-            try:
-                tipo = TipoMovimiento.objects.get(id=tipo_id)
-            except TipoMovimiento.DoesNotExist:
-                return Response({'error': 'Tipo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
-            if tipo.propietario is None:
-                return Response({'error': 'Registro global no modificable'}, status=status.HTTP_403_FORBIDDEN)
-            if tipo.propietario_id != user.pk:
-                return Response({'error': 'No tenés permiso para modificar este tipo'}, status=status.HTTP_403_FORBIDDEN)
-            serializer = TipoMovimientoSerializer(tipo, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=False, methods=['put', 'delete'], url_path=r'tipos/(?P<tipo_id>[^/.]+)')
+    def tipos_movimiento_detail(self, request, tipo_id=None):
+        """Edición y borrado de un tipo de movimiento. Al borrar uno en uso,
+        los movimientos que lo tenían asignado quedan con tipo=null (SET_NULL)."""
+        user = request.user
+        try:
+            tipo = TipoMovimiento.objects.get(id=tipo_id)
+        except TipoMovimiento.DoesNotExist:
+            return Response({'error': 'Tipo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        if tipo.propietario is None:
+            mensaje = 'Registro global no eliminable' if request.method == 'DELETE' else 'Registro global no modificable'
+            return Response({'error': mensaje}, status=status.HTTP_403_FORBIDDEN)
+        if tipo.propietario_id != user.pk:
+            accion = 'eliminar' if request.method == 'DELETE' else 'modificar'
+            return Response({'error': f'No tenés permiso para {accion} este tipo'}, status=status.HTTP_403_FORBIDDEN)
 
-        elif request.method == 'DELETE':
-            tipo_id = request.query_params.get('id')
-            try:
-                tipo = TipoMovimiento.objects.get(id=tipo_id)
-            except TipoMovimiento.DoesNotExist:
-                return Response({'error': 'Tipo no encontrado'}, status=status.HTTP_404_NOT_FOUND)
-            if tipo.propietario is None:
-                return Response({'error': 'Registro global no eliminable'}, status=status.HTTP_403_FORBIDDEN)
-            if tipo.propietario_id != user.pk:
-                return Response({'error': 'No tenés permiso para eliminar este tipo'}, status=status.HTTP_403_FORBIDDEN)
-            if tipo.movimientos.exists():
-                return Response({'error': 'El tipo tiene movimientos asociados'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.method == 'DELETE':
             tipo.delete()
             return Response({'message': 'Tipo eliminado'}, status=status.HTTP_200_OK)
 
-        return Response({'error': 'Método no permitido'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-    
+        # PUT
+        serializer = TipoMovimientoSerializer(tipo, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
     @action(detail=False, methods=['get', 'post', 'put', 'delete'], url_path='estados')
     def estados_movimiento(self, request):
         """CRUD para estados de movimiento"""

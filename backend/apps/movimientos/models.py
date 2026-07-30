@@ -60,7 +60,7 @@ class Movimiento(models.Model):
     )
     tipo = models.ForeignKey(
         TipoMovimiento,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         related_name='movimientos',
         null=True,
         blank=True

@@ -13,6 +13,7 @@ import CarpetaForm from '../../components/carpetas/CarpetaForm';
 import AsignarResponsableModal from '../../components/movimientos/AsignarResponsableModal';
 import useSpeechRecognition from '../../hooks/useSpeechRecognition';
 import useAuthStore from '../../stores/authStore';
+import TimeSelect from '../../components/common/TimeSelect';
 
 // ── Quill helpers ─────────────────────────────────────────────────────────────
 
@@ -96,6 +97,40 @@ const EditorRico = memo(({ value, onChange, readonly = false }) => {
 
   return <div ref={containerRef} className="quill-host" spellCheck={true} lang="es-AR" />;
 });
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// formData.fecha_vencimiento sigue siendo un único string "YYYY-MM-DDTHH:mm"
+// (mismo formato que antes con datetime-local); estos helpers separan/combinan
+// esa fecha con la hora para los dos controles del form.
+const splitFechaHora = (value) => {
+  if (!value) return { date: '', hora: '' };
+  const [date, hora] = value.split('T');
+  return { date: date || '', hora: (hora || '').slice(0, 5) };
+};
+
+const combinarFechaHora = (date, hora) => {
+  if (!date) return '';
+  return `${date}T${hora || '00:00'}`;
+};
+
+const getTodayStr = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+};
+
+// Hora actual redondeada hacia arriba al múltiplo de 15 más cercano
+// (setMinutes con overflow hace rollover de hora/día automáticamente).
+const getFechaHoraRedondeada = () => {
+  const now = new Date();
+  const minutos = now.getMinutes();
+  const resto = minutos % 15;
+  if (resto !== 0) now.setMinutes(minutos + (15 - resto));
+  now.setSeconds(0, 0);
+  const date = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  const hora = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  return `${date}T${hora}`;
+};
 
 const SOLAPAS = [
   { id: 'descripcion',   label: 'Descripción' },
@@ -195,7 +230,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
     estado: estadoInicial ?? '',
     complejidad: '',
     fecha_movimiento: fechaMovimientoInicial || getCurrentDateTime(),
-    fecha_vencimiento: fechaVencimientoInicial || '',
+    fecha_vencimiento: fechaVencimientoInicial || (!movimiento ? getFechaHoraRedondeada() : ''),
     tiempo_trabajo: '',
     carpeta: initialCarpetaId || ''
   });
@@ -366,6 +401,8 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
     setFormData(prev => ({ ...prev, carpeta: nuevaCarpeta.id }));
     setShowCarpetaForm(false);
   };
+
+  const fechaVenceParts = splitFechaHora(formData.fecha_vencimiento);
 
   return (
     <>
@@ -541,36 +578,53 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
               )}
             </div>
 
-            {/* Vencimiento y Tiempo */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
-                  <Clock size={12} />
-                  FECHA VENCE
-                </label>
+            {/* Vencimiento */}
+            <div>
+              <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
+                <Clock size={12} />
+                FECHA VENCE
+              </label>
+              <div className="flex gap-1.5 items-center">
                 <input
-                  type="datetime-local"
-                  value={formData.fecha_vencimiento}
-                  onChange={(e) => setFormData({ ...formData, fecha_vencimiento: e.target.value })}
-                  className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                  type="date"
+                  value={fechaVenceParts.date}
+                  onChange={(e) => setFormData({ ...formData, fecha_vencimiento: combinarFechaHora(e.target.value, fechaVenceParts.hora) })}
+                  className="flex-1 min-w-0 px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 />
+                <div className="w-24 flex-shrink-0">
+                  <TimeSelect
+                    value={fechaVenceParts.hora}
+                    onChange={(hora) => setFormData({ ...formData, fecha_vencimiento: combinarFechaHora(fechaVenceParts.date || getTodayStr(), hora) })}
+                  />
+                </div>
+                {formData.fecha_vencimiento && (
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, fecha_vencimiento: '' })}
+                    className="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                    title="Quitar vencimiento"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
-                  <Clock size={12} />
-                  TIEMPO (min)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="5"
-                  value={formData.tiempo_trabajo}
-                  onChange={(e) => setFormData({ ...formData, tiempo_trabajo: e.target.value })}
-                  className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-                  placeholder="120"
-                />
-              </div>
+            {/* Tiempo de trabajo */}
+            <div>
+              <label className="block text-xs font-medium mb-0.5 uppercase flex items-center gap-1">
+                <Clock size={12} />
+                TIEMPO (min)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="5"
+                value={formData.tiempo_trabajo}
+                onChange={(e) => setFormData({ ...formData, tiempo_trabajo: e.target.value })}
+                className="w-full px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                placeholder="120"
+              />
             </div>
 
             {/* Editor de texto — 3 solapas */}

@@ -182,7 +182,7 @@ const CarpetaDetail = () => {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors uppercase"
             >
-              <ExternalLink size={13} /> Abrir en MEV ↗
+              <ExternalLink size={13} /> Abrir enlace en la web ↗
             </a>
           )}
           <button
