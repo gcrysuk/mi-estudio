@@ -19,19 +19,21 @@ import {
   BarChart3,
 } from 'lucide-react'
 import useAuthStore from '../../stores/authStore'
+import HelpTip from '../HelpTip'
+import { HELP } from '../../constants/helpTexts'
 
 const navItems = [
-  { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard'    },
-  { to: '/kanban',      icon: Kanban,          label: 'Kanban'       },
-  { to: '/resumen',     icon: LayoutList,      label: 'Resumen'      },
-  { to: '/personas',    icon: Users,           label: 'Personas'     },
-  { to: '/movimientos', icon: ClipboardList,   label: 'Movimientos'  },
-  { to: '/carpetas',    icon: FolderOpen,      label: 'Carpetas'     },
-  { to: '/organismos',  icon: Building2,       label: 'Organismos'   },
-  { to: '/tipos',       icon: Tags,            label: 'Tipos'        },
-  { to: '/calendario',  icon: Calendar,        label: 'Calendario'   },
-  { to: '/informes',    icon: BarChart3,       label: 'Informes'     },
-  { to: '/papelera',    icon: Trash2,          label: 'Papelera'     },
+  { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard',   help: HELP.nav_dashboard   },
+  { to: '/kanban',      icon: Kanban,          label: 'Kanban',      help: HELP.nav_kanban      },
+  { to: '/resumen',     icon: LayoutList,      label: 'Resumen',     help: HELP.nav_resumen     },
+  { to: '/personas',    icon: Users,           label: 'Personas',    help: HELP.nav_personas    },
+  { to: '/movimientos', icon: ClipboardList,   label: 'Movimientos', help: HELP.nav_movimientos },
+  { to: '/carpetas',    icon: FolderOpen,      label: 'Carpetas',    help: HELP.nav_carpetas    },
+  { to: '/organismos',  icon: Building2,       label: 'Organismos',  help: HELP.nav_organismos  },
+  { to: '/tipos',       icon: Tags,            label: 'Tipos',       help: HELP.nav_tipos       },
+  { to: '/calendario',  icon: Calendar,        label: 'Calendario',  help: HELP.nav_calendario  },
+  { to: '/informes',    icon: BarChart3,       label: 'Informes',    help: HELP.nav_informes    },
+  { to: '/papelera',    icon: Trash2,          label: 'Papelera',    help: HELP.nav_papelera    },
 ]
 
 const Sidebar = ({ mobileOpen = false, onClose }) => {
@@ -99,62 +101,67 @@ const Sidebar = ({ mobileOpen = false, onClose }) => {
 
       {/* Nav */}
       <nav className="flex-1 py-3 space-y-0.5 overflow-hidden">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            title={!isExpanded ? label : undefined}
-            onClick={() => onClose?.()}
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-2.5 mx-2 rounded-lg transition-colors text-sm ${
-                isExpanded ? 'px-3' : 'px-0 justify-center'
-              } ${
-                isActive
-                  ? 'bg-accent text-white'
-                  : 'text-gray-300 hover:bg-gray-800'
-              }`
-            }
-          >
-            <span className="relative flex-shrink-0">
-              <Icon size={18} />
-            </span>
-            {isExpanded && (
-              <span className="whitespace-nowrap">{label}</span>
-            )}
-          </NavLink>
+        {navItems.map(({ to, icon: Icon, label, help }) => (
+          <HelpTip key={to} texto={help} wrapperClassName="block w-full">
+            <NavLink
+              to={to}
+              title={!isExpanded ? label : undefined}
+              onClick={() => onClose?.()}
+              className={({ isActive }) =>
+                `flex items-center gap-3 py-2.5 mx-2 rounded-lg transition-colors text-sm ${
+                  isExpanded ? 'px-3' : 'px-0 justify-center'
+                } ${
+                  isActive
+                    ? 'bg-accent text-white'
+                    : 'text-gray-300 hover:bg-gray-800'
+                }`
+              }
+            >
+              <span className="relative flex-shrink-0">
+                <Icon size={18} />
+              </span>
+              {isExpanded && (
+                <span className="whitespace-nowrap">{label}</span>
+              )}
+            </NavLink>
+          </HelpTip>
         ))}
       </nav>
 
       {/* Footer */}
       <div className="border-t border-gray-800 p-3 space-y-1">
         {/* Perfil */}
-        <NavLink
-          to="/perfil"
-          title={!isExpanded ? 'Mi perfil' : undefined}
-          className={({ isActive }) =>
-            `flex items-center gap-3 py-1.5 mx-0 rounded-lg transition-colors text-xs ${
-              isExpanded ? 'px-2' : 'px-0 justify-center'
-            } ${isActive ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`
-          }
-        >
-          <UserCircle size={16} className="flex-shrink-0" />
-          {isExpanded && <span className="whitespace-nowrap">Mi perfil</span>}
-        </NavLink>
-
-        {/* Administración — solo superadmin */}
-        {user?.is_superuser && (
+        <HelpTip texto={HELP.nav_perfil} wrapperClassName="block w-full">
           <NavLink
-            to="/admin/usuarios"
-            title={!isExpanded ? 'Administración' : undefined}
+            to="/perfil"
+            title={!isExpanded ? 'Mi perfil' : undefined}
             className={({ isActive }) =>
               `flex items-center gap-3 py-1.5 mx-0 rounded-lg transition-colors text-xs ${
                 isExpanded ? 'px-2' : 'px-0 justify-center'
               } ${isActive ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`
             }
           >
-            <ShieldCheck size={16} className="flex-shrink-0" />
-            {isExpanded && <span className="whitespace-nowrap">Administración</span>}
+            <UserCircle size={16} className="flex-shrink-0" />
+            {isExpanded && <span className="whitespace-nowrap">Mi perfil</span>}
           </NavLink>
+        </HelpTip>
+
+        {/* Administración — solo superadmin */}
+        {user?.is_superuser && (
+          <HelpTip texto={HELP.nav_admin} wrapperClassName="block w-full">
+            <NavLink
+              to="/admin/usuarios"
+              title={!isExpanded ? 'Administración' : undefined}
+              className={({ isActive }) =>
+                `flex items-center gap-3 py-1.5 mx-0 rounded-lg transition-colors text-xs ${
+                  isExpanded ? 'px-2' : 'px-0 justify-center'
+                } ${isActive ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`
+              }
+            >
+              <ShieldCheck size={16} className="flex-shrink-0" />
+              {isExpanded && <span className="whitespace-nowrap">Administración</span>}
+            </NavLink>
+          </HelpTip>
         )}
 
         {/* Avatar + logout */}

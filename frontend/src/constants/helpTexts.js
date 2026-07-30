@@ -31,4 +31,32 @@ export const HELP = {
   // Notificaciones
   campanita:
     'Acá llegan las alertas de vencimientos y cambios de estado MEV.',
+
+  // Menú lateral — navegación
+  nav_dashboard:
+    'Pantallazo general: vencimientos del día, carpetas activas y alertas de expedientes parados en la MEV.',
+  nav_kanban:
+    'Tus movimientos organizados en columnas por estado, para arrastrar y cambiarles el estado de un vistazo.',
+  nav_resumen:
+    'Una fila por carpeta con su último movimiento cargado, para ver rápido en qué está cada expediente.',
+  nav_personas:
+    'Tus clientes, contrapartes y demás personas que después usás para armar carpetas.',
+  nav_movimientos:
+    'Todos tus movimientos de todas las carpetas en una sola tabla, con filtros por tipo, estado, responsable y fecha.',
+  nav_carpetas:
+    'Tus expedientes y asuntos. Desde acá creás carpetas, las compartís y seguís su estado en la MEV.',
+  nav_organismos:
+    'Los juzgados, fiscalías y demás organismos que usás para completar tus carpetas.',
+  nav_tipos:
+    'Configurá los tipos y estados que usás para clasificar carpetas y movimientos.',
+  nav_calendario:
+    'Tus vencimientos en formato mensual, con la opción de sincronizarlos a Google Calendar.',
+  nav_informes:
+    'Estadísticas sobre tus expedientes, como la demora de cada organismo en pasar de A Despacho a En Letra.',
+  nav_papelera:
+    'Movimientos y carpetas que borraste, por si necesitás recuperar algo.',
+  nav_perfil:
+    'Tus datos personales, profesionales, preferencias y el estado de tu plan.',
+  nav_admin:
+    'Panel para gestionar los usuarios del sistema (solo visible para administradores).',
 };

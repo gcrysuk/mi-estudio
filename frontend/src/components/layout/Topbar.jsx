@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { Bell, Moon, Sun, Plus, Menu, HelpCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, Moon, Sun, Plus, Menu, HelpCircle, ChevronDown, Lightbulb, BookOpen } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import PanelNotificaciones from '../notificaciones/PanelNotificaciones'
 import useClickOutside from '../../hooks/useClickOutside'
@@ -9,14 +10,19 @@ import HelpTip from '../HelpTip'
 import { HELP } from '../../constants/helpTexts'
 
 const Topbar = ({ onMobileMenuToggle, notif }) => {
+  const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const { ayudaActiva, toggleAyuda } = useHelp()
   const { notificaciones, feed, count, marcarLeida, marcarLeidaFeed, marcarTodasLeidas } = notif
   const [panelOpen, setPanelOpen] = useState(false)
+  const [helpMenuOpen, setHelpMenuOpen] = useState(false)
   const [showMovForm, setShowMovForm] = useState(false)
 
   const containerRef = useRef(null)
   useClickOutside(containerRef, useCallback(() => setPanelOpen(false), []))
+
+  const helpMenuRef = useRef(null)
+  useClickOutside(helpMenuRef, useCallback(() => setHelpMenuOpen(false), []))
 
   useEffect(() => {
     if (!panelOpen) return
@@ -26,6 +32,15 @@ const Topbar = ({ onMobileMenuToggle, notif }) => {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [panelOpen])
+
+  useEffect(() => {
+    if (!helpMenuOpen) return
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setHelpMenuOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [helpMenuOpen])
 
   const handleMarcarTodas = async () => {
     await marcarTodasLeidas()
@@ -84,14 +99,44 @@ const Topbar = ({ onMobileMenuToggle, notif }) => {
             )}
           </div>
 
-          {/* Toggle ayuda contextual */}
-          <button
-            onClick={toggleAyuda}
-            title={ayudaActiva ? 'Desactivar ayuda contextual' : 'Activar ayuda contextual'}
-            className={`p-2 rounded-lg transition-colors ${ayudaActiva ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-          >
-            <HelpCircle size={20} />
-          </button>
+          {/* Ayuda: contextual + manual completo */}
+          <div ref={helpMenuRef} className="relative">
+            <button
+              onClick={() => setHelpMenuOpen(prev => !prev)}
+              title="Ayuda"
+              aria-label="Ayuda"
+              className={`flex items-center gap-0.5 p-2 rounded-lg transition-colors ${ayudaActiva ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            >
+              <HelpCircle size={20} />
+              <ChevronDown size={12} className={`transition-transform ${helpMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {helpMenuOpen && (
+              <div className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark-surface shadow-lg overflow-hidden z-30">
+                <button
+                  type="button"
+                  onClick={() => { toggleAyuda(); setHelpMenuOpen(false) }}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Lightbulb size={15} className="text-gray-400 flex-shrink-0" />
+                    Ayuda contextual
+                  </span>
+                  <span className={`text-xs font-bold uppercase ${ayudaActiva ? 'text-green-500' : 'text-gray-400'}`}>
+                    {ayudaActiva ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setHelpMenuOpen(false); navigate('/ayuda') }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left border-t border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <BookOpen size={15} className="text-gray-400 flex-shrink-0" />
+                  Ver manual completo
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Tema */}
           <button

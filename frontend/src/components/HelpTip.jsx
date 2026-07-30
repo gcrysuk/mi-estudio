@@ -4,7 +4,7 @@ import { useHelp } from '../contexts/HelpContext';
 
 const TOOLTIP_W = 250;
 
-const HelpTip = ({ texto, children, className = '' }) => {
+const HelpTip = ({ texto, children, className = '', wrapperClassName = 'inline-flex' }) => {
   const { ayudaActiva } = useHelp();
   const [show, setShow] = useState(false);
   const [pos, setPos]   = useState(null);
@@ -83,7 +83,7 @@ const HelpTip = ({ texto, children, className = '' }) => {
     <>
       <span
         ref={ref}
-        className="inline-flex"
+        className={wrapperClassName}
         onMouseEnter={handleEnter}
         onMouseLeave={() => setShow(false)}
         onFocus={handleEnter}

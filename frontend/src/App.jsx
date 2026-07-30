@@ -29,6 +29,7 @@ import NotificacionesMEVPage from "./pages/notificaciones/NotificacionesMEVPage"
 import ResumenPage from "./pages/resumen/ResumenPage";
 import InformesPage from "./pages/informes/InformesPage";
 import InformeDemoraOrganismos from "./pages/informes/InformeDemoraOrganismos";
+import AyudaPage from "./pages/ayuda/AyudaPage";
 import useAuthStore from "./stores/authStore";
 import ModalGlobal from './components/modals/ModalGlobal';
 
@@ -101,6 +102,7 @@ function App() {
               <Route path="/informes" element={<InformesPage />} />
               <Route path="/informes/demora-organismos" element={<InformeDemoraOrganismos />} />
               <Route path="/perfil" element={<PerfilPage />} />
+              <Route path="/ayuda" element={<AyudaPage />} />
               <Route path="/admin/usuarios" element={<AdminUsuariosPage />} />
 
             </Route>
