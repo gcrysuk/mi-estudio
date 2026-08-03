@@ -40,12 +40,12 @@ api.interceptors.request.use(
   }
 )
 
-function clearSession() {
+function clearSession(redirectTo = '/login') {
   localStorage.removeItem('access_token')
   localStorage.removeItem('refresh_token')
   localStorage.removeItem('auth-storage')
-  if (window.location.pathname !== '/login') {
-    window.location.href = '/login'
+  if (window.location.pathname !== redirectTo) {
+    window.location.href = redirectTo
   }
 }
 
@@ -63,6 +63,12 @@ api.interceptors.response.use(
     if (status === 403) {
       toast.error('No tenés permisos para modificar este elemento. Tenés acceso de solo lectura.')
       error._403handled = true
+      return Promise.reject(error)
+    }
+
+    if (status === 402) {
+      console.warn('⚠️ Cuenta suspendida (402), redirigiendo...')
+      clearSession('/cuenta-suspendida')
       return Promise.reject(error)
     }
 

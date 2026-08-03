@@ -30,6 +30,7 @@ import ResumenPage from "./pages/resumen/ResumenPage";
 import InformesPage from "./pages/informes/InformesPage";
 import InformeDemoraOrganismos from "./pages/informes/InformeDemoraOrganismos";
 import AyudaPage from "./pages/ayuda/AyudaPage";
+import CuentaSuspendidaPage from "./pages/billing/CuentaSuspendidaPage";
 import useAuthStore from "./stores/authStore";
 import ModalGlobal from './components/modals/ModalGlobal';
 
@@ -80,7 +81,11 @@ function App() {
             <Route path="/registro" element={<RegistroPage />} />
             <Route path="/verificar-email" element={<VerificarEmailPage />} />
           </Route>
-          
+
+          {/* Fuera del guard de autenticación: el usuario suspendido está
+              autenticado, pero no debe poder usar el resto de la app. */}
+          <Route path="/cuenta-suspendida" element={<CuentaSuspendidaPage />} />
+
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
