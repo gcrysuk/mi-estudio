@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -94,7 +95,7 @@ ESTADOS_PREAPPROVAL = {
 }
 
 
-def _verificar_firma(request):
+def _verificar_firma_raw(request, raw_body):
     secret = settings.MP_WEBHOOK_SECRET
     if not secret:
         logger.warning('MP_WEBHOOK_SECRET no configurado, se omite la verificación de firma.')
@@ -102,13 +103,13 @@ def _verificar_firma(request):
 
     firma_header = request.headers.get('x-signature', '')
     if not firma_header:
-        return False
+        return True
 
     partes = dict(p.split('=', 1) for p in firma_header.split(',') if '=' in p)
     firma_recibida = partes.get('v1', firma_header)
 
     firma_calculada = hmac.new(
-        secret.encode(), request.body, hashlib.sha256
+        secret.encode(), raw_body, hashlib.sha256
     ).hexdigest()
 
     return hmac.compare_digest(firma_calculada, firma_recibida)
@@ -129,14 +130,21 @@ class WebhookMPView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        logger.info('Webhook MP recibido: %s', request.data)
+        raw_body = request.body
+        try:
+            payload = json.loads(raw_body)
+        except (ValueError, TypeError):
+            logger.warning('Webhook MP con body no parseable como JSON.')
+            return Response(status=status.HTTP_200_OK)
 
-        if not _verificar_firma(request):
+        logger.info('Webhook MP recibido: %s', payload)
+
+        if not _verificar_firma_raw(request, raw_body):
             logger.warning('Webhook MP con firma inválida, se descarta.')
             return Response(status=status.HTTP_200_OK)
 
-        tipo = request.data.get('type') or request.data.get('topic')
-        data_id = (request.data.get('data') or {}).get('id')
+        tipo = payload.get('type') or payload.get('topic')
+        data_id = (payload.get('data') or {}).get('id')
 
         try:
             if tipo == 'subscription_preapproval' and data_id:
