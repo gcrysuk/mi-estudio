@@ -178,6 +178,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.billing.tasks.avisar_trial_por_vencer',
         'schedule': crontab(hour=8, minute=10),
     },
+    'verificar-salud-ingesta-mev': {
+        'task': 'apps.mev_ingest.tasks.verificar_salud_ingesta_mev',
+        'schedule': crontab(minute=0, hour='*/2'),
+    },
 }
 
 PRECIO_MENSUAL = Decimal(os.getenv('PRECIO_MENSUAL', '28000'))
@@ -204,6 +208,13 @@ MEV_IMAP_HOST = os.getenv('MEV_IMAP_HOST', '')
 MEV_IMAP_PORT = int(os.getenv('MEV_IMAP_PORT', '993'))
 MEV_IMAP_USER = os.getenv('MEV_IMAP_USER', '')
 MEV_IMAP_PASS = os.getenv('MEV_IMAP_PASS', '')
+
+# Healthcheck ingesta MEV — umbral en horas hábiles (descuenta fines de
+# semana completos) sin notificaciones nuevas antes de alertar por mail.
+# Default pensado para cubrir un hueco nocturno normal (tarde a la mañana
+# siguiente) sin generar falsos positivos.
+MEV_HEALTHCHECK_UMBRAL_HORAS = float(os.getenv('MEV_HEALTHCHECK_UMBRAL_HORAS', '16'))
+MEV_HEALTHCHECK_ADMIN_EMAIL = os.getenv('MEV_HEALTHCHECK_ADMIN_EMAIL', 'facturacion@focustech.com.ar')
 
 # Mercado Pago - Suscripciones
 MP_ACCESS_TOKEN = os.getenv('MP_ACCESS_TOKEN', '')
