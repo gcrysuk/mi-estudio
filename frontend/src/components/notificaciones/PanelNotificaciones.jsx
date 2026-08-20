@@ -47,7 +47,13 @@ const PanelNotificaciones = ({
   const [movimientoSeleccionadoId, setMovimientoSeleccionadoId] = useState(null);
   const totalCount = notificaciones.length + feed.length;
 
-  const handleVer = (notif) => {
+  const handleVer = (notif, esFeed) => {
+    if (esFeed) {
+      onMarcarLeidaFeed?.(notif);
+    } else {
+      onMarcarLeida?.(notif.id);
+    }
+
     if (notif.origen === 'mev' && notif.tipo === 'mev_sin_match') {
       navigate('/notificaciones-mev?estado_procesamiento=sin_match');
       onClose();
@@ -131,7 +137,7 @@ const PanelNotificaciones = ({
                                 </button>
                                 {puedeVer && (
                                   <button
-                                    onClick={() => handleVer(notif)}
+                                    onClick={() => handleVer(notif, true)}
                                     className="flex items-center gap-1 text-[11px] text-accent hover:text-accent-hover transition-colors uppercase"
                                   >
                                     <ExternalLink size={11} /> {esSinMatch ? 'Asignar' : 'Ver'}
@@ -174,7 +180,7 @@ const PanelNotificaciones = ({
                               </button>
                               {(notif.movimiento || notif.carpeta_id) && (
                                 <button
-                                  onClick={() => handleVer(notif)}
+                                  onClick={() => handleVer(notif, false)}
                                   className="flex items-center gap-1 text-[11px] text-accent hover:text-accent-hover transition-colors uppercase"
                                 >
                                   <ExternalLink size={11} /> Ver
