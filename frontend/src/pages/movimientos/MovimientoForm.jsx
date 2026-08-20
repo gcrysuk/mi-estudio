@@ -114,24 +114,6 @@ const combinarFechaHora = (date, hora) => {
   return `${date}T${hora || '00:00'}`;
 };
 
-const getTodayStr = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-};
-
-// Hora actual redondeada hacia arriba al múltiplo de 15 más cercano
-// (setMinutes con overflow hace rollover de hora/día automáticamente).
-const getFechaHoraRedondeada = () => {
-  const now = new Date();
-  const minutos = now.getMinutes();
-  const resto = minutos % 15;
-  if (resto !== 0) now.setMinutes(minutos + (15 - resto));
-  now.setSeconds(0, 0);
-  const date = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-  const hora = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-  return `${date}T${hora}`;
-};
-
 const SOLAPAS = [
   { id: 'descripcion',   label: 'Descripción' },
   { id: 'transcripcion', label: 'Transcripción' },
@@ -230,7 +212,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
     estado: estadoInicial ?? '',
     complejidad: '',
     fecha_movimiento: fechaMovimientoInicial || getCurrentDateTime(),
-    fecha_vencimiento: fechaVencimientoInicial || (!movimiento ? getFechaHoraRedondeada() : ''),
+    fecha_vencimiento: fechaVencimientoInicial || '',
     tiempo_trabajo: '',
     carpeta: initialCarpetaId || ''
   });
@@ -403,6 +385,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
   };
 
   const fechaVenceParts = splitFechaHora(formData.fecha_vencimiento);
+  const nuevaFechaParts = splitFechaHora(nuevaFecha);
 
   return (
     <>
@@ -539,18 +522,24 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
                 <Bell size={12} />
                 FECHAS DE RECORDATORIO
               </label>
-              <div className="flex gap-1">
+              <div className="flex gap-1.5 items-center">
                 <input
-                  type="datetime-local"
-                  value={nuevaFecha}
-                  onChange={(e) => setNuevaFecha(e.target.value)}
-                  className="flex-1 px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
+                  type="date"
+                  value={nuevaFechaParts.date}
+                  onChange={(e) => setNuevaFecha(combinarFechaHora(e.target.value, nuevaFechaParts.hora))}
+                  className="flex-1 min-w-0 px-2 py-1 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
                 />
+                <div className="w-24 flex-shrink-0">
+                  <TimeSelect
+                    value={nuevaFechaParts.hora}
+                    onChange={(hora) => setNuevaFecha(combinarFechaHora(nuevaFechaParts.date, hora))}
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={handleAgregarFecha}
                   disabled={!nuevaFecha}
-                  className="px-2 py-1 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-40 flex items-center gap-1 uppercase"
+                  className="px-2 py-1 text-xs rounded-lg bg-accent hover:bg-accent-hover text-white transition-colors disabled:opacity-40 flex items-center gap-1 uppercase flex-shrink-0"
                 >
                   <Plus size={12} /> AGREGAR
                 </button>
@@ -594,7 +583,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
                 <div className="w-24 flex-shrink-0">
                   <TimeSelect
                     value={fechaVenceParts.hora}
-                    onChange={(hora) => setFormData({ ...formData, fecha_vencimiento: combinarFechaHora(fechaVenceParts.date || getTodayStr(), hora) })}
+                    onChange={(hora) => setFormData({ ...formData, fecha_vencimiento: combinarFechaHora(fechaVenceParts.date, hora) })}
                   />
                 </div>
                 {formData.fecha_vencimiento && (
