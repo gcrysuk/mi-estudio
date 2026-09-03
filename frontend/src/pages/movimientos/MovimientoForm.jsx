@@ -389,7 +389,7 @@ const MovimientoForm = ({ carpetaId: initialCarpetaId, carpetaNombre, movimiento
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+      <div data-modal="movimiento" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
         <div className="bg-white dark:bg-dark-surface rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
           {/* Header */}
           <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-dark-surface z-10">

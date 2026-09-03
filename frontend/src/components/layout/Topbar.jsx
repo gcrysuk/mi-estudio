@@ -19,7 +19,13 @@ const Topbar = ({ onMobileMenuToggle, notif }) => {
   const [showMovForm, setShowMovForm] = useState(false)
 
   const containerRef = useRef(null)
-  useClickOutside(containerRef, useCallback(() => setPanelOpen(false), []))
+  useClickOutside(containerRef, useCallback(() => {
+    // No cerrar el panel si hay un modal de movimiento abierto (ej. detalle/editar
+    // desde una notificación): ese modal se renderiza vía portal en document.body,
+    // fuera del containerRef, por lo que un click dentro cuenta como "afuera".
+    if (document.querySelector('[data-modal="movimiento"]')) return
+    setPanelOpen(false)
+  }, []))
 
   const helpMenuRef = useRef(null)
   useClickOutside(helpMenuRef, useCallback(() => setHelpMenuOpen(false), []))
