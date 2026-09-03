@@ -214,10 +214,7 @@ const PanelNotificaciones = ({
       {movimientoSeleccionadoId && (
         <MovimientoDetalleModal
           movimientoId={movimientoSeleccionadoId}
-          onClose={() => {
-            setMovimientoSeleccionadoId(null);
-            onClose();
-          }}
+          onClose={() => setMovimientoSeleccionadoId(null)}
         />
       )}
     </>

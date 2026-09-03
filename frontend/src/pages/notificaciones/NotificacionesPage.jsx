@@ -109,10 +109,14 @@ export default function NotificacionesPage() {
     }
   };
 
-  const handleMarcarNoLeida = async (id) => {
+  const handleMarcarNoLeida = async (notif) => {
     try {
-      await api.patch(`/movimientos/notificaciones_sistema/${id}/marcar_no_leida/`);
-      setNotificaciones(prev => prev.map(n => n.id === id ? { ...n, leida: false } : n));
+      await api.patch('/movimientos/notificaciones_sistema/feed_marcar_no_leida/', {
+        origen: notif.origen, id: notif.id,
+      });
+      setNotificaciones(prev => prev.map(n =>
+        (n.origen === notif.origen && n.id === notif.id) ? { ...n, leida: false } : n
+      ));
     } catch {
       toast.error('Error al marcar');
     }
@@ -295,14 +299,12 @@ export default function NotificacionesPage() {
                         {/* Acciones */}
                         <div className="flex items-center gap-3 mt-2">
                           {notif.leida ? (
-                            notif.origen === 'sistema' && (
-                              <button
-                                onClick={() => handleMarcarNoLeida(notif.id)}
-                                className="flex items-center gap-1 text-[11px] uppercase transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                              >
-                                <Circle size={11} /> No leída
-                              </button>
-                            )
+                            <button
+                              onClick={() => handleMarcarNoLeida(notif)}
+                              className="flex items-center gap-1 text-[11px] uppercase transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              <Circle size={11} /> No leída
+                            </button>
                           ) : (
                             <button
                               onClick={() => handleMarcarLeida(notif)}

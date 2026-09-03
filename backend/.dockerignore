@@ -1,0 +1,13 @@
+venv/
+env/
+.venv/
+db.sqlite3
+media/
+static/
+logs/
+.git/
+.env
+.env.prod
+__pycache__/
+*.pyc
+mi_estudio_backend/

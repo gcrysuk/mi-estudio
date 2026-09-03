@@ -581,11 +581,15 @@ class MovimientoViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             carpetas_accesibles = Carpeta.objects.filter(
                 activo=True
+            ).exclude(
+                estado__nombre__iexact='ARCHIVADA'
             ).values_list('id', flat=True)
         else:
             carpetas_accesibles = Carpeta.objects.filter(
                 Q(propietario=user) | Q(compartida_con=user) | Q(es_publico=True),
                 activo=True,
+            ).exclude(
+                estado__nombre__iexact='ARCHIVADA'
             ).values_list('id', flat=True)
 
         # Para cada carpeta: el movimiento más reciente por fecha_creacion (una sola query)
@@ -933,6 +937,18 @@ class NotificacionSistemaViewSet(viewsets.ReadOnlyModelViewSet):
             updated = self._mev_queryset(request).filter(pk=item_id).update(leida=True)
         else:
             updated = self.get_queryset().filter(pk=item_id).update(leida=True)
+        if not updated:
+            return Response({'detail': 'No encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'ok': True})
+
+    @action(detail=False, methods=['patch'], url_path='feed_marcar_no_leida')
+    def feed_marcar_no_leida(self, request):
+        origen = request.data.get('origen')
+        item_id = request.data.get('id')
+        if origen == 'mev':
+            updated = self._mev_queryset(request).filter(pk=item_id).update(leida=False)
+        else:
+            updated = self.get_queryset().filter(pk=item_id).update(leida=False)
         if not updated:
             return Response({'detail': 'No encontrada.'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'ok': True})
