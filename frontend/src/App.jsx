@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Layout from "./components/layout/Layout";
 import AuthLayout from "./components/layout/AuthLayout";
 import Login from "./pages/auth/Login";
+import LandingPage from "./pages/landing/LandingPage";
 import RegistroPage from "./pages/auth/RegistroPage";
 import VerificarEmailPage from "./pages/auth/VerificarEmailPage";
 import AdminUsuariosPage from "./pages/admin/AdminUsuariosPage";
@@ -76,6 +77,9 @@ function App() {
           }}
         />
         <Routes>
+          {/* Landing pública — sin autenticación requerida */}
+          <Route path="/" element={<LandingPage />} />
+
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<RegistroPage />} />
@@ -88,7 +92,6 @@ function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/personas" element={<PersonasList />} />
               <Route path="/carpetas" element={<CarpetasList />} />
