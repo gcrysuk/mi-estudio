@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es-AR" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Detalle de notificación · Mi Estudio</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.263.1/dist/umd/lucide.min.js"></script>
+<script>
+  tailwind.config = {
+    darkMode:'class',
+    theme:{extend:{
+      fontFamily:{sans:['Inter','ui-sans-serif','system-ui','sans-serif']},
+      colors:{ink:'#EDEDED'},
+      keyframes:{scaleIn:{'0%':{opacity:'0',transform:'translateY(8px) scale(.98)'},'100%':{opacity:'1',transform:'translateY(0) scale(1)'}}},
+      animation:{scaleIn:'scaleIn .25s cubic-bezier(.16,1,.3,1)'}
+    }}
+  };
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+  :root{color-scheme:dark}
+  html,body{background-color:#0a0e17}
+  body{font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#1e293b;border-radius:8px;border:2px solid #0a0e17}
+  ::-webkit-scrollbar-thumb:hover{background:#334155}
+  details>summary{list-style:none;cursor:pointer}
+  details>summary::-webkit-details-marker{display:none}
+  details[open] .chevron{transform:rotate(90deg)}
+  .chevron{transition:transform .2s ease}
+  .lucide{width:1em;height:1em}
+</style>
+</head>
+<body class="text-gray-300 min-h-screen antialiased">
+<div class="mx-auto max-w-2xl px-4 py-6 sm:py-10">
+
+  <!-- volver -->
+  <button class="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-400 transition hover:text-ink">
+    <i data-lucide="arrow-left" class="text-[16px]"></i> Volver a notificaciones
+  </button>
+
+  <div class="overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl shadow-black/50 ring-1 ring-white/5 animate-scaleIn">
+
+    <!-- ===== HEADER ===== -->
+    <div class="relative border-b border-slate-800 bg-gradient-to-b from-slate-800/60 to-slate-900 px-6 pb-5 pt-5">
+      <button class="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-slate-700/60 hover:text-ink" title="Cerrar" aria-label="Cerrar">
+        <i data-lucide="x" class="text-[18px]"></i>
+      </button>
+
+      <div class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-sky-400/80">
+        <i data-lucide="gavel" class="text-[14px]"></i> Despacho MEV · Procesado
+      </div>
+
+      <h2 class="mt-2 max-w-[92%] text-[19px] font-bold leading-snug text-white">
+        BATAGLIA Pedro Osvaldo <span class="font-semibold text-gray-400">c/</span> Experta ART S.A. <span class="font-medium text-gray-400">— s/ Enfermedad Profesional</span>
+      </h2>
+
+      <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-400">
+        <span class="inline-flex items-center gap-1.5"><i data-lucide="landmark" class="text-[13px] text-gray-500"></i> Fuero Laboral N°2 · Zárate-Campana</span>
+        <span class="inline-flex items-center gap-1.5"><i data-lucide="inbox" class="text-[13px] text-gray-500"></i> Recibido 12/11/2026 09:15 hs</span>
+        <span class="inline-flex items-center gap-1.5"><i data-lucide="hash" class="text-[13px] text-gray-500"></i> Expte. 4998</span>
+      </div>
+    </div>
+
+    <!-- ===== BANNER DE PLAZO ===== -->
+    <div class="flex items-center gap-3 border-b border-rose-500/20 bg-rose-500/[0.07] px-6 py-3">
+      <i data-lucide="triangle-alert" class="text-[18px] text-rose-300"></i>
+      <div class="text-sm">
+        <span class="font-bold text-rose-200">Vence en 3 días</span>
+        <span class="text-rose-300/80">— traslado de demanda · 15/11/2026 18:00 hs</span>
+      </div>
+      <button class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-rose-500/15 px-2.5 py-1.5 text-xs font-semibold text-rose-200 ring-1 ring-inset ring-rose-500/40 transition hover:bg-rose-500/25">
+        <i data-lucide="calendar-plus" class="text-[14px]"></i> Agendar plazo
+      </button>
+    </div>
+
+    <!-- ===== CUERPO ===== -->
+    <div class="max-h-[62vh] overflow-y-auto px-6 py-5">
+
+      <!-- Resolución -->
+      <div class="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        <i data-lucide="file-text" class="text-[13px]"></i> Resolución
+      </div>
+      <div class="rounded-xl border border-slate-700/70 bg-slate-800/40 p-4">
+        <p class="text-[15px] leading-relaxed text-gray-100">
+          Zárate, 12 de noviembre de 2026. Por recibida la contestación de demanda y documental acompañada. Traslado a la actora por el plazo de tres (3) días (art. 29 Ley 11.653). Notifíquese. Téngase presente la prueba ofrecida para su oportunidad. FDO.
+        </p>
+      </div>
+
+      <!-- Trámite y firma -->
+      <div class="mb-2 mt-5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        <i data-lucide="pen-line" class="text-[13px]"></i> Trámite y firma
+      </div>
+      <div class="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-slate-800 bg-slate-800 sm:grid-cols-3">
+        <div class="bg-slate-900 px-4 py-3">
+          <div class="flex items-center gap-1.5 text-[11px] text-gray-500"><i data-lucide="user-round" class="text-[12px]"></i> Firmante</div>
+          <div class="mt-1 text-sm font-medium text-gray-200">ALVAREZ Lorena Patricia</div>
+          <div class="text-xs text-gray-500">Secretaría</div>
+        </div>
+        <div class="bg-slate-900 px-4 py-3">
+          <div class="flex items-center gap-1.5 text-[11px] text-gray-500"><i data-lucide="calendar-clock" class="text-[12px]"></i> Fecha de firma</div>
+          <div class="mt-1 text-sm font-medium text-gray-200">12/11/2026</div>
+          <div class="text-xs text-gray-500">09:12 hs</div>
+        </div>
+        <div class="bg-slate-900 px-4 py-3">
+          <div class="flex items-center gap-1.5 text-[11px] text-gray-500"><i data-lucide="tag" class="text-[12px]"></i> Tipo de trámite</div>
+          <div class="mt-1 text-sm font-medium leading-tight text-gray-200">Traslado / Vista</div>
+        </div>
+      </div>
+
+      <!-- Metadatos colapsables -->
+      <details class="mt-5 rounded-xl border border-slate-800 bg-slate-950/40">
+        <summary class="flex items-center gap-2 px-4 py-3 text-xs font-medium text-gray-400 transition hover:text-gray-200">
+          <i data-lucide="chevron-right" class="chevron text-[15px] text-gray-500"></i>
+          <i data-lucide="braces" class="text-[14px] text-gray-500"></i>
+          Ver metadatos y tokens de MEV
+          <span class="ml-auto rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-gray-500">técnico</span>
+        </summary>
+        <div class="border-t border-slate-800 px-4 py-3">
+          <dl class="space-y-2 font-mono text-[11px] leading-relaxed text-gray-500">
+            <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-2"><dt class="w-56 shrink-0 text-gray-600">Despachado en (INFORME):</dt><dd class="break-all text-gray-400" data-token>251001042009581849</dd></div>
+            <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-2"><dt class="w-56 shrink-0 text-gray-600">Trámite despachado:</dt><dd class="break-all text-gray-400" data-token>237901042009574144</dd></div>
+            <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-2"><dt class="w-56 shrink-0 text-gray-600">Origen:</dt><dd class="break-all text-gray-400">Zárate, fecha y hora del sistema · PVG</dd></div>
+            <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-2"><dt class="w-56 shrink-0 text-gray-600">Tipo de despacho:</dt><dd class="break-all text-gray-400">DESPACHO MÚLTIPLE</dd></div>
+          </dl>
+          <button id="copyTokens" class="mt-3 inline-flex items-center gap-1.5 rounded-md bg-slate-800 px-2 py-1 text-[11px] font-medium text-gray-400 transition hover:bg-slate-700 hover:text-gray-200">
+            <i data-lucide="copy" class="text-[12px]"></i> <span>Copiar tokens</span>
+          </button>
+        </div>
+      </details>
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <div class="flex flex-col gap-2 border-t border-slate-800 bg-slate-900/80 px-6 py-4 sm:flex-row sm:items-center">
+      <button class="inline-flex items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500">
+        <i data-lucide="folder-open" class="text-[16px]"></i> Ver expediente completo
+      </button>
+      <div class="flex flex-1 flex-wrap items-center gap-2">
+        <button class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3.5 py-2.5 text-sm font-medium text-gray-300 transition hover:border-slate-600 hover:text-ink">
+          <i data-lucide="user-plus" class="text-[16px]"></i> Asignar tarea
+        </button>
+        <button class="ml-auto inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2.5 text-sm font-medium text-gray-400 transition hover:bg-slate-800 hover:text-ink">
+          <i data-lucide="check" class="text-[16px]"></i> Marcar leída
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  if(window.lucide) lucide.createIcons();
+  var cp=document.getElementById('copyTokens');
+  if(cp){cp.addEventListener('click',function(){
+    var t=Array.prototype.map.call(document.querySelectorAll('[data-token]'),function(e){return e.textContent;}).join('\n');
+    var label=cp.querySelector('span');
+    function done(){label.textContent='¡Copiado!';setTimeout(function(){label.textContent='Copiar tokens';},1600);}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done).catch(done);}else{done();}
+  });}
+</script>
+</body>
+</html>
