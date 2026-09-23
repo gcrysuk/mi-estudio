@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import api from '../../services/api'
 import useAuthStore from '../../stores/authStore'
 import GoogleAuthButton from '../../components/auth/GoogleAuthButton'
@@ -23,10 +24,31 @@ const Login = () => {
     setErrorCode('')
     const result = await login(username, password)
     if (result.ok) {
+      await mostrarToastTrial()
       navigate('/dashboard', { replace: true })
     } else {
       setError(result.detail || 'Usuario o contraseña incorrectos')
       setErrorCode(result.code || '')
+    }
+  }
+
+  const mostrarToastTrial = async () => {
+    try {
+      const { data } = await api.get('/billing/suscripcion/estado/')
+      const diasRestantes = data.dias_trial_restantes
+      if (data.estado !== 'trial' || diasRestantes === null || diasRestantes === undefined) return
+
+      if (diasRestantes <= 0) {
+        toast.error('Tu período de prueba ha vencido')
+      } else if (diasRestantes <= 7) {
+        toast.error(`⚠️ Tu trial vence en ${diasRestantes} días`)
+      } else if (diasRestantes <= 15) {
+        toast(`🕐 Te quedan ${diasRestantes} días de prueba`, { icon: '⚠️' })
+      } else {
+        toast(`✅ Te quedan ${diasRestantes} días de prueba`)
+      }
+    } catch {
+      // no bloquear el login por esto
     }
   }
 
@@ -121,7 +143,7 @@ const Login = () => {
       {/* Google */}
       <div className="flex justify-center">
         <GoogleAuthButton
-          onSuccess={() => navigate('/dashboard', { replace: true })}
+          onSuccess={async () => { await mostrarToastTrial(); navigate('/dashboard', { replace: true }) }}
           onRequiereUsername={setGooglePendiente}
         />
       </div>
@@ -130,7 +152,7 @@ const Login = () => {
         <GoogleUsernameModal
           googleData={googlePendiente}
           onClose={() => setGooglePendiente(null)}
-          onSuccess={() => navigate('/dashboard', { replace: true })}
+          onSuccess={async () => { await mostrarToastTrial(); navigate('/dashboard', { replace: true }) }}
         />
       )}
 

@@ -79,6 +79,7 @@ class EstadoSuscripcionView(APIView):
         return Response({
             'estado': suscripcion.estado,
             'trial_hasta': suscripcion.trial_hasta,
+            'dias_trial_restantes': suscripcion.dias_trial_restantes(),
             'proximo_cobro': suscripcion.proximo_cobro,
             'ultimo_cobro': suscripcion.ultimo_cobro,
             'monto_mensual': suscripcion.monto_mensual,

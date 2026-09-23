@@ -334,15 +334,19 @@ export default function PerfilPage() {
 
           {planEstado.estado === 'trial' && (
             <div className="space-y-3">
-              <p className="text-sm">
-                Tu período de prueba vence el <strong>{formatFecha(planEstado.trial_hasta)}</strong>
-              </p>
+              <div className="flex justify-between text-sm">
+                <span>Tu período de prueba vence el <strong>{formatFecha(planEstado.trial_hasta)}</strong></span>
+                <span className={planEstado.dias_trial_restantes <= 7 ? 'text-red-500 font-bold' : 'text-gray-500 dark:text-gray-400'}>
+                  {planEstado.dias_trial_restantes} días restantes
+                </span>
+              </div>
               <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                 <div
-                  className="h-full bg-accent"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, 100 - Math.ceil((new Date(planEstado.trial_hasta) - new Date()) / 86400000) / 90 * 100))}%`,
-                  }}
+                  className={`h-full rounded-full transition-all ${
+                    planEstado.dias_trial_restantes <= 7 ? 'bg-red-500' :
+                    planEstado.dias_trial_restantes <= 15 ? 'bg-yellow-500' : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min(100, (planEstado.dias_trial_restantes / 90) * 100)}%` }}
                 />
               </div>
               {planEstado.tiene_mp ? (

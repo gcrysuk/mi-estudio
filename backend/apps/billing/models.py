@@ -32,6 +32,13 @@ class Suscripcion(models.Model):
             return hoy <= self.trial_hasta
         return self.estado == 'activo'
 
+    def dias_trial_restantes(self):
+        from django.utils import timezone
+        if self.estado != 'trial':
+            return None
+        restantes = (self.trial_hasta - timezone.now().date()).days
+        return max(0, restantes)
+
     def __str__(self):
         return f"{self.usuario.username} - {self.estado}"
 

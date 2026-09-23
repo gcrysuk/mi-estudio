@@ -173,6 +173,7 @@ const UmbralPopover = ({ umbral, saving, onSave, onClose }) => {
     <div
       className="absolute z-30 top-11 right-2 w-56 rounded-xl shadow-2xl bg-white dark:bg-dark-surface text-gray-800 dark:text-gray-100 p-3 text-left cursor-default"
       onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-bold uppercase tracking-wide">Umbral</p>
@@ -187,18 +188,31 @@ const UmbralPopover = ({ umbral, saving, onSave, onClose }) => {
             min="1"
             value={valor}
             onChange={(e) => setValor(e.target.value)}
+            onMouseDown={(e) => e.stopPropagation()}
             className="w-16 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
             autoFocus
           />
-          <select
-            value={unidad}
-            onChange={(e) => setUnidad(e.target.value)}
-            className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-elevated focus:ring-1 focus:ring-accent"
-          >
-            <option value="dias">Días</option>
-            <option value="meses">Meses</option>
-            <option value="anios">Años</option>
-          </select>
+          <div className="flex gap-1 flex-1">
+            {[
+              { value: 'dias', label: 'Días' },
+              { value: 'meses', label: 'Meses' },
+              { value: 'anios', label: 'Años' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setUnidad(opt.value); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                className={`flex-1 px-1 py-1.5 text-xs rounded-lg border transition-colors
+                  ${unidad === opt.value
+                    ? 'bg-accent text-white border-accent'
+                    : 'border-gray-300 dark:border-gray-600 hover:border-accent text-gray-600 dark:text-gray-300'
+                  }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
         <button
           type="submit"
@@ -319,7 +333,7 @@ const Dashboard = () => {
             ) : (
               <div
                 key={key}
-                className={`relative bg-gradient-to-br ${gradient} rounded-2xl shadow-lg text-white hover:scale-105 transition-transform duration-200`}
+                className={`relative bg-gradient-to-br ${gradient} rounded-2xl shadow-lg text-white hover:scale-105 transition-transform duration-200 ${configCard === key ? 'z-30' : ''}`}
               >
                 <button
                   type="button"
@@ -363,7 +377,7 @@ const Dashboard = () => {
       </div>
 
       {configCard && (
-        <div className="fixed inset-0 z-20" onClick={() => setConfigCard(null)} />
+        <div className="fixed inset-0 z-20" onMouseDown={() => setConfigCard(null)} />
       )}
 
       {modal && (

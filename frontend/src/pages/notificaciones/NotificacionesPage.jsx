@@ -383,12 +383,10 @@ export default function NotificacionesPage() {
                       ) : (
                         <ActBtn icon={CheckCircle} variant="primary" onClick={() => handleMarcarLeida(notif)}>Marcar leída</ActBtn>
                       )}
-                      {(esSinMatch || notif.movimiento || destino) && (
-                        <ActBtn icon={ExternalLink} onClick={handleVer}>{esSinMatch ? 'Asignar' : 'Ver'}</ActBtn>
-                      )}
-                      {notif.origen === 'sistema' && (
-                        <ActBtn icon={Trash2} variant="danger" onClick={() => handleEliminar(notif.id)}>Eliminar</ActBtn>
-                      )}
+                      <ActBtn icon={ExternalLink} onClick={handleVer}>
+                        {esSinMatch ? 'Asignar' : 'Ver'}
+                      </ActBtn>
+                      <ActBtn icon={Trash2} variant="danger" onClick={() => handleEliminar(notif.id)}>Eliminar</ActBtn>
                     </div>
                   </div>
                 </article>
